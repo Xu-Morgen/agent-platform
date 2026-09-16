@@ -25,7 +25,7 @@ async def serve(host: str, port: int, control_fd: int | None = None) -> None:
                 address_host, address_port = listener.getsockname()
                 # 0.0.0.0 是监听地址；父进程通过 loopback 健康检查。
                 address_host = '127.0.0.1' if address_host == '0.0.0.0' else address_host
-                send(Ready(address=f'http://{address_host}:{address_port}'))
+                send(Ready(protocol_version=1, type='ready', address=f'http://{address_host}:{address_port}'))
 
     loop = asyncio.get_running_loop()
     watching = False
@@ -69,7 +69,7 @@ async def serve(host: str, port: int, control_fd: int | None = None) -> None:
             watching = True
         await server.serve(sockets=[listener])
     except Exception:
-        send(StartupError(error=ErrorResponse(
+        send(StartupError(protocol_version=1, type='startupError', error=ErrorResponse(
             code='STARTUP_ERROR', stage='startup.listen', message='后端监听或启动失败，请检查监听地址与端口',
         )))
         raise

@@ -121,14 +121,13 @@
       "additionalProperties": false,
       "properties": {
         "protocolVersion": {
-          "const": 1,
-          "default": 1,
+          "maximum": 1,
+          "minimum": 1,
           "title": "Protocolversion",
           "type": "integer"
         },
         "type": {
           "const": "ready",
-          "default": "ready",
           "title": "Type",
           "type": "string"
         },
@@ -139,9 +138,9 @@
         }
       },
       "required": [
-        "address",
         "protocolVersion",
-        "type"
+        "type",
+        "address"
       ],
       "title": "Ready",
       "type": "object"
@@ -150,14 +149,13 @@
       "additionalProperties": false,
       "properties": {
         "protocolVersion": {
-          "const": 1,
-          "default": 1,
+          "maximum": 1,
+          "minimum": 1,
           "title": "Protocolversion",
           "type": "integer"
         },
         "type": {
           "const": "shutdown",
-          "default": "shutdown",
           "title": "Type",
           "type": "string"
         },
@@ -168,25 +166,24 @@
           "type": "string"
         }
       },
-      "title": "Shutdown",
-      "type": "object",
       "required": [
         "protocolVersion",
         "type"
-      ]
+      ],
+      "title": "Shutdown",
+      "type": "object"
     },
     "StartupError": {
       "additionalProperties": false,
       "properties": {
         "protocolVersion": {
-          "const": 1,
-          "default": 1,
+          "maximum": 1,
+          "minimum": 1,
           "title": "Protocolversion",
           "type": "integer"
         },
         "type": {
           "const": "startupError",
-          "default": "startupError",
           "title": "Type",
           "type": "string"
         },
@@ -195,9 +192,9 @@
         }
       },
       "required": [
-        "error",
         "protocolVersion",
-        "type"
+        "type",
+        "error"
       ],
       "title": "StartupError",
       "type": "object"

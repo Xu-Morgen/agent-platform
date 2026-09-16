@@ -49,6 +49,7 @@ class Backend {
           if (message.type === 'startupError') throw new Error(message.error.message);
           const response = await fetch(`${message.address}/api/v1/health`, { signal: AbortSignal.timeout(3000) });
           if (!response.ok || !validate(healthSchema, await response.json())) throw new Error('后端健康检查失败');
+          if (this.stopping) throw new Error('应用正在退出');
           if (settled) return;
           this.address = message.address;
           settled = true;

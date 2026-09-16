@@ -30,7 +30,7 @@ s = s[:start] + card + s[end:]
 completed = s.count('状态：完成。')
 lines = s.splitlines()
 lines[2] = f'- 状态：已完成 {completed}/13 张任务卡；详细状态及证据见各卡交接记录。'
-p.write_text('\n'.join(lines) + '\n')
+p.write_text('\n'.join(lines).rstrip() + '\n')
 p = Path('docs/iteration-plan.md')
 s = p.read_text()
 lines = s.splitlines()
@@ -39,4 +39,4 @@ for i, line in enumerate(lines):
         lines[i] = f'- 状态：I1 已完成 {completed}/13 张；后续阶段未开始'
     if line.startswith(f'| [{key}]'):
         lines[i] = line.rsplit('|', 2)[0] + '| 完成 |'
-p.write_text('\n'.join(lines) + '\n')
+p.write_text('\n'.join(lines).rstrip() + '\n')
