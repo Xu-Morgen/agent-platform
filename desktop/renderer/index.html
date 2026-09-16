@@ -27,6 +27,31 @@
       </form>
       <p id="environment-result" role="status"></p>
     </section>
+    <section>
+      <h2>服务配置</h2>
+      <p>先加载包及所需通用块，再加载实例定义。配置保存后立即生效；本次会话退出后清空。</p>
+      <form id="load-form">
+        <label>本地定义类型 <select id="load-kind"><option value="package">业务包</option><option value="block">通用块</option><option value="instance">实例定义</option></select></label>
+        <label>本地目录 <input id="load-path" required placeholder="/path/to/definition"></label>
+        <button type="submit">加载定义</button>
+      </form>
+      <p id="load-result" role="status"></p>
+      <ul id="loaded-artifacts"></ul>
+      <label>选择服务 <select id="service-select"><option value="">新建服务</option></select></label>
+      <button id="service-refresh" type="button">刷新服务</button>
+      <p id="service-current"></p>
+      <form id="service-form">
+        <label>服务名称 <input id="service-name" required></label>
+        <label>已加载实例 <select id="definition-select" required></select></label>
+        <label>可用环境 <select id="service-environment"><option value="">无环境</option></select></label>
+        <button id="bind-environment" type="button">添加环境引用</button>
+        <label>实例配置（JSON，依下方 Schema 校验）<textarea id="service-definition" rows="18" required></textarea></label>
+        <p id="budget-defaults"></p>
+        <button type="submit">校验并保存版本</button>
+      </form>
+      <p id="service-result" role="status"></p>
+      <details><summary>输入输出及包配置 Schema</summary><pre id="service-schemas"></pre></details>
+    </section>
   </main>
   <script src="index.js"></script>
 </body>

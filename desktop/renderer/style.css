@@ -8,3 +8,5 @@ label { display: block; margin: 14px 0; }
 input, textarea, select { box-sizing: border-box; width: 100%; padding: 8px; font: inherit; }
 textarea { font-family: monospace; }
 [role="status"] { overflow-wrap: anywhere; }
+
+pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
