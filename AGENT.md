@@ -7,7 +7,7 @@
 - 项目名称：Agent Platform。
 - 主项目是通用 Agent 服务平台；首期同时交付平台产品和 `samples/` 下包含标准模板与最小查重能力的业务包产品。
 - 最新明确的用户指令优先于本文档。已确认需求见 `docs/product-requirements.md`，项目状态见 `readme.md`。
-- 当前完成需求基线、架构设计与迭代计划初稿，不把设计接口、目录规划或技术方案描述为已实现能力。技术方案见 `docs/architecture-design.md`，开发顺序见 `docs/iteration-plan.md`。
+- 当前已完成 I1 工程与协议基础（13 张任务卡），实际能力与验证见 docs/tasks/i1.md；I2—I5 仍未实现，不把其设计接口、目录规划或技术方案描述为已实现能力。技术方案见 `docs/architecture-design.md`，开发顺序见 `docs/iteration-plan.md`。
 
 ## 架构原则
 
