@@ -34,6 +34,22 @@ env -u ELECTRON_RUN_AS_NODE npm --prefix desktop start
 
 新工作区需先按协作约定取得安装授权，再用 `uv sync --frozen` 和 `npm --prefix desktop ci` 安装锁定依赖。当前未提供跨平台安装包或构建发布产物。
 
+### WSL 中文显示为方框
+
+页面使用 UTF-8；中文显示为方框时，先用 `fc-list ':lang=zh'` 检查系统是否识别中文字体。CSS 字体回退列表不能替代实际字体文件。
+
+若 Windows 字体目录 `/mnt/c/Windows/Fonts` 已存在，可在当前用户的 `~/.config/fontconfig/conf.d/90-windows-fonts.conf` 中添加以下配置，然后执行 `fc-cache /mnt/c/Windows/Fonts` 并完全退出、重新启动桌面应用。此方式只引用本机现有字体，不将 Windows 字体复制进仓库。
+
+```xml
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig>
+  <dir>/mnt/c/Windows/Fonts</dir>
+</fontconfig>
+```
+
+本次修复已通过真实 Electron 窗口截图确认：“后端已就绪”和“检查健康状态”均正常显示。
+
 ## 局部验证与样例
 
 在根目录执行对应命令，无需模型端点、密钥或数据库：
