@@ -2,6 +2,10 @@
 
 from fastapi import FastAPI
 
+from .http_errors import register_error_handlers
+
 
 def create_app() -> FastAPI:
-    return FastAPI(title="Agent Platform")
+    app = FastAPI(title="Agent Platform")
+    register_error_handlers(app)
+    return app
