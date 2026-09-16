@@ -1,0 +1,12 @@
+{
+  "devDependencies": {
+    "electron": "^44.4.1"
+  },
+  "name": "agent-platform-desktop",
+  "private": true,
+  "main": "main/index.cjs",
+  "scripts": {
+    "start": "electron .",
+    "check:window": "electron checks/window.cjs"
+  }
+}
