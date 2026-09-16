@@ -2,6 +2,8 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from .contracts.environments import Environment, EnvironmentWrite
+from .contracts.registry import LoadRequest, LoadResult
+from .registry.api import load_local
 from .contracts.services import ServiceWrite, ServiceView, ServiceSchema
 from .contracts.health import HealthResponse
 from .contracts.errors import ErrorResponse, PlatformError
@@ -34,6 +36,10 @@ def create_app() -> FastAPI:
     app.state.blocks = BlockRegistry()
     app.state.definitions = DefinitionRegistry()
     app.state.services = ServiceManager(app.state.definitions, app.state.packages, app.state.blocks, app.state.environments)
+
+    @app.post('/api/v1/registry/load', response_model=LoadResult)
+    async def registry_load(value: LoadRequest):
+        return load_local(app.state, value)
 
     @app.get('/api/v1/services', response_model=list[ServiceView])
     async def services():
