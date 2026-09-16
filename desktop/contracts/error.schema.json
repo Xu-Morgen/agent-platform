@@ -1,0 +1,119 @@
+{
+  "$defs": {
+    "ErrorDetails": {
+      "additionalProperties": false,
+      "description": "仅允许已知非敏感元数据，不能附带任意上游字典。",
+      "properties": {
+        "timeoutSeconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeoutseconds"
+        },
+        "httpStatus": {
+          "anyOf": [
+            {
+              "maximum": 599,
+              "minimum": 100,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Httpstatus"
+        }
+      },
+      "title": "ErrorDetails",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "code": {
+      "enum": [
+        "CONFIGURATION_ERROR",
+        "CONTRACT_VALIDATION_ERROR",
+        "DEPENDENCY_ERROR",
+        "ENVIRONMENT_IN_USE",
+        "LOOP_BUDGET_EXCEEDED",
+        "TOKEN_BUDGET_EXCEEDED",
+        "TOKEN_ACCOUNTING_UNSUPPORTED",
+        "MODEL_TIMEOUT",
+        "MODEL_TRANSPORT_ERROR",
+        "API_TIMEOUT",
+        "API_TRANSPORT_ERROR",
+        "OUTPUT_VALIDATION_ERROR",
+        "RECORD_NOT_FOUND",
+        "VERSION_CONFLICT",
+        "INTERNAL_ERROR",
+        "HTTP_ERROR",
+        "BACKEND_UNAVAILABLE",
+        "STARTUP_ERROR",
+        "APPLICATION_EXIT"
+      ],
+      "title": "Code",
+      "type": "string"
+    },
+    "stage": {
+      "title": "Stage",
+      "type": "string"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    },
+    "runId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runid"
+    },
+    "fieldPath": {
+      "anyOf": [
+        {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Fieldpath"
+    },
+    "details": {
+      "$ref": "#/$defs/ErrorDetails"
+    }
+  },
+  "required": [
+    "code",
+    "stage",
+    "message"
+  ],
+  "title": "ErrorResponse",
+  "type": "object"
+}

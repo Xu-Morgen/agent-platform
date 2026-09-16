@@ -1,0 +1,225 @@
+{
+  "$defs": {
+    "ErrorDetails": {
+      "additionalProperties": false,
+      "description": "仅允许已知非敏感元数据，不能附带任意上游字典。",
+      "properties": {
+        "timeoutSeconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeoutseconds"
+        },
+        "httpStatus": {
+          "anyOf": [
+            {
+              "maximum": 599,
+              "minimum": 100,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Httpstatus"
+        }
+      },
+      "title": "ErrorDetails",
+      "type": "object"
+    },
+    "ErrorResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "CONFIGURATION_ERROR",
+            "CONTRACT_VALIDATION_ERROR",
+            "DEPENDENCY_ERROR",
+            "ENVIRONMENT_IN_USE",
+            "LOOP_BUDGET_EXCEEDED",
+            "TOKEN_BUDGET_EXCEEDED",
+            "TOKEN_ACCOUNTING_UNSUPPORTED",
+            "MODEL_TIMEOUT",
+            "MODEL_TRANSPORT_ERROR",
+            "API_TIMEOUT",
+            "API_TRANSPORT_ERROR",
+            "OUTPUT_VALIDATION_ERROR",
+            "RECORD_NOT_FOUND",
+            "VERSION_CONFLICT",
+            "INTERNAL_ERROR",
+            "HTTP_ERROR",
+            "BACKEND_UNAVAILABLE",
+            "STARTUP_ERROR",
+            "APPLICATION_EXIT"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runid"
+        },
+        "fieldPath": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fieldpath"
+        },
+        "details": {
+          "$ref": "#/$defs/ErrorDetails"
+        }
+      },
+      "required": [
+        "code",
+        "stage",
+        "message"
+      ],
+      "title": "ErrorResponse",
+      "type": "object"
+    },
+    "Ready": {
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 1,
+          "default": 1,
+          "title": "Protocolversion",
+          "type": "integer"
+        },
+        "type": {
+          "const": "ready",
+          "default": "ready",
+          "title": "Type",
+          "type": "string"
+        },
+        "address": {
+          "pattern": "^http://(?:[0-9]{1,3}\\.){3}[0-9]{1,3}:[0-9]{1,5}$",
+          "title": "Address",
+          "type": "string"
+        }
+      },
+      "required": [
+        "address",
+        "protocolVersion",
+        "type"
+      ],
+      "title": "Ready",
+      "type": "object"
+    },
+    "Shutdown": {
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 1,
+          "default": 1,
+          "title": "Protocolversion",
+          "type": "integer"
+        },
+        "type": {
+          "const": "shutdown",
+          "default": "shutdown",
+          "title": "Type",
+          "type": "string"
+        },
+        "reason": {
+          "const": "APPLICATION_EXIT",
+          "default": "APPLICATION_EXIT",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "title": "Shutdown",
+      "type": "object",
+      "required": [
+        "protocolVersion",
+        "type"
+      ]
+    },
+    "StartupError": {
+      "additionalProperties": false,
+      "properties": {
+        "protocolVersion": {
+          "const": 1,
+          "default": 1,
+          "title": "Protocolversion",
+          "type": "integer"
+        },
+        "type": {
+          "const": "startupError",
+          "default": "startupError",
+          "title": "Type",
+          "type": "string"
+        },
+        "error": {
+          "$ref": "#/$defs/ErrorResponse"
+        }
+      },
+      "required": [
+        "error",
+        "protocolVersion",
+        "type"
+      ],
+      "title": "StartupError",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "ready": "#/$defs/Ready",
+      "shutdown": "#/$defs/Shutdown",
+      "startupError": "#/$defs/StartupError"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Ready"
+    },
+    {
+      "$ref": "#/$defs/StartupError"
+    },
+    {
+      "$ref": "#/$defs/Shutdown"
+    }
+  ]
+}
