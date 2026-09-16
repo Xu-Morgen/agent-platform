@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from .contracts.environments import Environment, EnvironmentWrite
+from .contracts.services import ServiceWrite, ServiceView, ServiceSchema
 from .contracts.health import HealthResponse
 from .contracts.errors import ErrorResponse, PlatformError
 from .http_errors import register_error_handlers
@@ -24,6 +25,31 @@ def create_app() -> FastAPI:
     from .repositories.environments import EnvironmentRepository
     app.state.credentials = CredentialRepository()
     app.state.environments = EnvironmentRepository(app.state.credentials)
+
+    from .registry.packages import PackageRegistry
+    from .registry.blocks import BlockRegistry
+    from .registry.definitions import DefinitionRegistry
+    from .services import ServiceManager
+    app.state.packages = PackageRegistry()
+    app.state.blocks = BlockRegistry()
+    app.state.definitions = DefinitionRegistry()
+    app.state.services = ServiceManager(app.state.definitions, app.state.packages, app.state.blocks, app.state.environments)
+
+    @app.get('/api/v1/services', response_model=list[ServiceView])
+    async def services():
+        return app.state.services.list()
+
+    @app.post('/api/v1/services', response_model=ServiceView, status_code=201)
+    async def create_service(value: ServiceWrite):
+        return app.state.services.save(value)
+
+    @app.post('/api/v1/services/{service_id}/versions', response_model=ServiceView, status_code=201)
+    async def save_version(service_id: str, value: ServiceWrite):
+        return app.state.services.save(value, service_id)
+
+    @app.get('/api/v1/services/{service_id}/schema', response_model=ServiceSchema)
+    async def service_schema(service_id: str):
+        return app.state.services.schema(service_id)
 
     @app.get('/api/v1/environments', response_model=list[Environment])
     async def environments():
