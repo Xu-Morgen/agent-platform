@@ -116,6 +116,7 @@ async function editService() {
   document.querySelector('#service-name').value = selected?.name || '';
   document.querySelector('#service-current').textContent = selected
     ? `稳定入口：${backendAddress}/api/v1/services/${selected.serviceId} · 当前版本 ${selected.current.version} · ${selected.activeInstanceId}` : '保存后生成稳定服务标识';
+  document.querySelector('#service-history').replaceChildren();
   if (!selected) return;
   const result = await window.agentPlatform.serviceSchema(selected.serviceId);
   if (!result.ok) { serviceResult.textContent = errorText(result.error); return; }
@@ -123,6 +124,7 @@ async function editService() {
   rememberDefinition({ loadId: value.definitionLoadId, definition: value.definition,
     schemas: { input: value.input, output: value.output, ...definitions.get(value.definitionLoadId)?.schemas },
     budgetDefaults: value.definition.budget });
+  await refreshHistory();
 }
 async function refreshServices(selected = serviceSelect.value) {
   const result = await window.agentPlatform.listServices();
@@ -157,3 +159,33 @@ document.querySelector('#service-form').addEventListener('submit', async event =
   } catch { serviceResult.textContent = 'definition：JSON 格式无效或请求无法完成'; }
   finally { if (button) button.disabled = false; }
 });
+
+async function refreshHistory() {
+  const result = await window.agentPlatform.serviceHistory(serviceSelect.value);
+  const target = document.querySelector('#history-result');
+  if (!result.ok) { target.textContent = errorText(result.error); return; }
+  const list = document.querySelector('#service-history');
+  list.replaceChildren();
+  const current = services.find(value => value.serviceId === serviceSelect.value);
+  for (const value of result.data) {
+    const item = document.createElement('li');
+    const text = document.createElement('span');
+    text.textContent = `${value.version} · revision ${value.revision} · ${value.changeKind} · ${value.instanceId} `;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.dataset.instanceId = value.instanceId;
+    button.disabled = value.instanceId === current.activeInstanceId;
+    button.textContent = button.disabled ? '当前版本' : '选用此历史版本';
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        const response = await window.agentPlatform.activateService(current.serviceId, value.instanceId);
+        if (!response.ok) { target.textContent = errorText(response.error); button.disabled = false; return; }
+        await refreshServices(current.serviceId);
+        target.textContent = `已选用原历史实例 ${value.instanceId}，版本 ${value.version}`;
+      } catch { target.textContent = '回退请求无法完成'; button.disabled = false; }
+    });
+    item.append(text, button);
+    list.append(item);
+  }
+}

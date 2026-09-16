@@ -9,5 +9,7 @@ contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
   createService: (body) => ipcRenderer.invoke('platform:createService', body),
   saveServiceVersion: (id, body) => ipcRenderer.invoke('platform:saveServiceVersion', id, body),
   serviceSchema: (id) => ipcRenderer.invoke('platform:serviceSchema', id),
+  serviceHistory: (id) => ipcRenderer.invoke('platform:serviceHistory', id),
+  activateService: (id, instanceId) => ipcRenderer.invoke('platform:activateService', id, instanceId),
   health: () => ipcRenderer.invoke('platform:health'),
 }));

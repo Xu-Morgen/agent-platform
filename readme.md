@@ -8,7 +8,9 @@
 
 技术栈为 **FastAPI + Pydantic + LangGraph + PostgreSQL**，桌面为 **Electron + 原生 HTML/CSS/JavaScript**。本次在 Linux 源码环境验收；锁定版本包括 Python 3.12.3 环境下的 FastAPI 0.141.1、Pydantic 2.13.5、Uvicorn 0.53.0、LangGraph 1.2.11，以及 Electron 44.4.1。
 
-I2—I5 尚未实现：配置页面、服务版本管理、任务 API、真实模型调用、预算执行与查重产品仍待后续任务。PostgreSQL 仅为后续选型，当前未启用持久化。
+**I2 配置与版本管理已完成（12/12）**：内存凭据与环境接口、环境配置页、包与通用块加载、多包配置校验、完整实例快照、版本分配、稳定服务入口、服务配置页及会话历史回退。各卡验证见 [I2 交接](docs/tasks/i2.md)。
+
+I3—I5 尚未实现：任务 API、环境占用互斥、真实模型调用、预算执行与查重产品仍待后续任务。PostgreSQL 仅为后续选型，当前未启用持久化。
 
 - [产品需求文档](docs/product-requirements.md)：已确认范围、行为与验收标准。
 - [架构设计文档](docs/architecture-design.md)：运行结构、包与实例协议、版本快照、任务状态机及预算。
@@ -75,6 +77,18 @@ env -u ELECTRON_RUN_AS_NODE npm --prefix desktop start
 - `.venv/bin/python examples/workflow/two_nodes.py` 可直接运行确定性两节点图。
 - `.venv/bin/python scripts/export_contracts.py` 从 Python 权威模型更新桌面使用的 JSON Schema。
 - 快照 API：`capture(directory)` → `snapshot.load('entry:invoke')`；自有模块使用相对导入，资源通过 `snapshot.read_resource('prompt.txt')` 获取。内容只存内存，显式 `close()` 应在所有使用者结束后调用；受信任代码加载不是沙箱。
+
+## 配置与版本操作
+
+1. 环境配置区填写名称和连接 JSON；凭据在独立密码框输入，保存后只返回引用。模型连接须指定 `model`，API 连接使用 `kind: "api"`。
+2. 服务配置区先选择“通用块”加载 `examples/configuration/block`，再选择“业务包”依次加载 `examples/configuration/package` 和 `examples/configuration/second`。
+3. 选择“实例定义”加载 `examples/configuration/instance`；页面展示两包两配置 JSON、输入输出及配置 Schema，全局默认预算为 loop 4、token 200，可编辑。
+4. 填写服务名称，校验并保存得到稳定 serviceId 和版本 1.0；修改配置再保存得到新实例与 1.1。
+5. 在本次会话历史中选回 1.0，稳定服务指向原实例；不会恢复旧环境地址或生成新版本。退出重启后环境、服务、凭据和历史清空。
+
+以上为配置能力样例，不调用模型。目录可填写绝对路径；相对路径按后端工作目录解析。完整样例及 API 说明见 [配置样例](examples/configuration/README.md)。
+
+定向验证：`.venv/bin/python checks/registry_api.py` 验证加载与保存，`.venv/bin/python checks/activation.py` 验证回退边界；真实页面检查使用 `env -u ELECTRON_RUN_AS_NODE desktop/node_modules/.bin/electron desktop/checks/environments.cjs` 与 `desktop/checks/services.cjs`（后者也需以 Electron 启动）。其余单卡命令见 I2 交接。
 
 ## 核心概念
 
