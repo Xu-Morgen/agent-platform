@@ -2,3 +2,9 @@ body { margin: 0; background: #f4f6f8; color: #182838; font: 16px/1.6 system-ui,
 main { max-width: 800px; margin: 64px auto; padding: 32px; background: white; border-radius: 12px; }
 h1 { margin-top: 0; }
 button { padding: 8px 18px; font: inherit; cursor: pointer; }
+
+section { margin-top: 32px; border-top: 1px solid #dbe2e8; padding-top: 20px; }
+label { display: block; margin: 14px 0; }
+input, textarea, select { box-sizing: border-box; width: 100%; padding: 8px; font: inherit; }
+textarea { font-family: monospace; }
+[role="status"] { overflow-wrap: anywhere; }

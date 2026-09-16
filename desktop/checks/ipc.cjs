@@ -11,7 +11,7 @@ app.whenReady().then(async () => {
     const health = await window.webContents.executeJavaScript('window.agentPlatform.health()');
     assert.equal(health.ok, true);
     assert.equal(health.data.status, 'ready');
-    assert.equal(await window.webContents.executeJavaScript('Object.keys(window.agentPlatform).join()'), 'health');
+    assert.equal(await window.webContents.executeJavaScript('typeof window.agentPlatform.createEnvironment'), 'function');
     const pid = backend.child.pid;
     const loaded = once(window.webContents, 'did-finish-load');
     window.reload();

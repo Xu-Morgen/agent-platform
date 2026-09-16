@@ -36,3 +36,34 @@ function registerHealthBridge(backend) {
   });
 }
 module.exports = { registerHealthBridge };
+
+// 路由由主进程固定，页面不能指定任意 URL 或 HTTP 方法。
+const operations = {
+  listEnvironments: () => ['GET', '/environments'],
+  createEnvironment: (body) => ['POST', '/environments', body],
+  updateEnvironment: (id, body) => ['PUT', `/environments/${encodeURIComponent(id)}`, body],
+};
+function registerConfigurationBridge(backend) {
+  for (const [name, route] of Object.entries(operations)) {
+    ipcMain.removeHandler(`platform:${name}`);
+    ipcMain.handle(`platform:${name}`, async (event, ...args) => {
+      if (event.senderFrame?.url !== pageURL || event.senderFrame !== event.sender.mainFrame) {
+        return failure('CONTRACT_VALIDATION_ERROR', '请求来源无效');
+      }
+      if (!backend.address) return failure('BACKEND_UNAVAILABLE', '后端尚未就绪');
+      try {
+        const [method, routePath, body] = route(...args);
+        const response = await fetch(`${backend.address}/api/v1${routePath}`, {
+          method, headers: { 'Content-Type': 'application/json' },
+          body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(10000),
+        });
+        const data = await response.json();
+        if (!response.ok) return validate(errorSchema, data) ? { ok: false, error: data } : failure('OUTPUT_VALIDATION_ERROR', '错误响应不符合契约');
+        return { ok: true, data };
+      } catch {
+        return failure('BACKEND_UNAVAILABLE', '配置请求失败，请检查后端连接');
+      }
+    });
+  }
+}
+module.exports.registerConfigurationBridge = registerConfigurationBridge;
