@@ -1,0 +1,21 @@
+{
+  "packageId": "example",
+  "version": "1.0.0",
+  "name": "模型交互声明样例",
+  "description": "仅用于声明校验，不代表模型调用已实现",
+  "entry": "entry:invoke",
+  "contractRefs": {
+    "input": "models:Input",
+    "output": "models:Output",
+    "configuration": "models:Config"
+  },
+  "runtimeRequirements": {
+    "python": ">=3.12",
+    "platformApi": 1,
+    "dependencies": ["pydantic>=2.10,<3"]
+  },
+  "requiredCapabilities": [
+    {"capabilityId": "model", "kind": "model", "inputModel": "models:ModelInput", "outputModel": "models:ModelOutput"}
+  ],
+  "budgetDefaults": {"loopLimit": 1, "tokenLimit": 32768}
+}
