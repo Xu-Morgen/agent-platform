@@ -1,9 +1,9 @@
 # Agent Platform 架构设计
 
-- 版本：0.1
+- 版本：0.2
 - 日期：2026-09-16
 - 状态：设计初稿，尚未实现
-- 需求依据：[产品需求 v0.3](product-requirements.md)
+- 需求依据：[产品需求 v0.4](product-requirements.md)
 - 实施计划：[迭代开发文档](iteration-plan.md)
 
 ## 1. 设计目标与选择
@@ -19,7 +19,7 @@
 - 引用某环境的任务尚未结束时禁止修改该环境；空闲时环境更新不改变实例版本。
 - 一次包调用尝试计一轮 loop，开始后失败仍计数，重试另计。token 严格执行是可配置项。
 
-以下技术栈、标识格式、预算合并及查重细则是本稿的设计选择，可在实施中依据验证结果调整；调整不得改变上述产品语义。
+技术栈由用户确定为 FastAPI + Pydantic + LangGraph + PostgreSQL，桌面端使用 Electron。标识格式、预算合并及查重细则是本稿的设计选择，可依据验证结果调整；调整不得改变上述产品语义或擅自替换指定技术栈。PostgreSQL 是后续数据库版本的持久化实现，首期仍使用内存，不因技术选型扩大跨重启保存范围。
 
 ## 2. 运行形态与技术方案
 
@@ -27,15 +27,21 @@
 
 | 层 | 设计选择 | 作用 |
 | --- | --- | --- |
-| 桌面界面 | Python + PySide6 Widgets | 服务中心、环境配置、历史版本与任务详情 |
-| 平台与包运行时 | Python | 与通用流程块保持同一语言，减少首期跨语言桥接 |
+| 桌面界面 | Electron + HTML/CSS/JavaScript | 快速实现服务中心、环境配置、历史版本与任务详情；首期使用简单页面和表单 |
+| 平台与包运行时 | Python | 承载 FastAPI、LangGraph、业务包与通用流程块 |
 | HTTP API | FastAPI + Uvicorn，单进程内单服务循环 | 稳定调用入口、配置管理和任务查询 |
 | 契约 | Pydantic 模型，严格校验，禁止未知字段 | 从模型导出 JSON Schema，复用为运行时校验来源 |
-| 调度 | asyncio 队列和任务注册表 | HTTP 提交结束后继续执行，支持取消和退出清理 |
-| 存储 | 内存仓储与不可变内容快照 | 实例、环境、任务及报告同次运行内可用 |
+| 流程编排 | LangGraph StateGraph | 实例拥有图定义，平台包装节点校验、预算检查和取消边界 |
+| 调度 | asyncio 队列和任务注册表 | 调度 LangGraph 执行，维护任务终态和退出清理 |
+| 首期存储 | 内存仓储与不可变内容快照 | 实例、环境、任务及报告同次运行内可用 |
+| 数据库 | PostgreSQL | 后续版本实现持久化和历史恢复；首期不要求数据库运行 |
 | 模型与 API | 异步适配器 | 统一超时、预算、响应校验和连接关闭 |
 
-PySide6 提供桌面 Widgets 组件；本稿选择原生表单满足两个配置页，首期不增加 Web 前端构建链。[Qt Widgets 官方文档](https://doc.qt.io/qtforpython-6/PySide6/QtWidgets/index.html)
+Electron 主进程管理窗口及 Python 后端子进程，渲染进程负责简单表单；通过 preload 暴露有限 IPC 方法，不向页面开放任意 Node.js 调用。首期采用原生 HTML/CSS/JavaScript，不额外引入大型前端框架。[Electron 进程模型](https://www.electronjs.org/docs/latest/tutorial/process-model)
+
+LangGraph 通过状态、节点与边表达实例流程，图编译后执行；平台仍显式校验节点输入输出，图结构检查不替代业务契约校验。[LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
+
+PostgreSQL 已确定为关系数据库选型，后续通过仓储适配器接入；具体表结构和迁移在数据库迭代落地。[PostgreSQL 官方文档](https://www.postgresql.org/docs/current/tutorial.html)
 
 Pydantic 提供严格模式，但仍需显式配置未知字段规则及嵌套约束；不能把开启严格模式当作全部边界校验已完成。[Pydantic 严格模式](https://docs.pydantic.dev/latest/concepts/strict_mode/)
 
@@ -43,9 +49,11 @@ Pydantic 提供严格模式，但仍需显式配置未知字段规则及嵌套�
 
 依赖精确版本在工程初始化并检查兼容性后写入锁文件，不在本稿虚构已验证版本。当前开发工作区用于首轮源码运行验证，不承诺多操作系统安装包交付；依赖安装与构建发布仍遵循协作约定。
 
-### 2.2 进程与线程
+### 2.2 进程与通信
 
-桌面主线程运行 Qt。专用后台线程运行一个 asyncio 事件循环，承载 HTTP 服务、仓储操作、队列调度和异步 I/O。界面通过异步命令桥调用同一应用服务层，结果通过 Qt 信号返回，不直接跨线程修改仓储。
+Electron 主进程启动并管理一个 Python 后端子进程。后端运行单个 Uvicorn worker 和 asyncio 事件循环，承载 FastAPI、仓储、任务队列、LangGraph 执行及异步 I/O。后端通过父子进程控制管道通知实际监听地址；健康检查就绪后页面才开放操作，启动失败显示原因。
+
+渲染进程通过 contextBridge/preload 调用有限 IPC 接口，主进程将业务请求转为本地 FastAPI HTTP 请求；外部业务系统调用同一 HTTP API。渲染页面不保存任务权威状态，不直接操作 Python 仓储或 PostgreSQL。页面刷新不重启后端；首期最后一个主窗口关闭即退出应用，不保留托盘常驻。
 
 首期默认全局单任务执行，其余排队；可保留并发参数但不以并行能力作为首期交付。同步计算采用有界小步骤，步骤之间检查终止信号；受信任包不得在事件循环内执行不可中断的长耗时工作。
 
@@ -53,14 +61,16 @@ HTTP 默认监听 `127.0.0.1`，桌面显示实际地址和端口；需要局域
 
 ```mermaid
 flowchart TB
-    UI[桌面服务中心] --> APP[应用服务层]
-    HTTP[稳定 HTTP 入口] --> APP
+    UI[Electron 渲染页面] --> IPC[preload 与主进程 IPC]
+    IPC --> HTTP[FastAPI 稳定 HTTP 入口]
+    HTTP --> APP[Python 应用服务层]
     APP --> SERVICES[服务与实例版本管理]
     APP --> ENV[环境管理与任务占用]
     APP --> RUN[任务调度与状态机]
     SERVICES --> MEM[内存仓储与内容快照]
     RUN --> MEM
-    RUN --> FLOW[实例入口与完整流程]
+    SERVICES -. 后续持久化 .-> PG[PostgreSQL]
+    RUN --> FLOW[实例 LangGraph 流程]
     FLOW --> BLOCK[Python 通用块]
     FLOW --> PKG[业务包 A / B]
     PKG --> MODEL[统一模型适配器]
@@ -73,14 +83,14 @@ flowchart TB
 
 | 模块 | 负责 | 不负责 |
 | --- | --- | --- |
-| desktop | 表单、列表、历史选择、任务详情、退出事件 | 业务执行、直接读写共享状态 |
+| desktop | Electron 页面、preload/IPC、后端进程管理和退出事件 | 业务执行、直接读写仓储或数据库 |
 | application | 保存配置、激活版本、提交／取消任务的原子操作 | 查重业务规则 |
 | registry | 加载本地包、通用块及实例定义，校验依赖 | 自动下载安装包 |
 | contracts | 严格模型、Schema 导出、字段错误归一化 | 静默填补模型输出 |
 | versions | 内容快照、版本分类、当前实例指针 | 历史数据库持久化 |
-| runtime | 任务状态、流程上下文、包调用入口、预算 | 自主生成或自动修改业务流程 |
+| runtime | 任务状态、LangGraph 节点包装、流程上下文、包调用入口、预算 | 自主生成或自动修改业务流程 |
 | adapters | 模型、API、传输中止、用量计量 | 业务最终判定 |
-| repositories | 内存数据访问接口 | 首期数据库连接 |
+| repositories | 内存仓储与后续 PostgreSQL 适配接口 | 首期启用持久化或自动恢复任务 |
 | samples | 包、实例脚本与流程、业务契约及样例 | 平台核心特定业务分支 |
 
 ## 4. 核心模型与标识
@@ -124,7 +134,7 @@ PackageContext 提供 `call_model`、`call_capability`、`record_progress`，不
 
 ### 5.2 实例定义
 
-实例声明服务输入输出模型、入口脚本、流程、包绑定表、配置列表、环境引用和预算策略。首期流程是受信任 Python 脚本及明确的步骤描述，不实现通用画布、动态 DSL 编译器或任意映射表达式编辑器。
+实例声明服务输入输出模型、入口脚本、流程、包绑定表、配置列表、环境引用和预算策略。首期流程是受信任 Python 脚本声明的 LangGraph StateGraph；节点表示业务步骤，边表示顺序或条件分支。图定义、节点脚本及配置归实例快照，不实现通用画布、动态 DSL 编译器或任意映射表达式编辑器。
 
 实例上下文提供：
 
@@ -138,7 +148,17 @@ PackageContext 提供 `call_model`、`call_capability`、`record_progress`，不
 
 实例入口返回最终对象，平台统一校验后提交结果。流程不能直接写入 `completed` 或发布部分成功报告。
 
-### 5.3 单一契约来源
+### 5.3 LangGraph 执行约束
+
+- 每个实例快照编译并关联其图对象；各任务使用独立图状态和运行上下文，不能共享可变业务数据。首期流程顺序执行，不引入并行分支和多 Agent 框架。
+- 图状态结构由 Pydantic 契约定义；节点包装器在输入和状态更新边界显式校验。凭据、连接对象和取消信号保存在平台上下文，不放入可展示的图状态。
+- 每个节点开始前及状态更新提交前检查预算与取消；进入下一条边、提交最终输出前也经过平台检查。业务包通过 invoke_package 计 loop，普通节点和图 super-step 不计业务 loop。
+- LangGraph recursion_limit 只是图执行步数保护，不能直接设为包调用 loopLimit；按流程需要单独设置，触发时报告图执行限制错误，不伪装成包预算耗尽。
+- 主动取消使用平台协作标记，等待在途 LLM 正常结束；不使用图 interrupt/resume 机制替代任务取消。退出桌面程序则中止本地传输与图执行。
+- 首期不配置持久化 checkpointer，不启用自动重试、节点结果缓存或失败恢复；任务历史由内存仓储维护。后续 PostgreSQL 保存实例历史与 LangGraph 断点恢复是两项独立设计，不自动同时开启。
+- 图异常上交任务状态机，终态由平台提交。图状态丢弃不代表撤销外部操作，LangGraph 不承担外部事务回滚。
+
+### 5.4 单一契约来源
 
 Python 契约模型是权威来源，导出 JSON Schema 供页面和调用方使用，清单引用模型而不手写第二份 Schema。配置页支持对象、数组、基础类型、枚举、必填、默认值与嵌套路径；复杂嵌套可使用校验后的 JSON 编辑区域，首期不承诺所有 Schema 特性都有专用控件。
 
@@ -208,7 +228,7 @@ stateDiagram-v2
 | 非 LLM 步骤中取消 | 在步骤安全边界停止；可中止在途 API 传输，但不承诺撤销远端操作 |
 | 退出桌面程序 | 先停止受理，再立即中止本地传输，停止队列与执行任务，释放运行资源 |
 
-退出由桌面主生命周期触发，不能只靠 HTTP 服务的默认优雅退出等待。退出路径主动关闭模型/API 连接并停止后台循环；不等待 LLM 正常返回，不保证供应商停止计算或计费。中止原因使用 `APPLICATION_EXIT`，内存记录随后销毁，重启查询返回不存在。
+退出由桌面主生命周期触发，不能只靠 HTTP 服务的默认优雅退出等待。Electron 主进程通过独立父子进程控制管道发送退出信号；后端立即关闭模型/API 连接并中止图执行、停止受理，再退出事件循环。主进程只给本地清理短暂且有界的等待，超时终止后端子进程；控制管道断开也触发后端退出，避免父进程消失后残留服务。不等待 LLM 正常返回，不保证供应商停止计算或计费。中止原因使用 `APPLICATION_EXIT`，内存记录随后销毁，重启查询返回不存在。
 
 取消、失败均保留原任务终态和必要错误，清理临时上下文但保留需求要求的任务输入和审计记录。实例若仍为当前且无其他任务则恢复就绪；退役身份不变。平台无自动重试、任务恢复或外部事务补偿。
 
@@ -327,13 +347,16 @@ POST /runs 在同一临界区解析当前版本、验证 expectedInstanceId、�
 ## 13. 目录与后续扩展
 
 ```text
+desktop/
+  main/                         # Electron 窗口、IPC 和后端子进程
+  preload/                      # 有限页面桥接
+  renderer/                     # HTML/CSS/JavaScript 表单
 src/agent_platform/
-  desktop/
   application/
   contracts/
   registry/
   versions/
-  runtime/
+  runtime/                      # LangGraph 节点包装、调度与预算
   adapters/
   repositories/
   blocks/
@@ -351,6 +374,6 @@ tests/
   integration/
 ```
 
-以上均为规划，随迭代创建实际文件，不创建占位空目录。仓储接口隔离内存实现，后续数据库版本再处理版本内容持久化、恢复及凭据存储；不提前实现数据库直连、权限、复杂重试、沙箱或可视化画布。
+以上均为规划，随迭代创建实际文件，不创建占位空目录。仓储接口隔离内存实现，后续 PostgreSQL 数据库版本再处理版本内容持久化、迁移、恢复及凭据存储策略；不提前实现数据库直连、权限、复杂重试、沙箱或可视化画布。
 
-首期主要技术验证点是内存代码快照隔离、退出传输中止、严格 token 计量与 Qt/asyncio 生命周期。对应验证排在早期迭代；技术验证不通过时调整适配器或宿主实现，并同步本稿，不以降低已确认语义代替完成。
+首期主要技术验证点是内存代码快照隔离、退出传输中止、严格 token 计量、LangGraph 状态流转检查与 Electron/Python 子进程生命周期。对应验证排在早期迭代；技术验证不通过时调整适配器或宿主实现，并同步本稿，不以降低已确认语义代替完成。

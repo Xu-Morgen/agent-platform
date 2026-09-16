@@ -4,11 +4,11 @@
 
 ## 项目状态
 
-当前完成需求基线与设计初稿，尚无可执行平台、安装命令或已实现接口。架构初稿选择 Python、PySide6 桌面界面及 FastAPI 服务；这些是待实施验证的技术选择。
+当前完成需求基线与设计初稿，尚无可执行平台、安装命令或已实现接口。技术栈已确定为 **FastAPI + Pydantic + LangGraph + PostgreSQL**，桌面端使用 **Electron** 快速实现简单界面；尚未安装依赖或落地实现。PostgreSQL 用于后续数据库版本，首期仍使用内存。
 
 - [产品需求文档](docs/product-requirements.md)：已确认范围、行为与验收标准。
 - [架构设计文档](docs/architecture-design.md)：运行结构、包与实例协议、版本快照、任务状态机及预算。
-- [迭代开发文档](docs/iteration-plan.md)：开发依赖、逐轮交付与验收场景。
+- [迭代开发文档](docs/iteration-plan.md)：开发依赖、58 张单目标任务卡、轻量验收与交接记录；任务卡位于 `docs/tasks/`。
 - [项目协作约定](AGENT.md)：开发边界与工作约束。
 
 ## 核心概念
@@ -52,7 +52,8 @@ agent-platform/
 │   ├── product-requirements.md
 │   ├── architecture-design.md
 │   └── iteration-plan.md
-├── src/agent_platform/          # 规划中的平台源码
+├── desktop/                    # 规划中的 Electron 主进程、preload 与页面
+├── src/agent_platform/          # 规划中的 FastAPI / LangGraph 后端
 └── samples/                    # 规划中的示例产品
     ├── template/               # 包模板与独立实例流程样例
     └── assignment-similarity/   # 语义包与完整查重实例
