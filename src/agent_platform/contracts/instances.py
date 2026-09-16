@@ -1,5 +1,5 @@
 """实例组合声明；不分配版本、不保存快照。"""
-from typing import Annotated
+from typing import Annotated, Literal
 from pydantic import Field, JsonValue, ValidationError, model_validator
 from .base import StrictModel
 from .packages import Identifier, SymbolReference, Version, InstanceBudget
@@ -18,6 +18,28 @@ class ConfigurationReference(StrictModel):
     values: dict[str, JsonValue]
 
 
+class CapabilityBinding(StrictModel):
+    package_binding_id: Identifier
+    capability_id: Identifier
+    kind: Literal['model', 'api', 'block']
+    environment_id: Identifier | None = None
+    connection_id: Identifier | None = None
+    block_id: Identifier | None = None
+    version: Version | None = None
+    input_model: SymbolReference
+    output_model: SymbolReference
+
+    @model_validator(mode='after')
+    def target(self):
+        if self.kind == 'block':
+            valid = self.block_id and self.version and not self.environment_id and not self.connection_id
+        else:
+            valid = self.environment_id and self.connection_id and not self.block_id and not self.version
+        if not valid:
+            raise ValueError('能力绑定目标不完整或混合了不同类型')
+        return self
+
+
 class InstanceDefinition(StrictModel):
     definition_id: Identifier
     entry: SymbolReference
@@ -28,6 +50,8 @@ class InstanceDefinition(StrictModel):
     config_refs: list[ConfigurationReference] = Field(min_length=1)
     environment_refs: list[Identifier]
     budget: InstanceBudget
+    capability_bindings: list[CapabilityBinding] = Field(default_factory=list)
+    configuration_model: SymbolReference | None = None
 
     @model_validator(mode='after')
     def validate_bindings(self):

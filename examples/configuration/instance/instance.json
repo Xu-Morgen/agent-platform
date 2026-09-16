@@ -1,0 +1,61 @@
+{
+  "definitionId": "two-packages",
+  "entry": "entry:run",
+  "workflow": "workflow:build_graph",
+  "inputModel": "models:Message",
+  "outputModel": "models:Message",
+  "packageBindings": [
+    {
+      "bindingId": "echo",
+      "packageId": "echo",
+      "version": "1.0.0"
+    },
+    {
+      "bindingId": "second",
+      "packageId": "second",
+      "version": "1.0.0"
+    }
+  ],
+  "configRefs": [
+    {
+      "configId": "echo-config",
+      "revision": 1,
+      "scope": "packages.echo",
+      "values": {
+        "loopLimit": 2,
+        "tokenLimit": 100
+      }
+    },
+    {
+      "configId": "second-config",
+      "revision": 1,
+      "scope": "packages.second",
+      "values": {
+        "loopLimit": 2,
+        "tokenLimit": 100
+      }
+    }
+  ],
+  "environmentRefs": [],
+  "budget": {},
+  "capabilityBindings": [
+    {
+      "packageBindingId": "echo",
+      "capabilityId": "identity",
+      "kind": "block",
+      "blockId": "identity",
+      "version": "1.0.0",
+      "inputModel": "models:Message",
+      "outputModel": "models:Message"
+    },
+    {
+      "packageBindingId": "second",
+      "capabilityId": "identity",
+      "kind": "block",
+      "blockId": "identity",
+      "version": "1.0.0",
+      "inputModel": "models:Message",
+      "outputModel": "models:Message"
+    }
+  ]
+}
