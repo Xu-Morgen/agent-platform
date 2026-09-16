@@ -2,9 +2,10 @@
 import asyncio
 import os
 import socket
+import sys
 import uvicorn
 from .application import create_app
-from .contracts.control import Ready, StartupError
+from .contracts.control import Ready, StartupError, Shutdown, parse_control
 from .contracts.errors import ErrorResponse
 
 
@@ -26,12 +27,46 @@ async def serve(host: str, port: int, control_fd: int | None = None) -> None:
                 address_host = '127.0.0.1' if address_host == '0.0.0.0' else address_host
                 send(Ready(address=f'http://{address_host}:{address_port}'))
 
+    loop = asyncio.get_running_loop()
+    watching = False
+    buffer = bytearray()
+
+    def stop():
+        nonlocal watching
+        server.config.app.state.ready = False
+        server.should_exit = True
+        if watching:
+            loop.remove_reader(0)
+            watching = False
+
+    def control_input():
+        try:
+            chunk = os.read(0, 4096)
+            if not chunk:
+                stop()  # 父进程消失时不保留后台服务。
+                return
+            buffer.extend(chunk)
+            if len(buffer) > 65536:
+                raise ValueError('控制消息过长')
+            while b'\n' in buffer:
+                line, _, rest = buffer.partition(b'\n')
+                buffer[:] = rest
+                if not isinstance(parse_control(line.decode('utf-8')), Shutdown):
+                    raise ValueError('父进程消息方向错误')
+                stop()
+        except (ValueError, OSError):
+            print('控制管道无效，停止后端', file=sys.stderr)
+            stop()
+
     try:
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind((host, port))
         listener.listen(128)
         listener.setblocking(False)
         server = Server(uvicorn.Config(create_app(), host=host, port=port, workers=1))
+        if channel:
+            loop.add_reader(0, control_input)
+            watching = True
         await server.serve(sockets=[listener])
     except Exception:
         send(StartupError(error=ErrorResponse(
@@ -39,6 +74,8 @@ async def serve(host: str, port: int, control_fd: int | None = None) -> None:
         )))
         raise
     finally:
+        if watching:
+            loop.remove_reader(0)
         listener.close()
         if channel:
             channel.close()

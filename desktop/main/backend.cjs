@@ -13,9 +13,12 @@ class Backend {
     this.child = null;
     this.address = null;
     this.startPromise = null;
+    this.stopPromise = null;
+    this.stopping = false;
   }
 
   start() {
+    if (this.stopping) return Promise.reject(new Error('应用正在退出'));
     if (this.startPromise) return this.startPromise;
     this.startPromise = new Promise((resolve, reject) => {
       let settled = false;
@@ -30,6 +33,7 @@ class Backend {
       this.child = spawn(this.python, ['-m', 'agent_platform', '--port', String(this.port), '--control-fd', '3'], {
         cwd: root, stdio: ['pipe', 'inherit', 'inherit', 'pipe'],
       });
+      this.child.stdin.on('error', () => {}); // 退出竞争中的 EPIPE 由子进程 exit 收敛。
       this.child.once('error', () => fail(new Error('无法启动 Python 后端，请检查解释器路径与依赖')));
       this.child.once('exit', () => {
         this.address = null;
@@ -54,6 +58,19 @@ class Backend {
       });
     });
     return this.startPromise;
+  }
+  stop() {
+    if (this.stopPromise) return this.stopPromise;
+    this.stopping = true;
+    this.address = null;
+    this.stopPromise = new Promise((resolve) => {
+      const child = this.child;
+      if (!child || !child.pid || child.exitCode !== null || child.signalCode !== null) return resolve();
+      const timer = setTimeout(() => child.kill('SIGKILL'), 2000);
+      child.once('exit', () => { clearTimeout(timer); resolve(); });
+      child.stdin.end(JSON.stringify({ protocolVersion: 1, type: 'shutdown', reason: 'APPLICATION_EXIT' }) + '\n');
+    });
+    return this.stopPromise;
   }
 }
 module.exports = { Backend };
