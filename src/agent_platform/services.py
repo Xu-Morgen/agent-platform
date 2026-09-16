@@ -50,3 +50,21 @@ class ServiceManager:
         snapshot = self.resolve_current(service_id)
         return ServiceSchema(service=service, **snapshot.schema, definition=snapshot.definition,
                              definition_load_id=self._sources[snapshot.instance_id], configuration=snapshot.configuration)
+
+    def history(self, service_id):
+        self.get(service_id)
+        return [value.model_copy(deep=True) for value in self._history[service_id]]
+
+    def activate(self, service_id, instance_id):
+        from .configuration import validate_environment_bindings
+        service = self.get(service_id)
+        version = next((value for value in self._history[service_id] if value.instance_id == instance_id), None)
+        if version is None:
+            raise invalid('该实例不属于此服务的历史', ['instanceId'], code='RECORD_NOT_FOUND')
+        snapshot = self.snapshots.get(instance_id)
+        # 只校验当前环境；入口、包和块继续使用历史快照，不重读源目录。
+        validate_environment_bindings(snapshot.definition, self.environments)
+        service.active_instance_id = instance_id
+        service.current = version.model_copy(deep=True)
+        self._services[service_id] = service
+        return service.model_copy(deep=True)
