@@ -17,6 +17,7 @@ app.whenReady().then(async () => {
     const failed = new Backend({ python: '/missing/python' });
     await assert.rejects(failed.start(), /解释器路径/);
     const failedWindow = await openDesktop(failed);
+    await failedWindow.webContents.executeJavaScript('window.agentPlatform.health()');
     assert.match(await failedWindow.webContents.executeJavaScript('document.querySelector("#status").textContent'), /启动失败.*解释器路径/);
     failedWindow.close();
     console.log('T07 PASS: Electron owns one backend, ready + health, visible startup failure');
