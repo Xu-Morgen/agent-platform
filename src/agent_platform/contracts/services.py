@@ -34,6 +34,7 @@ class ServiceSchema(StrictModel):
     definition: InstanceDefinition
     definition_load_id: Identifier
     configuration: dict[str, JsonValue]
+    configuration_schemas: dict[str, JsonValue]
 
 
 class ActivateRequest(StrictModel):

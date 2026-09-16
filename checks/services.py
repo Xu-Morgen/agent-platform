@@ -30,6 +30,8 @@ async def main():
         assert response.status_code == 422
         schema = (await client.get(f'/api/v1/services/{key}/schema')).json()
         assert schema['service'] == b and schema['input']['required'] == ['text']
+        assert 'loopLimit' in schema['configurationSchemas']['packages.echo']['properties']
+        assert (await client.get('/api/v1/services/missing/schema')).status_code == 404
         assert len(app.state.services._history[key]) == 2
         assert (await client.get('/api/v1/services')).json() == [b]
     print('I2-T08 PASS: stable service ID, current schema, atomic failure, new immutable instance')

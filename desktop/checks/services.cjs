@@ -25,6 +25,13 @@ app.whenReady().then(async () => {
     await run("const invalid=JSON.parse(document.querySelector('#service-definition').value);invalid.configRefs[0].values.loopLimit='bad';document.querySelector('#service-definition').value=JSON.stringify(invalid);document.querySelector('#service-form').requestSubmit()");
     await wait("document.querySelector('#service-result').textContent.includes('loopLimit')");
     console.log('I2-T09 PASS: real page loads two packages/configs, saves/edits, shows stable ID and field error');
+    const loadedAgain = require('node:events').once(window.webContents, 'did-finish-load');
+    window.reload();
+    await loadedAgain;
+    await run('window.agentPlatform.health()');
+    await run('refreshServices()');
+    await run("document.querySelector('#service-select').selectedIndex=1;editService()");
+    assert.match(await run("document.querySelector('#service-schemas').textContent"), /packages.echo/);
     const original = await run("document.querySelector('#service-history button').dataset.instanceId");
     await run("document.querySelector('#service-history button').click()");
     await wait("document.querySelector('#history-result').textContent.includes('版本 1.0')");

@@ -5,7 +5,8 @@ from ..contracts.errors import ErrorResponse, PlatformError
 
 
 def invalid(message, path, *, code='CONFIGURATION_ERROR'):
-    return PlatformError(ErrorResponse(code=code, stage='configuration', message=message, field_path=path), 422)
+    status = 404 if code == 'RECORD_NOT_FOUND' else 409 if code == 'VERSION_CONFLICT' else 422
+    return PlatformError(ErrorResponse(code=code, stage='configuration', message=message, field_path=path), status)
 
 
 def validation_error(exc: ValidationError, prefix=()):

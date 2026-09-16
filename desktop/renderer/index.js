@@ -115,14 +115,14 @@ async function editService() {
   const selected = services.find(value => value.serviceId === serviceSelect.value);
   document.querySelector('#service-name').value = selected?.name || '';
   document.querySelector('#service-current').textContent = selected
-    ? `稳定入口：${backendAddress}/api/v1/services/${selected.serviceId} · 当前版本 ${selected.current.version} · ${selected.activeInstanceId}` : '保存后生成稳定服务标识';
+    ? `稳定服务：${selected.serviceId} · Schema 地址：${backendAddress}/api/v1/services/${selected.serviceId}/schema · 当前版本 ${selected.current.version} · ${selected.activeInstanceId}` : '保存后生成稳定服务标识';
   document.querySelector('#service-history').replaceChildren();
   if (!selected) return;
   const result = await window.agentPlatform.serviceSchema(selected.serviceId);
   if (!result.ok) { serviceResult.textContent = errorText(result.error); return; }
   const value = result.data;
   rememberDefinition({ loadId: value.definitionLoadId, definition: value.definition,
-    schemas: { input: value.input, output: value.output, ...definitions.get(value.definitionLoadId)?.schemas },
+    schemas: { input: value.input, output: value.output, ...value.configurationSchemas },
     budgetDefaults: value.definition.budget });
   await refreshHistory();
 }

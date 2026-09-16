@@ -48,8 +48,14 @@ class ServiceManager:
     def schema(self, service_id):
         service = self.get(service_id)
         snapshot = self.resolve_current(service_id)
+        configuration_schemas = {
+            'packages.' + binding: artifact.content.load(artifact.manifest.contract_refs.configuration).model_json_schema()
+            for binding, artifact in snapshot.packages.items()
+        }
+        if snapshot.definition.configuration_model:
+            configuration_schemas['instance'] = snapshot.content.load(snapshot.definition.configuration_model).model_json_schema()
         return ServiceSchema(service=service, **snapshot.schema, definition=snapshot.definition,
-                             definition_load_id=self._sources[snapshot.instance_id], configuration=snapshot.configuration)
+                             definition_load_id=self._sources[snapshot.instance_id], configuration=snapshot.configuration, configuration_schemas=configuration_schemas)
 
     def history(self, service_id):
         self.get(service_id)
