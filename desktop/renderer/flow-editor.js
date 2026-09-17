@@ -26,7 +26,7 @@ const flowEditor = (() => {
   }
   function sourceOptions(nodes) {
     const ports = [[{kind:'input', path:[]}, '服务输入', content.inputContract], ...nodes.map(n => [
-      {kind:'node', nodeId:n.nodeId, path:[]}, n.nodeId, resources.find(r => r.resourceId === n.artifactRef)?.outputContract])];
+      {kind:n.kind === 'carry' ? 'carry' : 'node', nodeId:n.nodeId, path:[]}, n.kind === 'carry' ? n.nodeId + ' 携带值' : n.nodeId, outputRef(n)])];
     return ports.flatMap(([source, title, ref]) => paths(schema(ref)).map(path => [JSON.stringify({...source, path}), title + (path.length ? '.' + path.join('.') : '（完整值）')]));
   }
   function bindings(target, values, contract, nodes) {
@@ -81,33 +81,85 @@ const flowEditor = (() => {
       $('global-strict').checked = content.budget.strictTokenLimit;
     }
     $('flow-nodes').replaceChildren();
-    content.flow.forEach((node, index) => {
-      const resource = resources.find(r => r.resourceId === node.artifactRef);
-      const card = el('fieldset'); card.dataset.nodeId = node.nodeId;
-      card.append(el('legend', `${index + 1}. ${resource?.name || '资源未加载'} · ${node.nodeId}`), el('p', resource?.description));
-      card.append(button('上移', () => move(index,-1)), button('下移', () => move(index,1)), button('删除节点', () => {
-        content.flow.splice(index,1); delete content.nodeConfigurations[node.nodeId]; changed(); render();
-      }));
-      const ports = el('div'); bindings(ports,node.inputs,resource?.inputContract,content.flow.slice(0,index)); card.append(ports);
-      const detail = el('details'); detail.append(el('summary','输入／输出契约'),el('pre',JSON.stringify(resource?.schemas,null,2)));card.append(detail);
-      if (node.kind === 'package') card.append(button('配置 ' + node.nodeId, () => configure(node, resource)),
-        el('p', content.nodeConfigurations[node.nodeId] ? '已配置，最终状态以拼图校验为准' : '无效：尚未配置参数、预算及环境'));
-      $('flow-nodes').append(card);
-    });
+    sequence($('flow-nodes'), content.flow, []);
     bindings($('flow-output-bindings'),content.output,content.outputContract,content.flow);
   }
-  function move(index, delta) {
-    const next = index + delta; if (next < 0 || next >= content.flow.length) return;
-    [content.flow[index],content.flow[next]] = [content.flow[next],content.flow[index]]; changed(); render();
+  function outputRef(node) {
+    return node.kind === 'if' ? node.outputContract : node.carry ? node.carry.contract : node.kind === 'carry' ? node.contract : resources.find(r=>r.resourceId===node.artifactRef)?.outputContract;
   }
-  function add(resource) {
-    let i = 1; while (content.flow.some(n => n.nodeId === 'node_' + i)) i++;
-    if (resource.kind === 'package') {
-      const defaults = resource.budgetDefaults;
-      if (!content.budget) content.budget = {...defaults, strictTokenLimit:true};
-      else { content.budget.loopLimit += defaults.loopLimit; content.budget.tokenLimit += defaults.tokenLimit; }
+  function allNodes(nodes = content.flow) {
+    return nodes.flatMap(n=>[n,...(n.kind === 'if' ? [...allNodes(n.thenBranch.nodes),...allNodes(n.elseBranch.nodes)] : n.body ? [...(n.condition?.nodeId ? [n.condition] : []),...allNodes(n.body)] : [])]);
+  }
+  function newId() { let i=1;const ids=new Set(allNodes().map(n=>n.nodeId));while(ids.has('node_'+i))i++;return 'node_'+i; }
+  function contractChoice(parent, label, value, update) {
+    const item=el('label',label);item.append(choices(contracts(),value,v=>{update(v);changed();render()}));parent.append(item);
+  }
+  function bindingSection(parent, label, values, contract, scope) {
+    const section=el('fieldset');section.append(el('legend',label));const body=el('div');body.dataset.bindingSection=label;
+    bindings(body,values,contract,scope);section.append(body);parent.append(section);
+  }
+  function sequence(parent, nodes, inherited) {
+    nodes.forEach((node,index)=>{
+      const scope=[...inherited,...nodes.slice(0,index)];
+      const resource=resources.find(r=>r.resourceId===node.artifactRef);
+      const card=el('fieldset');card.dataset.nodeId=node.nodeId;card.dataset.kind=node.kind;
+      card.append(el('legend',`${index+1}. ${resource?.name || node.kind} · ${node.nodeId}`));
+      for(const [title,delta] of [['上移',-1],['下移',1]]) card.append(button(title,()=>{
+        const next=index+delta;if(next<0||next>=nodes.length)return;
+        [nodes[index],nodes[next]]=[nodes[next],nodes[index]];changed();render();
+      }));
+      card.append(button('删除节点',()=>{
+        for(const child of allNodes([node]))delete content.nodeConfigurations[child.nodeId];
+        nodes.splice(index,1);if(!allNodes().some(n=>n.kind==='package'))delete content.budget;changed();render();
+      }));
+      if(node.kind==='block'||node.kind==='package') {
+        card.append(el('p',resource?.description));const ports=el('div');bindings(ports,node.inputs,resource?.inputContract,scope);card.append(ports);
+        const detail=el('details');detail.append(el('summary','输入／输出契约'),el('pre',JSON.stringify(resource?.schemas,null,2)));card.append(detail);
+        if(node.kind==='package')card.append(button('配置 '+node.nodeId,()=>configure(node,resource)),el('p',content.nodeConfigurations[node.nodeId]?'已配置，最终状态以拼图校验为准':'无效：尚未配置参数、预算及环境'));
+      } else if(node.kind==='if') {
+        const condition=el('label','条件块输出（严格 bool）');
+        condition.append(choices(sourceOptions(scope),JSON.stringify(node.condition),v=>{if(v){node.condition=JSON.parse(v);changed()}}));card.append(condition);
+        contractChoice(card,'分支共同出口契约',node.outputContract,v=>node.outputContract=v);
+        for(const [key,title] of [['thenBranch','成立分支'],['elseBranch','否则分支']]){
+          const branch=el('fieldset');branch.dataset.branch=key;branch.append(el('legend',title));
+          sequence(branch,node[key].nodes,scope);
+          bindingSection(branch,'分支出口',node[key].output,node.outputContract,[...scope,...node[key].nodes]);card.append(branch);
+        }
+      } else {
+        const key=node.kind==='repeat'?'count':'maxIterations';const label=el('label',node.kind==='repeat'?'固定次数（允许 0）':'最大次数（必须大于 0）');
+        const input=el('input');input.type='number';input.min=node.kind==='repeat'?'0':'1';input.step='1';input.value=node[key]??'';input.dataset.count=key;
+        input.onchange=()=>{if(input.value==='')delete node[key];else node[key]=Number(input.value);changed()};label.append(input);card.append(label);
+        contractChoice(card,'循环携带值契约',node.carry.contract,v=>node.carry.contract=v);
+        bindingSection(card,'循环初始值',node.carry.initial,node.carry.contract,scope);
+        const inner=[...scope,{kind:'carry',nodeId:node.nodeId,contract:node.carry.contract}];
+        if(node.kind==='while'){
+          const condition=el('label','前置条件块');condition.append(choices(resources.filter(r=>r.kind==='block').map(r=>[r.resourceId,r.name]),node.condition.artifactRef,v=>{node.condition.artifactRef=v;changed();render()}));card.append(condition);
+          bindingSection(card,'条件块输入',node.condition.inputs,resources.find(r=>r.resourceId===node.condition.artifactRef)?.inputContract,inner);
+        }
+        const body=el('fieldset');body.dataset.branch='body';body.append(el('legend','循环体'));sequence(body,node.body,inner);card.append(body);
+        bindingSection(card,'下轮携带值',node.carry.update,node.carry.contract,[...inner,...node.body]);
+      }
+      parent.append(card);
+    });
+    const toolbar=el('div');toolbar.className='insert-toolbar';
+    const select=choices([...resources.filter(r=>r.kind!=='contract').map(r=>[r.resourceId,r.name]),...['if','repeat','while'].map(k=>[k,k])],'',()=>{});
+    select.setAttribute('aria-label','插入模块或容器');toolbar.append(select,button('插入节点',()=>{if(select.value)add(resources.find(r=>r.resourceId===select.value)||{kind:select.value},nodes)}));parent.append(toolbar);
+  }
+  function add(resource,nodes=content.flow) {
+    const nodeId=newId(),kind=resource.kind;
+    if(kind==='package') {
+      const defaults=resource.budgetDefaults;
+      if(!content.budget)content.budget={...defaults,strictTokenLimit:true};
+      else {content.budget.loopLimit+=defaults.loopLimit;content.budget.tokenLimit+=defaults.tokenLimit;}
     }
-    content.flow.push({kind:resource.kind,nodeId:'node_' + i,artifactRef:resource.resourceId,inputs:[]});changed();render();
+    let node={kind,nodeId,artifactRef:resource.resourceId,inputs:[]};
+    if(kind==='if')node={kind,nodeId,condition:{kind:'input',path:[]},outputContract:'',thenBranch:{nodes:[],output:[]},elseBranch:{nodes:[],output:[]}};
+    if(kind==='repeat'||kind==='while') {
+      node={kind,nodeId,carry:{contract:'',initial:[],update:[]},body:[]};
+      if(kind==='repeat')node.count=0;
+      else {node.maxIterations=1;node.condition={kind:'block',nodeId:nodeId+'_condition',artifactRef:'',inputs:[]};}
+    }
+    nodes.push(node);changed();render();
   }
   for (const [id, key] of [['global-loop','loopLimit'],['global-token','tokenLimit'],['global-strict','strictTokenLimit']]) {
     $(id).onchange = () => { content.budget[key] = key === 'strictTokenLimit' ? $(id).checked : Number($(id).value); changed(); };

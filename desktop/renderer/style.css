@@ -39,3 +39,6 @@ dialog { width: min(700px, 85vw); max-height: 85vh; overflow: auto; border: 1px 
 dialog::backdrop { background: #18283888; }
 input[type="checkbox"] { width: auto; }
 #node-errors { color: #a02525; }
+#flow-nodes fieldset fieldset { margin: 12px; background: #fff; border-color: #d7bb87; }
+.insert-toolbar { display: flex; gap: 8px; padding: 12px 0; }
+.insert-toolbar select { max-width: 400px; }

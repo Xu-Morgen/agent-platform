@@ -1,0 +1,41 @@
+const {app}=require('electron'),assert=require('node:assert/strict');
+const {Backend}=require('../main/backend.cjs'),{openDesktop}=require('../main/desktop.cjs');
+const watchdog=setTimeout(()=>app.exit(1),30000);
+app.whenReady().then(async()=>{
+ const backend=new Backend(),window=await openDesktop(backend),run=s=>window.webContents.executeJavaScript(s);
+ const wait=e=>run(`new Promise((resolve,reject)=>{const end=Date.now()+6000;const check=()=>{if(${e})resolve();else if(Date.now()>end)reject(new Error('UI timeout'));else setTimeout(check,20)};check()})`);
+ try {
+  await wait("document.querySelector('#status').textContent.includes('后端已就绪')");
+  await run("location.hash='/services';document.querySelector('#load-path').value='examples/flows/blocks/condition.py';document.querySelector('#load-form').requestSubmit()");
+  await wait("document.querySelector('#load-result').textContent.startsWith('已加载')");await run('flowEditor.refresh()');
+  await run(`window.pick=(selector,text)=>{const s=document.querySelector(selector);s.value=[...s.options].find(o=>o.text===text).value;s.dispatchEvent(new Event('change'))};
+   window.insert=(parent,kind)=>{pick(parent+' > .insert-toolbar select',kind);document.querySelector(parent+' > .insert-toolbar button').click()};
+   window.wire=(parent,source)=>{document.querySelector(parent+' > button').click();if(source)pick(parent+' > .binding-row:last-of-type select[aria-label="来源端口"]',source)};
+   document.querySelector('#service-name').value='控制结构';document.querySelector('#service-name').dispatchEvent(new Event('input'));
+   pick('#flow-input','非空条件 · 输入');pick('#flow-output','非空条件 · 输入');
+   insert('#flow-nodes','非空条件');wire('[data-node-id="node_1"] > div');
+   insert('#flow-nodes','if');pick('[data-node-id="node_2"] > label:nth-of-type(1) select','node_1（完整值）');
+   pick('[data-node-id="node_2"] > label:nth-of-type(2) select','非空条件 · 输入');
+   wire('[data-node-id="node_2"] > [data-branch="thenBranch"] [data-binding-section="分支出口"]');
+   wire('[data-node-id="node_2"] > [data-branch="elseBranch"] [data-binding-section="分支出口"]');
+   insert('[data-node-id="node_2"] > [data-branch="thenBranch"]','repeat');
+   pick('[data-node-id="node_3"] > label:nth-of-type(2) select','非空条件 · 输入');
+   wire('[data-node-id="node_3"] [data-binding-section="循环初始值"]');
+   wire('[data-node-id="node_3"] [data-binding-section="下轮携带值"]','node_3 携带值（完整值）');
+   insert('#flow-nodes','while');
+   pick('[data-node-id="node_4"] > label:nth-of-type(2) select','非空条件 · 输入');
+   wire('[data-node-id="node_4"] [data-binding-section="循环初始值"]','node_2（完整值）');
+   pick('[data-node-id="node_4"] > label:nth-of-type(3) select','非空条件');
+   wire('[data-node-id="node_4"] [data-binding-section="条件块输入"]','node_4 携带值（完整值）');
+   wire('[data-node-id="node_4"] [data-binding-section="下轮携带值"]','node_4 携带值（完整值）');
+   wire('#flow-output-bindings','node_4（完整值）');`);
+  let result=await run('flowEditor.validate()');assert.equal(result.data.valid,true,JSON.stringify(result));
+  assert.equal(await run("document.querySelector('[data-node-id=node_3] [data-count]').value"),'0');
+  assert.equal(await run("[...document.querySelector('#flow-output-bindings select[aria-label=\"来源端口\"]').options].some(o=>o.text.startsWith('node_3'))"),false);
+  await run("document.querySelector('[data-count=maxIterations]').value='';document.querySelector('[data-count=maxIterations]').dispatchEvent(new Event('change'))");
+  result=await run('flowEditor.validate()');assert.equal(result.data.valid,false);assert.match(JSON.stringify(result.data.issues),/maxIterations/);
+  await run("document.querySelector('[data-count=maxIterations]').value=2;document.querySelector('[data-count=maxIterations]').dispatchEvent(new Event('change'));pick('[data-node-id=node_4] [data-binding-section=\"下轮携带值\"] select[aria-label=\"来源端口\"]','node_1（完整值）')");
+  result=await run('flowEditor.validate()');assert.equal(result.data.valid,false);assert.match(JSON.stringify(result.data.issues),/node_4/);
+  console.log('PASS I8-T03: real page branches, nested zero repeat, while/max bounds, carry type rejection and scoped source choices');
+ }finally{await backend.stop();window.destroy();clearTimeout(watchdog);app.quit()}
+}).catch(e=>{console.error(e);app.exit(1)});

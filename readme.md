@@ -8,7 +8,7 @@
 
 **I6、I7 已各完成 7/7 张。** 后端已支持单文件块、端口与逐节点配置预检，以及顺序／条件／循环拼图编译、累计预算、取消、完整实例保存、版本回退和任务调用。API 协议见 [拼图配置说明](examples/flows/README.md)，逐卡证据见 [I7 交接](docs/tasks/i7.md)。
 
-**桌面服务页、任务页和业务样例待 I8 迁移。** 当前服务保存 API 已切换为 `{name, flow}`，不再接收旧 `definitionLoadId/definition`；下方旧桌面保存流程、查重调用脚本及旧检查命令仅保留为历史记录，不能用于新版闭环验收。后端启动与环境配置入口仍可使用，新版可通过 API 或 I7 局部样例验证。I8-T01 顺序拼图页面已完成（模块库、契约选择、节点及端口编辑、草稿），真实 Electron 检查见 `desktop/checks/flow-editor.cjs`。I8 已完成 2/9 张，下一张任务为 I8-T03；新版 M1/M2 待 I8-T08/T09 验收，未进行真实模型验收。
+**桌面服务页、任务页和业务样例待 I8 迁移。** 当前服务保存 API 已切换为 `{name, flow}`，不再接收旧 `definitionLoadId/definition`；下方旧桌面保存流程、查重调用脚本及旧检查命令仅保留为历史记录，不能用于新版闭环验收。后端启动与环境配置入口仍可使用，新版可通过 API 或 I7 局部样例验证。I8-T01 顺序拼图页面已完成（模块库、契约选择、节点及端口编辑、草稿），真实 Electron 检查见 `desktop/checks/flow-editor.cjs`。I8 已完成 2/9 张，I8 已完成 3/9 张，下一张任务为 I8-T04；新版 M1/M2 待 I8-T08/T09 验收，未进行真实模型验收。
 
 I7 定向验证：`.venv/bin/python checks/flow_execution.py`、`checks/flow_branches.py`、`checks/flow_loops.py`、`checks/flow_control.py`、`checks/flow_snapshots.py`、`checks/flow_versions.py`、`checks/flow_runs.py`（后六项也使用 `.venv/bin/python` 执行）。仅使用确定性块、合成模型和本地 HTTP 协议替身，不安装依赖或构建。
 
