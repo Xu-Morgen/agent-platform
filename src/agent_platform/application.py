@@ -5,6 +5,7 @@ from .contracts.environments import Environment, EnvironmentWrite
 from .contracts.registry import LoadRequest, LoadResult
 from .registry.api import load_local
 from .contracts.services import ServiceWrite, ServiceView, ServiceSchema, VersionView, ActivateRequest
+from .contracts.runs import Run, RunSubmit
 from .contracts.health import HealthResponse
 from .contracts.errors import ErrorResponse, PlatformError
 from .http_errors import register_error_handlers
@@ -36,6 +37,15 @@ def create_app() -> FastAPI:
     app.state.blocks = BlockRegistry()
     app.state.definitions = DefinitionRegistry()
     app.state.services = ServiceManager(app.state.definitions, app.state.packages, app.state.blocks, app.state.environments)
+
+    from .repositories.runs import RunRepository
+    from .runtime.submission import RunSubmission
+    app.state.runs = RunRepository()
+    app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs)
+
+    @app.post('/api/v1/runs', response_model=Run, status_code=202)
+    async def submit_run(value: RunSubmit):
+        return app.state.submission.submit(value)
 
     @app.post('/api/v1/registry/load', response_model=LoadResult)
     async def registry_load(value: LoadRequest):

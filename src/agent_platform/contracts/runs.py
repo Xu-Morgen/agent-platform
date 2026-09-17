@@ -35,3 +35,9 @@ class Run(StrictModel):
     result: JsonValue = None
     error: ErrorResponse | None = None
     steps: list[StepRecord] = Field(default_factory=list)
+
+
+class RunSubmit(StrictModel):
+    service_id: str
+    input: JsonValue
+    expected_instance_id: str | None = None
