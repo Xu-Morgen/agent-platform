@@ -16,8 +16,11 @@ class RunSubmission:
     def __init__(self, services, environments, runs):
         self.services, self.environments, self.runs = services, environments, runs
         self.queue = Queue()
+        self.stopping = False
 
     def submit(self, request):
+        if self.stopping:
+            raise PlatformError(ErrorResponse(code='APPLICATION_EXIT', stage='runs.submit', message='应用正在退出'), 503)
         with self.environments.lock:
             service = self.services.get(request.service_id)
             if request.expected_instance_id and request.expected_instance_id != service.active_instance_id:

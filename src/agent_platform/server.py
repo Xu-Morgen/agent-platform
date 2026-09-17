@@ -30,11 +30,14 @@ async def serve(host: str, port: int, control_fd: int | None = None) -> None:
     loop = asyncio.get_running_loop()
     watching = False
     buffer = bytearray()
+    stopping_task = None
 
     def stop():
-        nonlocal watching
+        nonlocal watching, stopping_task
         server.config.app.state.ready = False
         server.should_exit = True
+        if stopping_task is None:
+            stopping_task = loop.create_task(server.config.app.state.worker.stop())
         if watching:
             loop.remove_reader(0)
             watching = False
@@ -74,6 +77,8 @@ async def serve(host: str, port: int, control_fd: int | None = None) -> None:
         )))
         raise
     finally:
+        if stopping_task is not None:
+            await stopping_task
         if watching:
             loop.remove_reader(0)
         listener.close()

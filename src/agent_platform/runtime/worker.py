@@ -16,15 +16,27 @@ class RunWorker:
         self.submission = submission
         self.boundary_factory = boundary_factory
         self.task = None
+        self.stop_lock = asyncio.Lock()
 
     def start(self):
         self.task = asyncio.create_task(self.consume(), name='run-worker')
 
     async def stop(self):
-        if self.task:
-            self.task.cancel()
-            await asyncio.gather(self.task, return_exceptions=True)
-            self.task = None
+        async with self.stop_lock:
+            self.submission.stopping = True
+            if self.task:
+                self.task.cancel()
+                await asyncio.gather(self.task, return_exceptions=True)
+                self.task = None
+            while not self.submission.queue.empty():
+                pending = self.submission.queue.get_nowait()
+                try:
+                    if self.submission.runs.get(pending.run_id).status not in TERMINAL:
+                        self.submission.runs.finish(pending.run_id, 'cancelled', error=ErrorResponse(
+                            code='APPLICATION_EXIT', stage='runtime', message='应用停止', run_id=pending.run_id))
+                    self.submission.environments.release(pending.run_id)
+                finally:
+                    self.submission.queue.task_done()
 
     async def consume(self):
         while True:
@@ -64,7 +76,8 @@ class RunWorker:
                 else:
                     runs.finish(run_id, 'completed', result=result.model_dump(mode='json', by_alias=True))
         except asyncio.CancelledError:
-            runs.finish(run_id, 'cancelled', error=ErrorResponse(code='APPLICATION_EXIT', stage='runtime', message='应用停止', run_id=run_id))
+            if runs.get(run_id).status not in TERMINAL:
+                runs.finish(run_id, 'cancelled', error=ErrorResponse(code='APPLICATION_EXIT', stage='runtime', message='应用停止', run_id=run_id))
             raise
         except Exception as exc:
             error = execution_error(exc, 'runtime', run_id)
