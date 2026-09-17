@@ -132,3 +132,53 @@ class StrictTokenPolicy:
         if usage.input_tokens > preflight.input_tokens or usage.output_tokens > output_limit:
             raise self.error('TOKEN_BUDGET_EXCEEDED', '供应商用量违反预留上界')
         return response
+
+
+class NonStrictTokenPolicy(StrictTokenPolicy):
+    def __call__(self, phase, step_id):
+        if phase == 'cleanup':
+            return
+        summaries = [(self.ledger.summary(), self.global_limit)]
+        summaries += [(self.ledger.summary(b), limit) for b, limit in self.local_limits.items()]
+        for usage, limit in summaries:
+            if usage['totalTokens'] is None:
+                raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '缺少可用模型计量或明确来源的估算')
+            if usage['totalTokens'] > limit:
+                raise self.error('TOKEN_BUDGET_EXCEEDED', '累计 token 用量超过限额')
+
+    async def invoke(self, binding_id, adapter, connection, request):
+        from uuid import uuid4
+        from ..contracts.models import ModelUsage
+        self('model_start', binding_id)
+        remaining = self.remaining(binding_id)
+        if remaining <= 0:
+            raise self.error('TOKEN_BUDGET_EXCEEDED', '没有后续模型调用额度')
+        preflight = await adapter.preflight(connection, request)
+        if preflight.quality != 'unsupported':
+            remaining -= preflight.input_tokens
+        if remaining <= 0:
+            raise self.error('TOKEN_BUDGET_EXCEEDED', '输入已耗尽剩余额度')
+        limited = request
+        if adapter.capabilities.output_limit:
+            limited = request.model_copy(update={'max_output_tokens': min(request.max_output_tokens, remaining)})
+        request_id = uuid4().hex
+        try:
+            response = await adapter.invoke(connection, limited)
+        except Exception as exc:
+            usage = getattr(exc, 'usage', None)
+            if usage is None:
+                usage = ModelUsage(quality='unsupported', source='model:failed_without_usage')
+            self.ledger.settle(request_id, binding_id, usage)
+            exc.usage = usage
+            raise
+        usage = response.usage
+        if usage.quality == 'unsupported' and hasattr(adapter, 'estimate_usage'):
+            usage = await adapter.estimate_usage(connection, limited, response)
+            if usage.quality != 'estimated':
+                raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '估算接口必须标明 estimated 及来源')
+            response = response.model_copy(update={'usage': usage})
+        self.ledger.settle(request_id, binding_id, usage)
+        if usage.quality == 'unsupported':
+            raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '模型无 usage 且无法估算')
+        # 超额在紧随响应的统一状态检查处失败，不发布成功结果。
+        return response
