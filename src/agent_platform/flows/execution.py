@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, ValidationError
 from langgraph.graph import START, END, StateGraph
 from langgraph.errors import GraphRecursionError
 from ..contracts.base import StrictModel
-from ..contracts.flows import FlowDraft, ModuleNode, ConstantValue, IfNode
+from ..contracts.flows import FlowDraft, ModuleNode, ConstantValue, IfNode, RepeatNode, WhileNode
 from ..contracts.errors import PlatformError, ErrorResponse
 from ..runtime.context import current_context
 from ..runtime.boundary import checkpoint
@@ -34,7 +34,8 @@ def checked(contract, value, stage):
 def resolve(source, state):
     if isinstance(source, ConstantValue):
         return deepcopy(source.value)
-    value = state.input if source.kind == 'input' else state.outputs[source.node_id]
+    value = (state.input if source.kind == 'input' else
+             state.carry[source.node_id] if source.kind == 'carry' else state.outputs[source.node_id])
     for key in source.path:
         value = value[key]
     return deepcopy(value)
@@ -56,6 +57,7 @@ def assemble(bindings, state):
 class FlowState(StrictModel):
     input: Any
     outputs: dict[str, Any] = Field(default_factory=dict)
+    carry: dict[str, Any] = Field(default_factory=dict)
     result: Any = None
 
 
@@ -139,7 +141,39 @@ def compile_flow(draft, catalog):
                 graph.add_edge(name + '_false', name + '_join')
                 previous = name + '_join'
             else:
-                raise PlatformError(ErrorResponse(code='CONFIGURATION_ERROR', stage='flow.compile', message='循环编译尚未接入'))
+                child = sequence(node.body)
+                condition_graph = sequence([node.condition]) if isinstance(node, WhileNode) else None
+                def loop_run(node, child, condition_graph):
+                    async def run(state):
+                        contract = catalog.contract(node.carry.contract)
+                        carried = checked(contract, assemble(node.carry.initial, state), 'nodes.' + node.node_id + '.input')
+                        iteration = 0
+                        while True:
+                            inner = state.model_copy(deep=True)
+                            inner.carry[node.node_id] = plain(carried)
+                            if isinstance(node, RepeatNode):
+                                if iteration >= node.count:
+                                    break
+                            else:
+                                condition_state = await condition_graph.ainvoke(inner.model_dump())
+                                decision = condition_state['outputs'][node.condition.node_id]
+                                if type(decision) is not bool:
+                                    raise PlatformError(ErrorResponse(code='OUTPUT_VALIDATION_ERROR', stage='flow.condition',
+                                        node_id=node.node_id, message='条件输出必须为严格 bool'))
+                                if not decision:
+                                    break
+                                if iteration >= node.max_iterations:
+                                    raise PlatformError(ErrorResponse(code='LOOP_ITERATION_LIMIT', stage='flow.loop',
+                                        node_id=node.node_id, message='达到最大次数后循环条件仍为 true'))
+                            updated = await child.ainvoke(inner.model_dump())
+                            carried = checked(contract, assemble(node.carry.update, FlowState.model_validate(updated)),
+                                'nodes.' + node.node_id + '.output')
+                            iteration += 1
+                        return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(carried)}}
+                    return run
+                graph.add_node(name, loop_run(node, child, condition_graph))
+                graph.add_edge(previous, name)
+                previous = name
         graph.add_edge(previous, END)
         return graph.compile(checkpointer=None)
 
