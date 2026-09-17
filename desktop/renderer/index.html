@@ -83,7 +83,13 @@
       <button id="flow-validate">校验拼图</button>
       <p id="service-result" role="status"></p>
       <ul id="flow-issues" role="alert"></ul>
-      <select id="service-select" hidden></select>
+      <button id="instance-save">校验并保存实例版本（立即生效）</button>
+      <label>稳定服务 <select id="service-select"><option value="">新建服务</option></select></label>
+      <button id="service-refresh">刷新服务和历史</button>
+      <p id="service-current"></p>
+      <h3>本次会话实例历史</h3><ul id="service-history"></ul>
+      <p id="history-result" role="status"></p>
+      <div id="history-view"></div>
     </section>
     <section data-page="tasks" aria-label="任务调用" hidden>
       <p>选择已保存的服务提交任务。任务和结果只在本次应用运行期间保留，刷新页面后可按 runId 查询。</p>

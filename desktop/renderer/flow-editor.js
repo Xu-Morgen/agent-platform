@@ -237,7 +237,7 @@ const flowEditor = (() => {
       if (resource.kind !== 'contract') item.append(button('插入 ' + resource.name, () => add(resource)));
       $('module-library').append(item);
     }
-    await refreshDrafts(); render();
+    await refreshDrafts(); await refreshSaved(); render();
   }
   async function refreshDrafts() {
     const result = await window.agentPlatform.listDrafts(); if (!result.ok) return;
@@ -245,6 +245,72 @@ const flowEditor = (() => {
     for (const doc of result.data) $('draft-select').add(new Option(doc.content.name || doc.draftId,doc.draftId));
     $('draft-select').value = draftId;
   }
+  let savedServices = [];
+  async function refreshSaved(selected = $('service-select').value) {
+    const result = await window.agentPlatform.listServices();
+    if (!result.ok) { $('service-result').textContent=result.error.message;return; }
+    savedServices=result.data;$('service-select').replaceChildren(new Option('新建服务',''));
+    for(const service of savedServices)$('service-select').add(new Option(service.name+' · '+service.current.version,service.serviceId));
+    $('service-select').value=selected;
+    const current=savedServices.find(s=>s.serviceId===selected);
+    $('service-current').textContent=current ? `${current.serviceId} · ${current.activeInstanceId} · 当前版本 ${current.current.version}` : '保存后生成稳定服务入口';
+    $('service-history').replaceChildren();
+    if(!current)return;
+    const history=await window.agentPlatform.serviceHistory(selected);
+    if(!history.ok){$('history-result').textContent=history.error.message;return;}
+    for(const version of history.data){
+      const row=el('li',`${version.version} · ${version.changeKind} · ${version.instanceId} `);
+      row.dataset.instanceId=version.instanceId;
+      row.append(button('查看只读拼图',()=>viewHistory(selected,version.instanceId)),button('复制为编辑草稿',async()=>{
+        const copied=await window.agentPlatform.copyServiceVersion(selected,version.instanceId);
+        if(!copied.ok){$('history-result').textContent=copied.error.message;return;}
+        draftId=copied.data.draftId;content={...empty(),...clone(copied.data.content)};
+        await refreshDrafts();changed();render();$('history-result').textContent='已复制为草稿 '+draftId;
+      }));
+      const activate=button(version.instanceId===current.activeInstanceId?'当前版本':'回退到此版本',async()=>{
+        const result=await window.agentPlatform.activateService(selected,version.instanceId);
+        if(!result.ok){$('history-result').textContent=result.error.message;return;}
+        await refreshSaved(selected);await refreshServices();$('history-result').textContent='已回退 '+version.version+' · '+version.instanceId;
+      });activate.disabled=version.instanceId===current.activeInstanceId;row.append(activate);$('service-history').append(row);
+    }
+  }
+  async function viewHistory(serviceId,instanceId){
+    const result=await window.agentPlatform.getServiceVersion(serviceId,instanceId);
+    if(!result.ok){$('history-result').textContent=result.error.message;return;}
+    const history=result.data, target=$('history-view');target.replaceChildren();
+    target.append(el('h4','只读实例 '+instanceId),el('p',`版本 ${history.version.version} · ${history.version.changeKind} · 编译器 ${history.compilerVersion}`));
+    function tree(nodes,parent){for(const node of nodes){
+      const item=el('fieldset');item.append(el('legend',node.nodeId+' · '+node.kind));
+      const own={...node};delete own.body;delete own.thenBranch;delete own.elseBranch;
+      item.append(el('pre',JSON.stringify({node:own,configuration:history.flow.nodeConfigurations[node.nodeId]},null,2)));
+      if(node.kind==='if')for(const key of ['thenBranch','elseBranch']){const branch=el('fieldset');branch.append(el('legend',key),el('pre',JSON.stringify(node[key].output,null,2)));tree(node[key].nodes,branch);item.append(branch);}
+      if(node.body)tree(node.body,item);parent.append(item);
+    }}
+    tree(history.flow.flow,target);
+    const detail=el('details');detail.append(el('summary','完整快照、契约、参数和预算'),el('pre',JSON.stringify(history,null,2)));target.append(detail);
+  }
+  $('service-refresh').onclick=()=>refreshSaved();
+  $('service-select').onchange=async()=>{
+    const id=$('service-select').value;
+    if(id){const result=await window.agentPlatform.serviceSchema(id);if(!result.ok){$('service-result').textContent=result.error.message;return;}
+      content=clone(result.data.flow);draftId='';changed();render();
+    }
+    await refreshSaved(id);
+  };
+  $('instance-save').onclick=async()=>{
+    const control=$('instance-save');control.disabled=true;
+    try{
+      const snapshot=clone(content), id=$('service-select').value;
+      const validation=await window.agentPlatform.validateFlow({content:snapshot});
+      if(!validation.ok){$('service-result').textContent=validation.error.message;return;}
+      issues(validation.data);if(!validation.data.valid)return;
+      const body={name:snapshot.name,flow:snapshot};
+      const result=id?await window.agentPlatform.saveServiceVersion(id,body):await window.agentPlatform.createService(body);
+      if(!result.ok){$('service-result').textContent=result.error.message+' · '+(result.error.fieldPath||[]).join('.');return;}
+      await refreshSaved(result.data.serviceId);await refreshServices();
+      $('service-result').textContent=`已保存版本 ${result.data.current.version}（${result.data.current.changeKind}），立即生效`;
+    }finally{control.disabled=false;}
+  };
   $('load-form').onsubmit = async event => {
     event.preventDefault(); const body = {kind:$('load-kind').value,path:$('load-path').value};
     if (body.kind === 'contract') body.symbol = $('load-symbol').value;
@@ -260,7 +326,7 @@ const flowEditor = (() => {
     if (!result.ok) { $('draft-result').textContent = result.error.message; return; }
     draftId = result.data.draftId; await refreshDrafts(); $('draft-result').textContent = '草稿已保存 ' + draftId;
   };
-  $('draft-new').onclick = () => { draftId = ''; content = empty(); $('draft-select').value = ''; changed();render(); };
+  $('draft-new').onclick = () => { $('service-select').value = ''; refreshSaved(''); draftId = ''; content = empty(); $('draft-select').value = ''; changed();render(); };
   $('draft-select').onchange = async () => {
     const id = $('draft-select').value; if (!id) return;
     const result = await window.agentPlatform.getDraft(id);
