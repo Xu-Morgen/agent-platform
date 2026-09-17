@@ -1,6 +1,86 @@
-# 业务包接入与查重操作
+# 通用块创建、业务包接入与查重操作
 
 从仓库根目录运行下列命令，使用已有 `.venv` 依赖。平台、包和实例都是受信任的本地 Python 源码，非沙箱；本例不需要安装新依赖。独立后端与桌面后端是不同会话，不共享内存。
+
+## 创建单文件通用功能块
+
+一个通用功能块最少只需要一个 `.py` 文件，在已有平台依赖的运行环境中加载。文件内包含输入输出契约、块声明和一个确定性业务函数，适合文本清洗、字段转换、计分或布尔判断。
+
+### 最小目录与代码
+
+例如自行创建以下文件（下面的 `my-blocks/trim_text.py` 是创建示例，仓库未预置）：
+
+```text
+samples/
+└── my-blocks/
+    └── trim_text.py
+```
+
+`trim_text.py` 的完整内容：
+
+```python
+from agent_platform.blocks import block
+from agent_platform.contracts.base import StrictModel
+
+
+# 1. 输入输出契约：严格检查字段类型，拒绝未知字段。
+class Input(StrictModel):
+    text: str
+
+
+class Output(StrictModel):
+    text: str
+
+
+# 2. 块声明：标识、版本、名称及用途。
+@block(
+    id="trim-text",
+    version="1.0.0",
+    name="去除首尾空白",
+    description="移除文本两端的空白字符",
+)
+# 3. 业务函数：明确接收 Input 并返回 Output。
+def run(value: Input) -> Output:
+    return Output(text=value.text.strip())
+```
+
+执行时的数据流：
+
+```text
+输入 JSON → 平台校验 Input → run() → 平台校验 Output → 后续节点或服务出口
+```
+
+输入 `{"text":"  你好  "}`，输出 `{"text":"你好"}`。这里允许输出空字符串；如业务要求非空，应在契约中明确声明并处理清洗后为空的情况。
+
+### 当前加载要求
+
+- 文件中恰好一个被 `@block` 注册的业务函数。函数只有一个无默认值的参数，参数和返回值都必须有类型注解。
+- `id` 以字母开头，后续可使用字母、数字、下划线和连字符；`version` 使用如 `1.0.0` 的版本号，`name` 必填，`description` 用于说明用途。
+- 对象契约继承 `StrictModel`，嵌套对象也遵循同样要求。简单输入输出可直接声明为 `str`、`int`、`bool` 等支持的 JSON 类型，不必创建模型类。
+- 自有契约和逻辑放在同一文件中，不相对导入旁边的源码。可使用 Python 标准库及平台已提供的依赖；其他第三方库需在装饰器的 `dependencies` 中声明版本范围，并提前安装到后端运行环境，加载器不会自动安装。
+- 加载时会导入文件并检查声明，不调用业务函数；不要在模块顶层执行实际业务操作。
+- 同一会话内，同一个 `id` 和 `version` 不接受不同文件内容；修改已加载块后，应更新版本号再加载。
+
+通用块不需要 `package.json`、`instance.json`、模型环境或模型预算。`flows/*.json` 用于描述多个节点组成的流程；查重样例中的 `generate_blocks.py` 用于生成独立分发块，普通块可以直接手写，无需生成器。
+
+### 在页面加载并调用
+
+1. 服务页“资源类型”选择“单文件通用块”，“本地路径”填写刚创建的 `.py` 文件路径，symbol 留空。例如当前工作区为 `/home/nemo/agent-platform/samples/my-blocks/trim_text.py`；项目位置不同则替换前缀。
+2. 点击“加载资源”，填写服务名称；输入契约选择“去除首尾空白 · 输入”，输出契约选择“去除首尾空白 · 输出”。
+3. 插入“去除首尾空白”节点，添加接线：目标选完整输入，来源选服务输入完整值。
+4. 在服务出口添加接线：目标选完整输入，来源选该节点的完整输出。
+5. 输入样例填写 `{"text":"  你好  "}`，点击“校验并保存实例版本”。未完成时也可先保存草稿。
+6. 到任务页选择刚保存的服务，填入样例并提交，结果应为 `{"text":"你好"}`。
+
+无需创建文件即可尝试的现成样例：
+
+| 块 | 相对项目根目录的加载路径 | 输入与输出 |
+| --- | --- | --- |
+| [文本透传](template/blocks/text.py) | `samples/template/blocks/text.py` | `{"text":"你好"}` → `{"text":"你好"}` |
+| [字段转换](../examples/flows/blocks/rename.py) | `examples/flows/blocks/rename.py` | `{"legacyText":"你好"}` → `{"text":"你好"}` |
+| [非空判断](../examples/flows/blocks/condition.py) | `examples/flows/blocks/condition.py` | `{"text":"你好"}` → `true` |
+
+本地路径由后端读取，建议填写绝对路径；相对路径按后端工作目录解析。业务包则选择“业务包目录”并填写包含 `package.json` 的文件夹，如 `samples/template/packages/example`。
 
 ## 无真实模型的接入演示
 
