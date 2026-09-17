@@ -41,7 +41,7 @@ async def case(mode='success'):
                     async def entry(value, context):
                         result = await original.content.load(ref)(value, context)
                         later_calls.append('second')
-                        return await context.invoke_package('model', result)
+                        return await context.invoke_package('assistant', result)
                     return entry
                 return original.content.load(ref)
         app.state.submission.queue.put_nowait(replace(pending, snapshot=replace(original, content=TwoCalls())))

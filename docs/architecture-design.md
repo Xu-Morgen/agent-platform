@@ -2,7 +2,7 @@
 
 - 版本：0.2
 - 日期：2026-09-16
-- 状态：设计基线；I1 工程与协议基础、I2 配置与版本管理、I3 任务与能力执行已实现，逐卡证据见 tasks/i1.md、tasks/i2.md 与 tasks/i3.md；预算/取消及业务产品仍为目标设计
+- 状态：设计基线；I1 工程与协议基础、I2 配置与版本管理、I3 任务与能力执行已实现，逐卡证据见 tasks/i1.md、tasks/i2.md 与 tasks/i3.md；I4 预算/取消与平台闭环已实现（见 tasks/i4.md），I5 业务产品仍为目标设计
 - 需求依据：[产品需求 v0.4](product-requirements.md)
 - 实施计划：[迭代开发文档](iteration-plan.md)
 
@@ -265,7 +265,7 @@ stateDiagram-v2
 
 ## 10. API 与错误契约
 
-统一 `/api/v1` 前缀；服务、环境和加载接口已由 I2 实现，runs 提交与查询由 I3 实现，cancel 接口仍待 I4。JSON 字段使用 camelCase，内部 Python 字段可用 snake_case 并从契约统一导出别名。
+统一 `/api/v1` 前缀；服务、环境和加载接口已由 I2 实现，runs 提交与查询由 I3 实现，cancel 接口及预算策略由 I4 实现。JSON 字段使用 camelCase，内部 Python 字段可用 snake_case 并从契约统一导出别名。
 
 | 方法与路径 | 语义 |
 | --- | --- |
