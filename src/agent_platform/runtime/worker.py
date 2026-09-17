@@ -3,7 +3,7 @@ import asyncio
 from ..adapters.api import APIAdapter
 from ..adapters.ollama import OllamaAdapter
 from .boundary import Boundary, current_boundary
-from .cancellation import CancellationPolicy
+from .cancellation import CancellationPolicy, terminal_for_error
 from .budgets import LoopPolicy, StrictTokenPolicy, NonStrictTokenPolicy
 from .context import RunContext, current_context, execution_error
 from .validation import validate
@@ -68,7 +68,7 @@ class RunWorker:
             raise
         except Exception as exc:
             error = execution_error(exc, 'runtime', run_id)
-            runs.finish(run_id, 'cancelled' if error.code == 'RUN_CANCELLED' else 'failed', error=error)
+            runs.finish(run_id, terminal_for_error(error), error=error)
         finally:
             try:
                 await boundary.check('cleanup', run_id)

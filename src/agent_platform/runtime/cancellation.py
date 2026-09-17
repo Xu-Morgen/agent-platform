@@ -29,3 +29,10 @@ class CancellationPolicy:
         if run.status == 'running' and run.cancel_requested:
             raise PlatformError(ErrorResponse(code='RUN_CANCELLED', stage='runs.cancel',
                                              message='任务已取消', run_id=self.run_id))
+
+
+def terminal_for_error(error):
+    """取消标记不覆盖执行错误；仅边界确认的正常取消进入 cancelled。"""
+    if error.code in ('MODEL_TIMEOUT', 'MODEL_TRANSPORT_ERROR', 'API_TIMEOUT', 'API_TRANSPORT_ERROR'):
+        return 'failed'
+    return 'cancelled' if error.code == 'RUN_CANCELLED' else 'failed'
