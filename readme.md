@@ -2,6 +2,90 @@
 
 面向业务系统的桌面 Agent 服务平台。服务中心组合一个或多个业务包与一个或多个配置，由实例组织完整业务入口和流程，通过稳定服务入口提供调用。
 
+## 快速启动
+
+以下命令在项目根目录 `/home/nemo/agent-platform` 执行。当前工作区已有 Python `.venv` 和桌面依赖，无需重新安装。
+
+### 方式一：启动桌面应用
+
+```bash
+cd /home/nemo/agent-platform
+env -u ELECTRON_RUN_AS_NODE npm --prefix desktop start
+```
+
+需要可用的图形桌面会话（Linux/WSL 需 X11 或 WSLg）。Electron 会自动启动 Python 后端并分配端口，**无需另外启动后端**。窗口显示“后端已就绪”及实际地址后，就可以配置环境和服务。关闭窗口会停止后端和本地模型传输。
+
+### 方式二：只启动后端 API
+
+```bash
+cd /home/nemo/agent-platform
+.venv/bin/python -m agent_platform --host 127.0.0.1 --port 8000
+```
+
+- 健康检查：浏览器打开 `http://127.0.0.1:8000/api/v1/health`，应返回 `{"status":"ready"}`。
+- API 调试页面：`http://127.0.0.1:8000/docs`。
+- 此方式不打开桌面窗口，适用于 HTTP 调用和下方命令行样例；终端按 Ctrl+C 停止。
+- 如果 8000 被占用，可改为 `--port 8001`，调用脚本同时设置 `--platform-url http://127.0.0.1:8001`。
+
+两种启动方式任选其一；分别启动会产生独立会话。环境、凭据、服务版本、任务及报告目前仅存内存，退出后清空，重启须重新配置。新克隆且没有依赖的环境，先准备 Python 3.12+、uv、Node.js/npm，再自行执行 `uv sync --frozen` 和 `npm --prefix desktop ci`；不需要 PostgreSQL 或本地 Ollama。
+
+## 配置远程模型 API（OpenAI 兼容格式）
+
+支持远程 Chat Completions，不要求在本机部署模型。准备服务商的 **API Base URL、模型名和 API Key**。这是 Chat Completions 接口，当前不使用 Responses API。
+
+### 桌面配置
+
+启动桌面后，在“环境配置”中填写名称，将连接 JSON 改为：
+
+```json
+[
+  {
+    "connectionId": "model",
+    "kind": "model",
+    "modelAdapter": "openai-chat",
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "填写实际可用的模型名",
+    "outputTokenParameter": "max_completion_tokens",
+    "jsonMode": true,
+    "timeoutSeconds": 180
+  }
+]
+```
+
+使用其他兼容服务时，替换 baseUrl 和 model。baseUrl 是包含版本前缀的根路径，通常以 `/v1` 结尾；**不要填写完整的 `/chat/completions` 地址**，平台会追加该路径。API Key 填在独立的凭据密码框，凭据连接标识填 `model`，然后保存环境；无需把 Key 写入 JSON 或源码。
+
+默认发送 `max_completion_tokens` 和 JSON 模式。如果服务商只支持 `max_tokens`，修改 `outputTokenParameter`；如果不支持 `response_format`，设 `jsonMode: false`。关闭 JSON 模式后仍要求模型返回有效 JSON，平台不会修复或自动重试错误结果。参数语义见 [OpenAI 官方 Chat Completions 文档](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)。
+
+配置好环境后，按 [业务接入步骤](samples/README.md#api-和桌面等价步骤) 加载语义包、配置实例、保存服务并提交输入。当前两种适配器均没有完整输入 token 上界预检，实例预算须明确设置 `strictTokenLimit: false`；否则会在请求前返回 `TOKEN_ACCOUNTING_UNSUPPORTED`。非严格模式仍记录并检查实际用量。
+
+### 命令行跑通查重
+
+先按“方式二”启动后端，在另一个终端进入项目根目录。下面的 Bash 命令从隐藏输入读取 Key，不写入命令历史：
+
+```bash
+read -rsp 'API Key: ' MODEL_API_KEY
+export MODEL_API_KEY
+printf '\n'
+
+.venv/bin/python samples/invoke_similarity.py \
+  --platform-url http://127.0.0.1:8000 \
+  --adapter openai-chat \
+  --model-url https://api.openai.com/v1 \
+  --model YOUR_MODEL_NAME \
+  --credential-env MODEL_API_KEY \
+  --non-strict \
+  --input samples/assignment-similarity/examples/input.json \
+  --output /tmp/similarity-report.json
+
+unset MODEL_API_KEY
+```
+
+替换模型名和服务商地址后运行。脚本自动创建环境、加载包与实例、保存服务、提交输入、轮询并导出结果；后端与脚本必须共享本地文件系统。第三方兼容服务可追加 `--output-token-parameter max_tokens` 或 `--no-json-mode`。`unset` 只清除当前终端变量，平台内存中的凭据在后端退出时清空。
+
+约 1500 字的 1 对 6 验收使用 `--input samples/assignment-similarity/examples/acceptance-1v6.json`。真实 API 调用可能产生服务商费用；成功结果包含 quantitative、qualitative、实际适配器、模式及 usage。没有 Key 时可先运行 `.venv/bin/python checks/similarity_onboarding.py` 验证本地协议替身链路，该结果不算真实模型验收。
+
+若仍需 Ollama，显式使用 `--adapter ollama-chat --model-url http://127.0.0.1:11434 --model 已安装的模型名 --non-strict`。旧环境未填写 modelAdapter 时保持 Ollama 行为；新桌面配置和查重脚本默认引导使用 OpenAI 兼容 API。
+
 ## 项目状态
 
 **I1 工程与协议基础已完成（13/13）**：Python 后端、Electron 桌面入口、严格契约、统一错误、健康请求 IPC、父子进程启动/退出、包与实例声明、内存内容快照及最小 LangGraph 顺序执行器。各卡真实验证记录见 [I1 交接](docs/tasks/i1.md)。
@@ -14,7 +98,7 @@
 
 **I4 预算与终止行为已完成（12/12）**：局部/全局 loop 和 token 账本、严格与非严格策略、预算表单、排队/运行取消、错误优先级、取消按钮及在途退出清理。M1 合成平台闭环通过，见 [演示记录](docs/delivery/i4-platform.md) 和 [I4 交接](docs/tasks/i4.md)。
 
-验收使用合成数据、本地 HTTP 模型协议替身及真实 Electron 页面，尚未验收真实模型。Ollama 不声明严格总 token 保证，严格模式在发送前报错；使用该适配器需明确选择非严格模式，详见 [模型协议能力](docs/protocols/model.md)。I5 已实现查重契约、清洗计分、语义包、完整图、标准模板与接入说明，I5-T08 因缺少可用模型环境阻塞，M2 未完成，见 [I5 交付记录](docs/delivery/i5-similarity.md)；PostgreSQL 仅为后续选型，当前未启用持久化。
+验收使用合成数据、本地 HTTP 模型协议替身及真实 Electron 页面，尚未验收真实模型。OpenAI 兼容 API 与 Ollama 均不声明严格总 token 保证，严格模式在发送前报错；使用时需明确选择非严格模式，详见 [模型协议能力](docs/protocols/model.md)。I5 已实现查重契约、清洗计分、语义包、完整图、标准模板与接入说明，I5-T08 因缺少可用模型环境阻塞，M2 未完成，见 [I5 交付记录](docs/delivery/i5-similarity.md)；PostgreSQL 仅为后续选型，当前未启用持久化。
 
 - [产品需求文档](docs/product-requirements.md)：已确认范围、行为与验收标准。
 - [架构设计文档](docs/architecture-design.md)：运行结构、包与实例协议、版本快照、任务状态机及预算。
@@ -25,24 +109,11 @@
 
 见 [samples 操作说明](samples/README.md)。无需真实模型可执行 `.venv/bin/python checks/similarity_onboarding.py`，从干净后端进程验证加载、配置、双报告与退出。该命令使用本地 HTTP 协议替身，不代替 M2 真实验收。用户 artifact 可通过 `.venv/bin/python checks/similarity_scoring.py --artifact-dir artifact` 在本地测验。
 
-## 本地运行
+## 运行补充
 
-已安装本项目依赖的工作区，在根目录运行：
+桌面和独立后端的启动命令见前文 [快速启动](#快速启动)。桌面刷新页面不重启后端，父进程意外消失时通过控制管道 EOF 清理子进程。`AGENT_PLATFORM_PYTHON` 可指定其他兼容解释器，默认使用项目 `.venv/bin/python`。
 
-```bash
-# 单独启动后端，默认仅监听本机；不与桌面共享进程
-.venv/bin/python -m agent_platform --port 8000
-
-# 启动桌面，由主进程创建唯一后端并选择空闲端口
-# 清除 IDE 可能注入的 Electron Node 模式
-env -u ELECTRON_RUN_AS_NODE npm --prefix desktop start
-```
-
-桌面显示实际地址，健康检查成功后启用“检查健康状态”按钮。页面刷新不重启后端，关闭最后一个窗口会关闭后端；父进程意外消失也触发控制管道 EOF 清理。`AGENT_PLATFORM_PYTHON` 可指定其他兼容解释器；默认使用项目 `.venv/bin/python`。独立后端支持 `--host` 配置 IPv4 监听地址。
-
-健康接口：`GET http://127.0.0.1:8000/api/v1/health`，响应 `{"status":"ready"}`。控制管道规范及三类消息见 [控制协议](examples/control/README.md)。
-
-新工作区需先按协作约定取得安装授权，再用 `uv sync --frozen` 和 `npm --prefix desktop ci` 安装锁定依赖。当前未提供跨平台安装包或构建发布产物。
+当前在 Linux 源码环境验证，尚无跨平台安装包或构建发布产物。父子进程控制协议见 [控制协议](examples/control/README.md)。
 
 ### WSL 中文显示为方框
 

@@ -3,7 +3,7 @@
 - 日期：2026-09-17。
 - 状态：I5-T01～T07 已完成；I5-T08 阻塞，M2 未完成。
 - 已交付：严格契约、固定文本清洗、确定性段落计分、单次语义包、完整 LangGraph、可复制模板和接入操作。
-- 已完成的模型链路检查使用实际 Ollama 适配器连接本地 HTTP 协议替身，不是真实模型报告。平台源码无需改动。
+- 已完成的模型链路检查使用实际 Ollama 适配器连接本地 HTTP 协议替身，不是真实模型报告。初始 I5 实现未修改平台源码；后续按用户要求新增 OpenAI 兼容远程适配器，见下方补充记录。
 
 ## 已执行的定向验证
 
@@ -32,7 +32,7 @@
 
 实际环境检查：`curl -sS --max-time 3 http://127.0.0.1:11434/api/tags` 返回连接失败（退出码 7）；本机没有 `ollama` 命令，未发现模型地址/模型名相关环境变量，也未获得其他模型地址和名称。未安装服务、未下载模型、未发起猜测性的远程调用。
 
-需要一个可用的 Ollama Chat 地址及已部署模型名；若有认证，还需本机凭据环境变量。当前适配器不保证严格总 token 上界，因此真实验收需显式 `--non-strict` 并记录 usage 的实际 quality/source，不可宣称严格模式已验收。
+优先使用 OpenAI 兼容远程 Chat Completions 地址及模型名，另需相应凭据环境变量；无需本机安装 Ollama。也保留已有 Ollama 接入。当前适配器不保证严格总 token 上界，因此真实验收需显式 `--non-strict` 并记录 usage 的实际 quality/source，不可宣称严格模式已验收。
 
 已准备 [合成 1 对 6 输入](../../samples/assignment-similarity/examples/acceptance-1v6.json)，每篇不含换行的 Unicode 码点数为 1559、1559、1559、1561、1569、1578、1559。内容是虚构校园共享阅读项目及其变体，不包含学生身份。确定性分值依次为 1、0.7485567671584349、0.24246311738293777、0.1629249518922386、0.5060936497754971、0。变体用于结构和计分检查，不预设模型应作出的语义判断。
 
@@ -40,8 +40,10 @@
 
 ```bash
 .venv/bin/python samples/invoke_similarity.py \
-  --model-url ACTUAL_OLLAMA_URL \
+  --adapter openai-chat \
+  --model-url ACTUAL_API_BASE_URL \
   --model ACTUAL_MODEL_NAME \
+  --credential-env MODEL_API_KEY \
   --non-strict \
   --input samples/assignment-similarity/examples/acceptance-1v6.json \
   --output /tmp/i5-real-report.json
@@ -50,3 +52,7 @@
 需要认证时补充 `--credential-env 环境变量名`。该命令通过平台 HTTP→固定快照→LangGraph→语义包→实际适配器执行。只有返回 completed、同时包含两类报告且全局/局部各一轮，才能保存审阅脱敏后的报告、实际模式和用量证据，再将 T08 及 M2 标记完成。失败时保留错误，不自动重试或代填定性结果。
 
 当前没有真实模型双报告和用量记录，不能用替身的 token=48 替代。待真实验收后更新本节、任务卡、迭代索引和项目状态。
+
+## 远程 API 接入补充
+
+用户明确要求支持 OpenAI 格式远程 API 后，已实现 openai-chat 适配器、环境协议选择、输出参数与 JSON 模式配置，并更新 CLI 和桌面默认环境示例。`.venv/bin/python checks/openai_chat.py` 验证认证、协议参数、计量、错误及完整查重图；`checks/model_package.py` 验证旧 Ollama 路径仍通过；`checks/similarity_onboarding.py` 从干净后端进程分别验证两种协议，均为本地替身。启动与远程 API 配置见 [README](../../readme.md#快速启动)。T08 仍待实际供应商调用及报告证据。
