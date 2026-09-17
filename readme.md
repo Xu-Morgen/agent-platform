@@ -2,6 +2,12 @@
 
 面向业务系统的桌面 Agent 服务平台。服务中心组合一个或多个业务包与一个或多个配置，由实例组织完整业务入口和流程，通过稳定服务入口提供调用。
 
+## 新需求与当前实现状态
+
+2026-09-17 已更新为[服务拼图需求 v0.5](docs/product-requirements.md)：服务配置页拼装通用块和业务包，逐节点配置后生成完整实例供任务调用；支持类型约束端口、条件与循环，并允许无需模型环境及预算的纯通用块实例。新设计见[架构 v0.3](docs/architecture-design.md)。
+
+**上述新能力尚未实现。** 下文启动、操作及 I1—I5 记录描述现有旧方案，不代表新版配置体验已交付。新版开发按 [I6—I8 共 23 张任务](docs/iteration-plan.md)推进，下一张为 I6-T01。旧 M1 演示仅作历史证据；新版 M1/M2 均待验收，旧 I5-T08 真实模型验收目标由 I8-T09 承接。旧脚本入口不要求兼容，新示例将迁移至拼图。
+
 ## 快速启动
 
 以下命令在项目根目录 `/home/nemo/agent-platform` 执行。当前工作区已有 Python `.venv` 和桌面依赖，无需重新安装。
@@ -167,7 +173,7 @@ unset MODEL_API_KEY
 
 定向验证：`.venv/bin/python checks/registry_api.py` 验证加载与保存，`.venv/bin/python checks/activation.py` 验证回退边界；真实页面检查使用 `env -u ELECTRON_RUN_AS_NODE desktop/node_modules/.bin/electron desktop/checks/environments.cjs` 与 `desktop/checks/services.cjs`（后者也需以 Electron 启动）。其余单卡命令见 I2 交接。
 
-## 核心概念
+## 当前代码的旧版概念（待迁移）
 
 | 概念 | 定义 |
 | --- | --- |
@@ -186,7 +192,7 @@ unset MODEL_API_KEY
 
 当前平台已提供配置、契约校验、模型及通用块调用、任务状态和运行记录；实例组织业务流程，包不承担完整业务编排。平台核心不包含查重业务分支。
 
-## 首期交付边界
+## 现有交付与保留规则（新版范围见需求）
 
 - 平台：桌面服务／环境配置页、受信任本地包加载、Python 通用块、版本历史与回退、异步任务和报告查询。
 - 业务产品：标准包模板与实例模板、最小查重实例及语义分析包，位于 `samples/`；完成约 1500 字文本的 1 对 6 比较。

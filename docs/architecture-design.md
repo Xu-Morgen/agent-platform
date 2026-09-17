@@ -1,14 +1,14 @@
 # Agent Platform 架构设计
 
-- 版本：0.2
-- 日期：2026-09-16
-- 状态：设计基线；I1 工程与协议基础、I2 配置与版本管理、I3 任务与能力执行已实现，逐卡证据见 tasks/i1.md、tasks/i2.md 与 tasks/i3.md；I4 预算/取消与平台闭环已实现（见 tasks/i4.md），I5-T01～T07 已实现，T08 真实模型验收因环境缺失阻塞（见 delivery/i5-similarity.md）
-- 需求依据：[产品需求 v0.4](product-requirements.md)
+- 版本：0.3
+- 日期：2026-09-17
+- 状态：服务拼图新设计，尚未实现；I1—I5 保留旧基线交接记录，新版实现与验收见 I6—I8
+- 需求依据：[产品需求 v0.5](product-requirements.md)
 - 实施计划：[迭代开发文档](iteration-plan.md)
 
 ## 1. 设计目标与选择
 
-首期交付桌面服务中心、标准模板和最小查重示例产品。服务中心组合一个或多个业务包及一个或多个配置，由实例拥有完整业务入口与流程，通过稳定 HTTP 入口接受调用。
+首期交付桌面服务中心、标准模板和最小查重示例产品。服务配置页组合通用块、业务包与控制结构，配置并校验后生成完整实例；任务调用页通过稳定 HTTP 入口执行当前实例。
 
 已确认的产品规则：
 
@@ -30,8 +30,8 @@
 | 桌面界面 | Electron + HTML/CSS/JavaScript | 快速实现服务中心、环境配置、历史版本与任务详情；首期使用简单页面和表单 |
 | 平台与包运行时 | Python | 承载 FastAPI、LangGraph、业务包与通用流程块 |
 | HTTP API | FastAPI + Uvicorn，单进程内单服务循环 | 稳定调用入口、配置管理和任务查询 |
-| 契约 | Pydantic 模型，严格校验，禁止未知字段 | 从模型导出 JSON Schema，复用为运行时校验来源 |
-| 流程编排 | LangGraph StateGraph | 实例拥有图定义，平台包装节点校验、预算检查和取消边界 |
+| 契约 | Pydantic 模型及严格标量适配，禁止未知字段 | 从模型导出 JSON Schema，复用为运行时校验来源 |
+| 流程编排 | LangGraph StateGraph | 平台把已校验的服务拼图编译为实例图，包装节点校验、预算检查和取消边界 |
 | 调度 | asyncio 队列和任务注册表 | 调度 LangGraph 执行，维护任务终态和退出清理 |
 | 首期存储 | 内存仓储与不可变内容快照 | 实例、环境、任务及报告同次运行内可用 |
 | 数据库 | PostgreSQL | 后续版本实现持久化和历史恢复；首期不要求数据库运行 |
@@ -85,20 +85,23 @@ flowchart TB
 | --- | --- | --- |
 | desktop | Electron 页面、preload/IPC、后端进程管理和退出事件 | 业务执行、直接读写仓储或数据库 |
 | application | 保存配置、激活版本、提交／取消任务的原子操作 | 查重业务规则 |
-| registry | 加载本地包、通用块及实例定义，校验依赖 | 自动下载安装包 |
+| registry | 加载本地包、单文件通用块及契约资源，提供模块目录，校验代码依赖 | 自动下载安装包 |
 | contracts | 严格模型、Schema 导出、字段错误归一化 | 静默填补模型输出 |
 | versions | 内容快照、版本分类、当前实例指针 | 历史数据库持久化 |
 | runtime | 任务状态、LangGraph 节点包装、流程上下文、包调用入口、预算 | 自主生成或自动修改业务流程 |
 | adapters | 模型、API、传输中止、用量计量 | 业务最终判定 |
 | repositories | 内存仓储与后续 PostgreSQL 适配接口 | 首期启用持久化或自动恢复任务 |
-| samples | 包、实例脚本与流程、业务契约及样例 | 平台核心特定业务分支 |
+| samples | 包、单文件业务块、拼图样例、业务契约及样例 | 平台核心特定业务分支 |
 
 ## 4. 核心模型与标识
 
 | 模型 | 关键字段 | 约束 |
 | --- | --- | --- |
 | Service | serviceId、name、activeInstanceId | serviceId 是同次运行内的稳定调用标识 |
-| InstanceSnapshot | instanceId、serviceId、revision、changeKind、entry、workflow、packageRefs、configRefs、environmentRefs、contractRefs、contentDigest | 入口、流程、包和配置不可变；至少一个包和一个配置 |
+| FlowDraft | draftId、name、inputContract、outputContract、flow、nodeConfigurations、examples | 内存草稿可不完整，不进入实例历史或任务调用 |
+| InstanceSnapshot | instanceId、serviceId、revision、changeKind、flow、compilerVersion、packageRefs、blockRefs、nodeConfigurations、environmentRefs、contractRefs、contentDigest | 只保存校验通过的完整流程；内容、契约和配置不可变 |
+| BlockArtifact | blockId、version、digest、source、entry、inputContract、outputContract | 单文件单业务函数，完整源码字节快照 |
+| FlowNode | nodeId、kind、artifactRef、inputs、configuration | 同包多次放置拥有不同 nodeId；端口引用可追踪 |
 | PackageArtifact | packageId、version、digest、files、entry、contractRefs、runtimeRequirements | 内容保存在内存，不能只指向可变源文件 |
 | ConfigurationSnapshot | configId、revision、scope、values | 按作用域绑定包或实例，不依赖不明确的平铺覆盖顺序 |
 | Environment | environmentId、revision、connections、credentialRefs、activeRunIds | revision 用于运行记录，不计入实例版本 |
@@ -111,9 +114,9 @@ flowchart TB
 
 版本设计采用递增 `revision` 作为唯一修订顺序，另以 `major.minor` 展示：
 
-- 首版 `1.0`；包集合或内容、入口脚本、流程、服务契约变更：major 加一、minor 清零。
+- 首版 `1.0`；包／块集合或内容、流程拓扑、端口连线、控制结构、服务契约变更：major 加一、minor 清零。
 - 仅服务配置变更：minor 加一。
-- 包与配置同时变更：major 加一，`changeKind=breaking`。
+- 包／块内容或流程结构与节点配置同时变更：major 加一，`changeKind=breaking`。
 - 环境更新：仅 Environment.revision 变化；实例版本不变。
 - 回退：指向原 instanceId 和版本，不生成假新版本。回退后再编辑，从该服务已分配的版本序列继续递增，不重用版本号。
 
@@ -132,25 +135,19 @@ async def invoke(input: PackageInput, config: PackageConfig,
 
 PackageContext 提供 `call_model`、`call_capability`、`record_progress`，不开放直接修改任务状态和最终结果的能力。实例统一通过平台 `invoke_package(binding_id, input)` 调用包，计数与校验不能由包自行绕过。复杂多模型业务拆成多个包调用；首期包内部不隐藏无限循环或自动重试。
 
-### 5.2 实例定义
+### 5.2 服务拼图生成实例
 
-实例声明服务输入输出模型、入口脚本、流程、包绑定表、配置列表、环境引用和预算策略。首期流程是受信任 Python 脚本声明的 LangGraph StateGraph；节点表示业务步骤，边表示顺序或条件分支。图定义、节点脚本及配置归实例快照，不实现通用画布、动态 DSL 编译器或任意映射表达式编辑器。
+配置者从已加载模块目录放置节点，不预先加载完整实例或编写入口脚本。FlowDraft 记录输入／期望输出、流程结构、端口引用及各包节点配置。草稿可以不完整；后端提供校验结果，只有完成校验并成功保存才创建 InstanceSnapshot 并切换稳定服务入口。
 
-实例上下文提供：
+保存链路为：草稿 → 结构与契约检查 → 模块及环境检查 → 编译执行图 → 固定完整内容 → 原子保存版本。服务实例用于任务调用，不能将未完成草稿作为实例执行。旧 instance.json、entry.py、workflow.py 不要求兼容；旧样例迁移到新流程结构，历史任务文档保留原证据。
 
-| 方法 | 语义 |
-| --- | --- |
-| invoke_package(binding_id, input) | 检查状态和预算、登记 loop、调用包、校验输出 |
-| call_block(binding_id, input) | 调用注册 Python 通用块并校验输入输出 |
-| call_api(binding_id, input) | 通过绑定访问 API、校验响应及明确返回上游错误 |
-| run_step(step_id, operation) | 将确定性业务步骤纳入状态检查与记录 |
-| record_progress(step_id, message) | 记录必要进度，默认不写入完整业务文本 |
+包节点经平台 invoke_package(nodeId, input) 执行，通用块经独立 invoke_block(nodeId, input) 执行；通用块不再强制附属于某个包绑定。内部已有能力调用接口可复用，但不得以旧绑定结构限制新流程。业务包仍通过 PackageContext 使用已声明能力。
 
-实例入口返回最终对象，平台统一校验后提交结果。流程不能直接写入 `completed` 或发布部分成功报告。
+新流程协议是受限结构化描述，不执行用户在页面输入的 Python。顺序、if/else、repeat、while 是显式结构，禁止用任意回边暗示循环。服务输入、最终输出及节点输入均有契约；输出节点完成后由平台统一校验、提交结果。
 
 ### 5.3 LangGraph 执行约束
 
-- 每个实例快照编译并关联其图对象；各任务使用独立图状态和运行上下文，不能共享可变业务数据。首期流程顺序执行，不引入并行分支和多 Agent 框架。
+- 每个实例快照编译并关联其图对象；各任务使用独立图状态和运行上下文，不能共享可变业务数据。首期支持顺序、条件和循环，实际节点串行执行，不引入并行分支和多 Agent 框架。
 - 图状态结构由 Pydantic 契约定义；节点包装器在输入和状态更新边界显式校验。凭据、连接对象和取消信号保存在平台上下文，不放入可展示的图状态。
 - 每个节点开始前及状态更新提交前检查预算与取消；进入下一条边、提交最终输出前也经过平台检查。业务包通过 invoke_package 计 loop，普通节点和图 super-step 不计业务 loop。
 - LangGraph recursion_limit 只是图执行步数保护，不能直接设为包调用 loopLimit；按流程需要单独设置，触发时报告图执行限制错误，不伪装成包预算耗尽。
@@ -160,18 +157,65 @@ PackageContext 提供 `call_model`、`call_capability`、`record_progress`，不
 
 ### 5.4 单一契约来源
 
-Python 契约模型是权威来源，导出 JSON Schema 供页面和调用方使用，清单引用模型而不手写第二份 Schema。配置页支持对象、数组、基础类型、枚举、必填、默认值与嵌套路径；复杂嵌套可使用校验后的 JSON 编辑区域，首期不承诺所有 Schema 特性都有专用控件。
+Python 契约模型／严格类型声明是权威来源，导出 JSON Schema 供页面和调用方使用，清单引用模型而不手写第二份 Schema。配置页支持对象、数组、基础类型、枚举、必填、默认值与嵌套路径；复杂嵌套可使用校验后的 JSON 编辑区域，首期不承诺所有 Schema 特性都有专用控件。
 
 所有用户输入、包／通用块输入输出、API 响应、模型结构化结果、实例最终结果均运行时校验。未知字段默认拒绝，禁止把字符串数字自动转成数值；模型返回无法解析的 JSON 直接失败，无自动修复。配置默认值显式呈现在表单，保存时形成完整配置。
 
-加载阶段检查流程包绑定、必需配置和能力输入输出是否兼容；运行时再检查实际数据。固定 LMS 解包块以 `code == "10000"` 为成功，其余保留可用的 `code/msg/subCode/subMsg`；`bizData` 按绑定目标契约校验，不固定成字符串。
+加载阶段检查模块源码、依赖与声明契约，不要求运行环境已绑定。节点配置阶段检查必需配置和能力绑定；保存阶段检查整个流程的端口及当前环境；运行时再检查实际数据。固定 LMS 解包块以 `code == "10000"` 为成功，其余保留可用的 `code/msg/subCode/subMsg`；`bizData` 按绑定目标契约校验，不固定成字符串。
+
+### 5.5 流程结构、端口与数据作用域
+
+本节是基于需求已确认决策的技术设计：结构化嵌套容器、显式携带值、前置条件循环、契约资源选择均为设计选择。最终字段由 I6-T01 的 Pydantic 契约和导出 Schema 统一确定，文中示意不作为第二份手工 Schema。
+
+- 每个业务模块有一个契约化输入值和输出值，页面可以展开对象字段为端口。输入绑定可引用服务输入、当前作用域前序节点输出、循环携带值；支持整值或字段路径引用。每个必填输入必须有唯一来源。
+- 接线只显式取值并装配已声明的输入结构，不执行重命名规则、计算、默认兜底或类型转换；需要业务结构转换时必须插入通用块。输入常量只能通过其契约校验后使用，不能表达可执行代码。
+- 仅允许引用控制流上保证先执行且在作用域内可用的输出；禁止前向引用、未执行分支引用、读取循环内尚未产生的结果。外部不可直接读取子作用域节点的临时输出。
+- if/else 使用一个输出为严格 bool 的通用块计算条件，两个分支互斥执行；分支各声明输出并接入共同出口契约，需要转换时在分支内显式加块。未声明空分支输出时不能默认为空对象或透传。
+- repeat 使用已校验的非负整数次数，while 使用布尔通用块作执行前判断并要求正整数 maxIterations。达到上限后仍需继续时以 LOOP_ITERATION_LIMIT 失败；条件已经为 false 时正常退出，不把上限当作成功条件。
+- 循环显式声明携带值的初始输入、契约和每轮更新来源；本轮完成后更新，下一轮才可读取。循环体输出必须满足携带值契约；零次循环返回初始携带值。循环外只能读取循环出口，不隐式读取“最后一次节点输出”。
+- 首期支持上述控制结构嵌套，仍按作用域串行执行；图步数限制与循环次数、业务包 loop 预算分别记录与报错。图步数不得沿用旧 node_count + 2 的顺序图上限。
+- 期望输出由配置者选择已注册的契约资源，输入契约同理；可以复用模块输入输出契约，新增业务契约由开发者提供 Python 模型。首期不建设任意 Schema 设计器。最终输出绑定必须覆盖期望结构，并在保存及运行时分别校验。
+
+契约连接采用保守的“出口可赋给入口”规则，而非只比较名称或直接比较整份 Schema 字符串：入口必填字段必须存在；出口类型、可空性、枚举和范围必须满足入口限制；入口禁止额外字段时整对象连接不得多传字段。对象字段和数组元素递归检查，引用先解析。无法静态证明兼容的特殊约束不能直接宣称兼容，应指出约束并要求明确的契约适配；Pydantic 自定义校验仍须运行时执行。
+
+### 5.6 单文件通用块与模板
+
+一个受信任 `.py` 文件定义一个公开业务函数；可包含输入输出 Pydantic 类型、元数据和导入，不能要求额外 block.json 或独立入口脚本。平台装饰器（拟定名 block）声明标识、版本、名称、说明；函数参数及返回注解提供权威契约。契约必须符合平台严格校验要求；bool 等标量使用严格类型适配，不以 Python truthiness 代替检查。
+
+示意（待 I6-T02 实现接口，不是当前可运行 API）：
+
+```python
+from agent_platform.blocks import block
+from agent_platform.contracts import StrictModel
+
+class Input(StrictModel):
+    legacy_text: str
+
+class Output(StrictModel):
+    text: str
+
+@block(id="rename-text", version="1.0.0", name="文本字段转换")
+def convert(value: Input) -> Output:
+    """将旧接口文本字段转为下一模块所需结构。"""
+    return Output(text=value.legacy_text)
+```
+
+加载器检查只有一个注册业务函数、签名及输入输出声明，固定文件字节与契约资源；不调用业务函数验证成功。允许引用平台及已声明依赖，不允许只保留任意本地模块路径破坏快照；需要额外自有代码时必须纳入受控内容快照。发布模板至少包含类型转换、严格布尔条件和 LMS 解包三类单文件示例，明确成功与失败输入输出。
+
+### 5.7 节点配置及可读错误
+
+业务包源码加载成功只代表模块资源可用。包节点必须配置参数、预算、所需环境连接后才能标记合法。同一包放置两次，nodeId、参数、环境及预算完全独立；同一节点在循环中重复执行时累计同一份局部预算，不逐轮重置。
+
+点击包节点打开悬浮窗，依配置 Schema 显示字段、说明、默认值、必填与嵌套错误；选择已保存环境及满足能力类型的连接。保存节点配置后重新校验节点，主流程保持草稿；保存服务版本另走全流程校验。通用块显示函数说明、输入输出和连线，不提供模型预算／环境配置窗。
+
+错误扩展保留 code、stage、fieldPath，并增加可选 nodeId、sourceNodeId、sourcePort、targetPort 和结构化校验 issue（原因类型、可读原因、期望约束）。对 Pydantic 错误提取脱敏原因，不直接输出包含输入值的 repr、原始 ctx 或任意异常全文。页面定位节点／端口并在配置字段旁显示错误；运行失败保留尝试及循环路径。
 
 ## 6. 保存、快照与回退
 
 ### 6.1 保存激活
 
-1. 读取并验证实例定义、包、配置与流程依赖。
-2. 在内存构造完整不可变快照，保存脚本源码字节、资源、Prompt、契约、包内容和所引用通用块版本。共享内容可按摘要复用，不能共享可变对象。
+1. 读取服务草稿，验证所有节点、端口、作用域、最终输出及包配置；不完整草稿不可发布为实例。
+2. 编译结构化流程，在内存构造完整不可变快照，保存拼图、编译器版本、模块源码字节、资源、Prompt、契约、包内容和所引用通用块版本。共享内容可按摘要复用，不能共享可变对象。
 3. 校验当前环境引用及配置有效性，分配新版本。
 4. 原子保存快照并切换 activeInstanceId；失败则保留旧指针，不能出现半生效实例。
 5. 旧实例退役，已有任务继续使用自己的快照，新提交只接受当前实例。
@@ -236,9 +280,11 @@ stateDiagram-v2
 
 ### 9.1 配置组合
 
-每个包的配置 Schema 必须暴露正整数 `loopLimit`、`tokenLimit`，模板给出可编辑默认值。它们表示该包绑定在单任务内允许累计使用的上限。实例配置另包含单任务全局 `loopLimit`、`tokenLimit`、`strictTokenLimit`，界面展示局部与全局约束。
+每个包的配置 Schema 必须暴露正整数 `loopLimit`、`tokenLimit`，模板给出可编辑默认值。它们表示该包绑定在单任务内允许累计使用的上限。含包实例配置另包含单任务全局 `loopLimit`、`tokenLimit`、`strictTokenLimit`，界面展示局部与全局约束。
 
 首期全局默认值取所有包绑定配置上限之和，并在表单中显式展示后保存；用户可改小或改大。执行时同时满足单包绑定限额和全局限额，不依赖隐式配置覆盖。相同包绑定多次时按 bindingId 分别计局部账，全局仍累计全部调用。默认 `strictTokenLimit=true`，可在实例配置切换为非严格；改变预算是配置版本更新。
+
+纯通用块实例允许零个业务包，不创建虚拟包预算，不要求模型环境；仍执行节点契约、循环最大次数、图步数限制、取消与退出检查。
 
 ### 9.2 loop 边界
 
@@ -265,7 +311,7 @@ stateDiagram-v2
 
 ## 10. API 与错误契约
 
-统一 `/api/v1` 前缀；服务、环境和加载接口已由 I2 实现，runs 提交与查询由 I3 实现，cancel 接口及预算策略由 I4 实现。JSON 字段使用 camelCase，内部 Python 字段可用 snake_case 并从契约统一导出别名。
+统一 `/api/v1` 前缀；旧版已有服务、环境、加载、runs 和 cancel 接口。以下包含新版目标：服务保存请求改为完整拼图及配置，返回生成实例；新增路由尚未实现。JSON 字段使用 camelCase，内部 Python 字段可用 snake_case 并从契约统一导出别名。
 
 | 方法与路径 | 语义 |
 | --- | --- |
@@ -277,7 +323,10 @@ stateDiagram-v2
 | GET /services/{serviceId}/schema | 当前实例契约、版本、样例 |
 | GET /environments、POST /environments | 环境列表与创建 |
 | PUT /environments/{environmentId} | 空闲时更新，否则冲突 |
-| POST /registry/load | 从受信任本地路径加载包、通用块或实例定义 |
+| POST /registry/load | 新版加载业务包目录、通用块 .py 文件或契约资源；不要求先绑定环境 |
+| GET /registry/modules | 新增：返回可拼接模块的标识、版本、端口及配置 Schema |
+| POST /flows/validate | 新增：校验草稿结构、接线、节点配置及期望输出，返回定位信息；不创建实例 |
+| GET/POST/PUT /flow-drafts（具体资源路径随契约落地） | 新增：同会话草稿读取与保存，不激活服务、不进入实例历史 |
 | POST /runs | 提交 serviceId、input，可带 expectedInstanceId 以避免读取 Schema 后版本已变化 |
 | GET /runs/{runId} | 状态、取消阶段、实际版本、预算使用与错误 |
 | GET /runs/{runId}/result | 仅 completed 返回最终结果 |
@@ -306,9 +355,13 @@ POST /runs 在同一临界区解析当前版本、验证 expectedInstanceId、�
 
 ### 11.1 服务中心／服务配置页
 
-左侧服务列表；主区显示稳定地址、当前版本、包与配置绑定、实例入口和流程摘要。操作包括加载本地定义、编辑配置、校验保存、查看历史和选择回退。
+左侧服务及模块列表；主区为自上而下的拼图区域，if/else 和循环以可嵌套容器呈现。节点展示输入／输出端口及合法状态，支持插入、移动、删除和显式连线；连接只在契约兼容时成立，错误在相应节点与端口显示。页面支持引用作用域内前序输出，不要求手写完整 JSON。
 
-预算区域分别显示每个包绑定的 loop/token 上限和任务总上限、严格模式。历史区域展示变更类别、包列表、配置及流程摘要，明确退役版本须先回退才能调用。任务详情作为附属面板，支持输入样例调用、状态／错误／用量查看、取消与最终报告展示，不另建教师业务系统。
+点击业务包弹出悬浮窗配置参数、预算及环境连接；普通嵌套参数可以使用按字段定位的 JSON 编辑区，但不可用整份实例 JSON 替代拼图或能力选择。通用块展示说明与契约，条件／循环容器展示条件块、分支输出、次数及携带值配置。
+
+服务页分开“保存草稿”和“校验并保存实例版本”；后者成功立即生效。历史展示完整只读拼图、节点参数、预算、环境引用和变更类别，支持复制到编辑草稿及回退。回退不恢复旧环境地址或密钥。
+
+任务调用页独立展示可调用服务及当前实例版本、输入样例、运行状态、节点与循环尝试、预算、取消及最终结果。只能调用已完成实例；不在任务页拼图或配置包，不增加教师复核系统。
 
 ### 11.2 环境配置页
 
@@ -318,7 +371,7 @@ POST /runs 在同一临界区解析当前版本、验证 expectedInstanceId、�
 
 ## 12. 最小查重产品设计
 
-此节是用户授权的简单业务方案，不新增平台能力。示例产品包含语义包和完整实例流程，确定性相似度计算位于实例业务模块。
+计分与报告规则沿用原方案；交付形式迁移到服务拼图。示例产品包含语义包、清洗／计分／适配／组装的单文件通用块及完整拼图，平台核心不加入查重算法。
 
 ### 12.1 输入与清洗
 
@@ -338,7 +391,7 @@ POST /runs 在同一临界区解析当前版本、验证 expectedInstanceId、�
 
 ### 12.3 定性报告与流程
 
-实例流程：校验输入 → 清洗 → 定量计算 → 调用 semantic 包 → 校验与组装最终报告。首期将所有对照一次送入语义包，一次调用消耗一轮；默认模板预算可配置，样例配置 loopLimit=1、tokenLimit=32768、strictTokenLimit=true，实际可用性取决于模型上下文与计量适配器。
+拼图流程：服务输入 → 清洗块 → 定量计分块 → 输入适配块 → semantic 包节点 → 报告组装块 → 服务输出。语义节点通过输入适配块显式引用清洗结果；组装块显式引用前序定量结果及语义结果，不要求语义包携带或修改定量报告。首期将所有对照一次送入语义包，一次调用消耗一轮；默认模板预算可配置，样例预算 loopLimit=1、tokenLimit=32768。平台严格模式默认值仍为 true；当前 OpenAI 兼容与 Ollama 适配器不提供严格总 token 保证，样例使用这两种环境时须由配置者显式选择非严格模式；页面和文档展示实际模式，不静默降级。
 
 语义包返回 `items`，每项包含 comparisonIndex、relation（`similar`／`possible_paraphrase`／`no_clear_relation`）、reason、suggestion。程序检查索引范围、唯一性及覆盖全部对照；不验收这些语义判断是否准确。
 
@@ -363,10 +416,12 @@ src/agent_platform/
 samples/
   template/
     packages/example/
-    instance/
+    blocks/                      # 单文件通用块
+    flows/                       # 拼图样例与契约
   assignment-similarity/
     packages/semantic/
-    instance/
+    blocks/                      # 单文件通用块
+    flows/                       # 拼图样例与契约
     examples/
 tests/
   contracts/
@@ -374,6 +429,12 @@ tests/
   integration/
 ```
 
-上述目录为整体规划；I1 已实现部分见 readme.md，后续随迭代创建实际文件，不创建占位空目录。仓储接口隔离内存实现，后续 PostgreSQL 数据库版本再处理版本内容持久化、迁移、恢复及凭据存储策略；不提前实现数据库直连、权限、复杂重试、沙箱或可视化画布。
+上述目录为整体规划；I1 已实现部分见 readme.md，后续随迭代创建实际文件，不创建占位空目录。仓储接口隔离内存实现，后续 PostgreSQL 数据库版本再处理版本内容持久化、迁移、恢复及凭据存储策略；不提前实现数据库直连、权限、复杂重试、沙箱或无限制自由画布；本稿限定的服务拼图属于当前交付。
 
 首期主要技术验证点是内存代码快照隔离、退出传输中止、严格 token 计量、LangGraph 状态流转检查与 Electron/Python 子进程生命周期。对应验证排在早期迭代；技术验证不通过时调整适配器或宿主实现，并同步本稿，不以降低已确认语义代替完成。
+
+## 14. 迁移与实现状态
+
+当前代码仍是手写实例与 SequentialExecutor 方案，尚未实现第 5.2、5.5—5.7 节和新版服务页面。I6—I8 交付新契约、编译器、页面与样例；旧脚本入口不要求兼容，不另建双轨执行框架。I1—I5 历史证据不删除，但不能作为新版 M1/M2 的完成依据。
+
+旧取消、预算、环境占用、版本与内存隔离机制优先复用，迁移时按受影响边界验证。四项产品决策见需求第 9 节，均已确认。实现中遇到新的产品边界不确定性应先询问用户，不以技术选择扩大范围。
