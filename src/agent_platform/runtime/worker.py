@@ -3,6 +3,7 @@ import asyncio
 from ..adapters.api import APIAdapter
 from ..adapters.ollama import OllamaAdapter
 from .boundary import Boundary, current_boundary
+from .budgets import LoopPolicy, StrictTokenPolicy, NonStrictTokenPolicy
 from .context import RunContext, current_context, execution_error
 from .validation import validate
 from ..contracts.errors import ErrorResponse
@@ -37,7 +38,10 @@ class RunWorker:
         boundary = self.boundary_factory()
         api = APIAdapter(envs.credentials)
         model = OllamaAdapter(envs.credentials)
-        context = RunContext(run_id, snapshot, runs, api, model)
+        policy_type = StrictTokenPolicy if snapshot.definition.budget.strict_token_limit else NonStrictTokenPolicy
+        token_policy = policy_type(run_id, snapshot, runs)
+        boundary.policies += (token_policy, LoopPolicy(run_id, snapshot, runs))
+        context = RunContext(run_id, snapshot, runs, api, model, token_policy)
         bt, ct = current_boundary.set(boundary), current_context.set(context)
         try:
             await boundary.check('run_start', run_id)

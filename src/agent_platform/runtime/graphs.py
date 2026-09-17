@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from inspect import isawaitable
 from typing import Any
 from langgraph.graph import END, START, StateGraph
+from langgraph.errors import GraphRecursionError
+from ..contracts.errors import PlatformError, ErrorResponse
 from ..contracts import StrictModel
 from .boundary import Boundary, checkpoint, current_boundary
 
@@ -26,6 +28,8 @@ class SequentialExecutor:
             output = self.state_model.model_validate(deepcopy(result), strict=True)
             await checkpoint('terminal', 'graph')
             return output
+        except GraphRecursionError:
+            raise PlatformError(ErrorResponse(code='GRAPH_EXECUTION_LIMIT', stage='graph', message='图执行步数超过限制')) from None
         finally:
             try:
                 await checkpoint('cleanup', 'graph')

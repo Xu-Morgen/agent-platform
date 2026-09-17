@@ -94,6 +94,17 @@ class StrictTokenPolicy:
         return min(self.global_limit - global_usage['totalTokens'] - global_usage['reservedTokens'],
                    self.local_limits[binding_id] - local['totalTokens'] - local['reservedTokens'])
 
+    def __call__(self, phase, step_id):
+        if phase == 'cleanup':
+            return
+        summaries = [(self.ledger.summary(), self.global_limit)]
+        summaries += [(self.ledger.summary(b), limit) for b, limit in self.local_limits.items()]
+        for usage, limit in summaries:
+            if usage['totalTokens'] is None:
+                raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '缺少可用模型计量或明确来源的估算')
+            if usage['totalTokens'] > limit:
+                raise self.error('TOKEN_BUDGET_EXCEEDED', '累计 token 用量超过限额')
+
     async def invoke(self, binding_id, adapter, connection, request):
         from uuid import uuid4
         from ..contracts.models import ModelUsage
@@ -135,17 +146,6 @@ class StrictTokenPolicy:
 
 
 class NonStrictTokenPolicy(StrictTokenPolicy):
-    def __call__(self, phase, step_id):
-        if phase == 'cleanup':
-            return
-        summaries = [(self.ledger.summary(), self.global_limit)]
-        summaries += [(self.ledger.summary(b), limit) for b, limit in self.local_limits.items()]
-        for usage, limit in summaries:
-            if usage['totalTokens'] is None:
-                raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '缺少可用模型计量或明确来源的估算')
-            if usage['totalTokens'] > limit:
-                raise self.error('TOKEN_BUDGET_EXCEEDED', '累计 token 用量超过限额')
-
     async def invoke(self, binding_id, adapter, connection, request):
         from uuid import uuid4
         from ..contracts.models import ModelUsage

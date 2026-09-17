@@ -32,6 +32,8 @@ class RunContext:
 
     async def run_step(self, step_id, operation, *, kind='step', package_binding_id=None):
         await checkpoint('step_start', step_id)
+        if kind == 'package':
+            await checkpoint('package_start', package_binding_id)
         steps = self.runs.get(self.run_id).steps
         attempt = 1 + sum(s.step_id == step_id and s.kind == kind for s in steps)
         step = StepRecord(run_id=self.run_id, step_id=step_id, kind=kind,
@@ -43,9 +45,9 @@ class RunContext:
             value = operation()
             if isawaitable(value):
                 value = await value
-            await checkpoint('step_update', step_id)
             if kind == 'model':
                 step.usage = value.usage.model_dump(mode='json', by_alias=True)
+            await checkpoint('step_update', step_id)
             step.status = 'completed'
             return value
         except Exception as exc:
@@ -111,7 +113,6 @@ class RunContext:
         if artifact is None:
             raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage='packages.binding', message='包绑定不存在'))
         stage = 'packages.' + binding_id
-        await checkpoint('package_start', binding_id)
 
         async def execute():
             manifest = artifact.manifest
