@@ -10,6 +10,7 @@ class Connection(StrictModel):
     connection_id: Identifier
     kind: Literal['model', 'api']
     base_url: str
+    model_adapter: Literal['ollama-chat'] = 'ollama-chat'
     model: str | None = Field(default=None, min_length=1)
     timeout_seconds: float = Field(default=60, gt=0, allow_inf_nan=False)
     credential_ref: str | None = None
