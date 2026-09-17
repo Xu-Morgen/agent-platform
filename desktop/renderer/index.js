@@ -226,6 +226,10 @@ async function pollTask(runId, generation) {
   const run = response.data;
   taskStatus.textContent = `${run.status} · ${run.runId} · 实际版本 ${run.version} · ${run.instanceId}`;
   taskError.textContent = run.error ? taskFailure(run.error) : '';
+  document.querySelector('#task-cancel').disabled = !['queued', 'running'].includes(run.status) || run.cancelRequested;
+  document.querySelector('#task-cancel-status').textContent = run.cancelRequested
+    ? (run.status === 'failed' ? '取消等待失败，请查看原始错误' : run.status === 'cancelled' ? '已取消'
+      : run.cancelPhase === 'waiting_transport' ? '取消已受理，等待当前模型传输结束' : '取消已受理，等待停止执行') : '';
   showUsage(run.usage);
   const steps = document.querySelector('#task-steps');
   steps.replaceChildren();
@@ -252,6 +256,8 @@ function watchTask(runId) {
   document.querySelector('#task-steps').replaceChildren();
   taskError.textContent = '';
   document.querySelector('#task-usage').textContent = '';
+  document.querySelector('#task-cancel').disabled = true;
+  document.querySelector('#task-cancel-status').textContent = '';
   taskStatus.textContent = '查询中…';
   return pollTask(runId, generation);
 }
@@ -329,3 +335,26 @@ function showUsage(usage) {
   }
   document.querySelector('#task-usage').textContent = lines.join('\n');
 }
+
+document.querySelector('#task-cancel').addEventListener('click', async () => {
+  const runId = document.querySelector('#task-run-id').value.trim();
+  const generation = taskQueryGeneration;
+  document.querySelector('#task-cancel').disabled = true;
+  document.querySelector('#task-cancel-status').textContent = '正在请求取消…';
+  try {
+    const response = await window.agentPlatform.cancelRun(runId);
+    if (generation !== taskQueryGeneration) return;
+    if (!response.ok) {
+      taskError.textContent = taskFailure(response.error);
+      document.querySelector('#task-cancel-status').textContent = '取消请求未成功';
+      document.querySelector('#task-cancel').disabled = false;
+      return;
+    }
+    clearTimeout(taskPollTimer);
+    await pollTask(runId, ++taskQueryGeneration);
+  } catch {
+    if (generation !== taskQueryGeneration) return;
+    document.querySelector('#task-cancel-status').textContent = '取消请求失败，可重试或查询状态';
+    document.querySelector('#task-cancel').disabled = false;
+  }
+});
