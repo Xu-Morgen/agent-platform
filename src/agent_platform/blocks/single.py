@@ -1,7 +1,7 @@
 """单文件块装饰器与严格类型适配。装饰不调用被注册函数。"""
 from typing import get_args, get_origin, Annotated, Literal, Union
 import types
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, JsonValue
 from ..contracts.base import StrictModel
 from ..contracts.packages import Identifier, Version
 from pydantic import Field
@@ -30,6 +30,8 @@ def strict_adapter(annotation):
         if value in seen:
             return
         seen.add(value)
+        if value is JsonValue:
+            return
         origin, args = get_origin(value), get_args(value)
         if origin is Annotated:
             check(args[0])
