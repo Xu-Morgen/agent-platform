@@ -9,9 +9,23 @@ def cancel_run(submission, run_id):
         if run.status in TERMINAL:
             return run
         if run.status == 'running':
-            raise PlatformError(ErrorResponse(code='CANCEL_NOT_SUPPORTED', stage='runs.cancel',
-                                             message='运行任务取消尚未接入', run_id=run_id), 409)
+            waiting = any(s.kind == 'model' and s.status == 'running' for s in run.steps)
+            return submission.runs.update(run_id, cancel_requested=True,
+                cancel_phase='waiting_transport' if waiting else None)
         submission.runs.update(run_id, cancel_requested=True)
         run = submission.runs.finish(run_id, 'cancelled')
         submission.environments.release(run_id)
         return run
+
+
+class CancellationPolicy:
+    def __init__(self, runs, run_id):
+        self.runs, self.run_id = runs, run_id
+
+    def __call__(self, phase, step_id):
+        if phase == 'cleanup':
+            return
+        run = self.runs.get(self.run_id)
+        if run.status == 'running' and run.cancel_requested:
+            raise PlatformError(ErrorResponse(code='RUN_CANCELLED', stage='runs.cancel',
+                                             message='任务已取消', run_id=self.run_id))

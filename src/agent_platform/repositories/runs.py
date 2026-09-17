@@ -46,6 +46,6 @@ class RunRepository:
             if status == 'failed' and error is None:
                 raise ValueError('失败必须保留原因')
             run = Run.model_validate({**run.model_dump(), 'status': status,
-                                      'result': result if status == 'completed' else None, 'error': error})
+                                      'result': result if status == 'completed' else None, 'error': error, 'cancel_phase': None})
             self._items[run_id] = run
             return run.model_copy(deep=True)

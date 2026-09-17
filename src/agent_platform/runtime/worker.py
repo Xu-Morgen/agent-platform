@@ -3,6 +3,7 @@ import asyncio
 from ..adapters.api import APIAdapter
 from ..adapters.ollama import OllamaAdapter
 from .boundary import Boundary, current_boundary
+from .cancellation import CancellationPolicy
 from .budgets import LoopPolicy, StrictTokenPolicy, NonStrictTokenPolicy
 from .context import RunContext, current_context, execution_error
 from .validation import validate
@@ -43,7 +44,7 @@ class RunWorker:
         model = OllamaAdapter(envs.credentials)
         policy_type = StrictTokenPolicy if snapshot.definition.budget.strict_token_limit else NonStrictTokenPolicy
         token_policy = policy_type(run_id, snapshot, runs)
-        boundary.policies += (token_policy, LoopPolicy(run_id, snapshot, runs))
+        boundary.policies = (CancellationPolicy(runs, run_id),) + boundary.policies + (token_policy, LoopPolicy(run_id, snapshot, runs))
         context = RunContext(run_id, snapshot, runs, api, model, token_policy)
         bt, ct = current_boundary.set(boundary), current_context.set(context)
         try:
@@ -57,13 +58,17 @@ class RunWorker:
             result = await context.run_step('instance.entry', lambda: entry(value, context), kind='entry')
             result = validate(snapshot.content.load(snapshot.definition.output_model), result, 'runs.output')
             await boundary.check('terminal', run_id)
-            with envs.lock:
-                runs.finish(run_id, 'completed', result=result.model_dump(mode='json', by_alias=True))
+            with envs.lock, runs.lock:
+                if runs.get(run_id).cancel_requested:
+                    runs.finish(run_id, 'cancelled')
+                else:
+                    runs.finish(run_id, 'completed', result=result.model_dump(mode='json', by_alias=True))
         except asyncio.CancelledError:
             runs.finish(run_id, 'cancelled', error=ErrorResponse(code='APPLICATION_EXIT', stage='runtime', message='应用停止', run_id=run_id))
             raise
         except Exception as exc:
-            runs.finish(run_id, 'failed', error=execution_error(exc, 'runtime', run_id))
+            error = execution_error(exc, 'runtime', run_id)
+            runs.finish(run_id, 'cancelled' if error.code == 'RUN_CANCELLED' else 'failed', error=error)
         finally:
             try:
                 await boundary.check('cleanup', run_id)
