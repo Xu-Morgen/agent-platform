@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
   validateFlowPorts: (body) => ipcRenderer.invoke('platform:validateFlowPorts', body),
+  validateFlowNode: (body) => ipcRenderer.invoke('platform:validateFlowNode', body),
   loadResource: (body) => ipcRenderer.invoke('platform:loadResource', body),
   listResources: () => ipcRenderer.invoke('platform:listResources'),
   getResource: (id) => ipcRenderer.invoke('platform:getResource', id),
