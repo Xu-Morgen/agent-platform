@@ -3,8 +3,7 @@ import argparse
 import json
 import os
 from pathlib import Path
-from shutil import copytree
-from tempfile import TemporaryDirectory
+from flow_templates import load_template
 import time
 import httpx
 
@@ -27,21 +26,8 @@ def invoke(args):
             return response.json()
         request('GET', 'health')
         environment = request('POST', 'environments', json={'name':'查重样例环境','connections':[connection]})
-        request('POST', 'registry/load', json={'kind':'package','path':str(ROOT / 'packages/semantic')})
-        # 加载实例 API 已校验环境引用，故先在临时副本内替换占位符。
-        with TemporaryDirectory(prefix='similarity-instance-') as directory:
-            instance = Path(directory) / 'instance'
-            copytree(ROOT / 'instance', instance)
-            path = instance / 'instance.json'
-            definition = json.loads(path.read_text())
-            definition['environmentRefs'] = [environment['environmentId']]
-            definition['budget']['strictTokenLimit'] = not args.non_strict
-            for binding in definition['capabilityBindings']:
-                binding['environmentId'] = environment['environmentId']
-            path.write_text(json.dumps(definition, ensure_ascii=False))
-            loaded = request('POST', 'registry/load', json={'kind':'instance','path':str(instance)})
-            service = request('POST', 'services', json={'name':'文本查重',
-                'definitionLoadId':loaded['loadId'], 'definition':loaded['definition']})
+        flow = load_template(request, ROOT, 'similarity', environment['environmentId'], not args.non_strict)
+        service = request('POST', 'services', json={'name':'文本查重', 'flow':flow})
         value = json.loads(Path(args.input).read_text())
         run = request('POST', 'runs', json={'serviceId':service['serviceId'],'input':value})
         deadline = time.monotonic() + args.timeout + 30
@@ -54,6 +40,7 @@ def invoke(args):
         # 只导出业务结果、状态及计量，不导出原输入、环境地址或凭据引用。
         record = {'status':run['status'], 'runId':run['runId'], 'serviceId':service['serviceId'],
                   'model':args.model, 'adapter':args.adapter, 'strictTokenLimit':not args.non_strict,
+                  'instanceId':run['instanceId'], 'version':run['version'], 'flowProtocol':'FlowDraft',
                   'usage':run['usage'], 'result':result, 'error':run['error']}
         if args.output:
             Path(args.output).write_text(json.dumps(record, ensure_ascii=False, indent=2) + '\n')

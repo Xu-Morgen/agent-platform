@@ -1,0 +1,171 @@
+{
+  "resources": {
+    "clean": {
+      "kind": "block",
+      "path": "blocks/clean.py"
+    },
+    "score": {
+      "kind": "block",
+      "path": "blocks/score.py"
+    },
+    "adapt": {
+      "kind": "block",
+      "path": "blocks/adapt.py"
+    },
+    "assemble": {
+      "kind": "block",
+      "path": "blocks/assemble.py"
+    },
+    "semantic": {
+      "kind": "package",
+      "path": "packages/semantic"
+    }
+  },
+  "flow": {
+    "name": "文本查重",
+    "inputContract": "${clean.inputContract}",
+    "outputContract": "${assemble.outputContract}",
+    "flow": [
+      {
+        "kind": "block",
+        "nodeId": "clean",
+        "artifactRef": "${clean.resourceId}",
+        "inputs": [
+          {
+            "target": [],
+            "source": {
+              "kind": "input",
+              "path": []
+            }
+          }
+        ]
+      },
+      {
+        "kind": "block",
+        "nodeId": "score",
+        "artifactRef": "${score.resourceId}",
+        "inputs": [
+          {
+            "target": [],
+            "source": {
+              "kind": "node",
+              "nodeId": "clean",
+              "path": []
+            }
+          }
+        ]
+      },
+      {
+        "kind": "block",
+        "nodeId": "adapt",
+        "artifactRef": "${adapt.resourceId}",
+        "inputs": [
+          {
+            "target": [],
+            "source": {
+              "kind": "node",
+              "nodeId": "clean",
+              "path": []
+            }
+          }
+        ]
+      },
+      {
+        "kind": "package",
+        "nodeId": "semantic",
+        "artifactRef": "${semantic.resourceId}",
+        "inputs": [
+          {
+            "target": [],
+            "source": {
+              "kind": "node",
+              "nodeId": "adapt",
+              "path": []
+            }
+          }
+        ]
+      },
+      {
+        "kind": "block",
+        "nodeId": "assemble",
+        "artifactRef": "${assemble.resourceId}",
+        "inputs": [
+          {
+            "target": [
+              "request"
+            ],
+            "source": {
+              "kind": "input",
+              "path": []
+            }
+          },
+          {
+            "target": [
+              "quantitative"
+            ],
+            "source": {
+              "kind": "node",
+              "nodeId": "score",
+              "path": []
+            }
+          },
+          {
+            "target": [
+              "qualitative"
+            ],
+            "source": {
+              "kind": "node",
+              "nodeId": "semantic",
+              "path": []
+            }
+          }
+        ]
+      }
+    ],
+    "output": [
+      {
+        "target": [],
+        "source": {
+          "kind": "node",
+          "nodeId": "assemble",
+          "path": []
+        }
+      }
+    ],
+    "nodeConfigurations": {
+      "semantic": {
+        "parameters": {
+          "maxOutputTokens": 4096
+        },
+        "budget": {
+          "loopLimit": 1,
+          "tokenLimit": 32768
+        },
+        "capabilities": {
+          "chat": {
+            "kind": "model",
+            "environmentId": "${environmentId}",
+            "connectionId": "model"
+          }
+        }
+      }
+    },
+    "budget": {
+      "loopLimit": 1,
+      "tokenLimit": 32768,
+      "strictTokenLimit": "${strictTokenLimit}"
+    },
+    "examples": [
+      {
+        "name": "合成双对照",
+        "input": {
+          "targetText": "甲乙\n丙丁",
+          "comparisonTexts": [
+            "甲乙\n甲乙",
+            "无关"
+          ]
+        }
+      }
+    ]
+  }
+}

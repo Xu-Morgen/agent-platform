@@ -8,7 +8,7 @@
 
 **I6、I7 已各完成 7/7 张。** 后端已支持单文件块、端口与逐节点配置预检，以及顺序／条件／循环拼图编译、累计预算、取消、完整实例保存、版本回退和任务调用。API 协议见 [拼图配置说明](examples/flows/README.md)，逐卡证据见 [I7 交接](docs/tasks/i7.md)。
 
-**桌面服务页、任务页和业务样例待 I8 迁移。** 当前服务保存 API 已切换为 `{name, flow}`，不再接收旧 `definitionLoadId/definition`；下方旧桌面保存流程、查重调用脚本及旧检查命令仅保留为历史记录，不能用于新版闭环验收。后端启动与环境配置入口仍可使用，新版可通过 API 或 I7 局部样例验证。I8-T01 顺序拼图页面已完成（模块库、契约选择、节点及端口编辑、草稿），真实 Electron 检查见 `desktop/checks/flow-editor.cjs`。I8 已完成 2/9 张，I8 已完成 3/9 张，I8 已完成 4/9 张，I8 已完成 5/9 张，I8 已完成 6/9 张，下一张任务为 I8-T07；新版 M1/M2 待 I8-T08/T09 验收，未进行真实模型验收。
+**I8 已完成 7/9 张，查重拼图与调用脚本已迁移。** 桌面已支持模块库、契约选择、顺序/条件/循环拼图、包节点独立配置、草稿、实例保存/历史/回退和任务节点展示。新版服务保存协议为 `{name, flow}`，无需 instance.json。标准模板已迁移，操作见 [模板说明](samples/template/README.md)。新版 M1/M2 分别由 I8-T08/T09 验收，真实模型尚未验收。
 
 I7 定向验证：`.venv/bin/python checks/flow_execution.py`、`checks/flow_branches.py`、`checks/flow_loops.py`、`checks/flow_control.py`、`checks/flow_snapshots.py`、`checks/flow_versions.py`、`checks/flow_runs.py`（后六项也使用 `.venv/bin/python` 执行）。仅使用确定性块、合成模型和本地 HTTP 协议替身，不安装依赖或构建。
 
@@ -86,7 +86,7 @@ printf '\n'
 unset MODEL_API_KEY
 ```
 
-替换模型名和服务商地址后运行。脚本自动创建环境、加载包与实例、保存服务、提交输入、轮询并导出结果；后端与脚本必须共享本地文件系统。第三方兼容服务可追加 `--output-token-parameter max_tokens` 或 `--no-json-mode`。`unset` 只清除当前终端变量，平台内存中的凭据在后端退出时清空。
+替换模型名和服务商地址后运行。脚本自动创建环境、加载包与单文件块、解析查重拼图并保存服务、提交输入、轮询并导出结果；后端与脚本必须共享本地文件系统。第三方兼容服务可追加 `--output-token-parameter max_tokens` 或 `--no-json-mode`。`unset` 只清除当前终端变量，平台内存中的凭据在后端退出时清空。
 
 约 1500 字的 1 对 6 验收使用 `--input samples/assignment-similarity/examples/acceptance-1v6.json`。真实 API 调用可能产生服务商费用；成功结果包含 quantitative、qualitative、实际适配器、模式及 usage。没有 Key 时可先运行 `.venv/bin/python checks/similarity_onboarding.py` 验证本地协议替身链路，该结果不算真实模型验收。
 
@@ -165,36 +165,17 @@ unset MODEL_API_KEY
 
 ## 配置与版本操作
 
-桌面通过侧栏切换“平台概览”“环境配置”“服务配置”和“任务调用”，分别对应 `#/overview`、`#/environments`、`#/services`、`#/tasks`。页面切换保留未保存输入和任务查询状态，支持前进、后退及刷新后保持当前路由；刷新仍会清空未保存表单。任务页可独立选择已保存服务。
+通过侧栏切换环境、服务和任务页面。先保存模型环境（纯块流程无需环境），再在服务页面：
 
-1. 环境配置区填写名称、Base URL 和凭据，获取模型后从下拉列表选择并保存。凭据保存后只返回引用。
-2. 服务配置区先选择“通用块”加载 `examples/configuration/block`，再选择“业务包”依次加载 `examples/configuration/package` 和 `examples/configuration/second`。
-3. 选择“实例定义”加载 `examples/configuration/instance`；页面展示两包两配置 JSON、输入输出及配置 Schema，全局默认预算为 loop 4、token 200，可编辑。
-4. 填写服务名称，校验并保存得到稳定 serviceId 和版本 1.0；修改配置再保存得到新实例与 1.1。
-5. 在本次会话历史中选回 1.0，稳定服务指向原实例；不会恢复旧环境地址或生成新版本。退出重启后环境、服务、凭据和历史清空。
+1. 加载单文件 `.py` 块、业务包目录或 Python 契约 symbol。可用 `samples/template/blocks/text.py` 开始。
+2. 选择输入输出契约，在模块库或容器内插入节点。用来源/目标下拉接线，前序输出可引用，结构不兼容须显式转换块。
+3. 包节点点击“配置”，按 Schema 填参数、预算并选择环境连接；同包不同节点独立。条件与循环按容器编辑分支出口、次数和携带值。
+4. 输入未完成时可“保存草稿”；合法内容“校验并保存实例版本”后立即生效。输入样例在保存时校验。
+5. 历史可查看完整只读拼图、复制为编辑草稿或回退原实例。任务页选择稳定服务，填入样例、提交、查询节点/循环路径、用量和结果或取消。
 
-以上为配置能力样例，不调用模型。目录可填写绝对路径；相对路径按后端工作目录解析。完整样例及 API 说明见 [配置样例](examples/configuration/README.md)。
+以上只保存本次会话。刷新页面保留后端草稿、实例及目录，未保存输入仍会丢失。服务更新或回退不改变已提交任务的固定实例与环境。
 
-定向验证：`.venv/bin/python checks/registry_api.py` 验证加载与保存，`.venv/bin/python checks/activation.py` 验证回退边界；真实页面检查使用 `env -u ELECTRON_RUN_AS_NODE desktop/node_modules/.bin/electron desktop/checks/environments.cjs` 与 `desktop/checks/services.cjs`（后者也需以 Electron 启动）。其余单卡命令见 I2 交接。
-
-## 当前代码的旧版概念（待迁移）
-
-| 概念 | 定义 |
-| --- | --- |
-| 业务包 | 类似可复用依赖，封装 LLM 交互前后的输入输出、Prompt 与必要处理 |
-| 服务配置 | 包参数、能力绑定、环境引用及预算等配置单元 |
-| 服务实例 | 一个或多个固定版本包和配置，加上完整入口脚本、业务流程与服务契约 |
-| 服务 | 拥有稳定标识，指向服务中心当前选定的实例版本 |
-| 环境 | 模型/API 连接和认证等共享设置，变更不改变实例版本 |
-
-```text
-加载业务包和实例流程
-    → 配置环境，组合包及配置
-    → 校验保存完整实例快照，稳定入口切换到新版本
-    → 提交任务，固定实例与环境，执行并校验结果
-```
-
-当前平台已提供配置、契约校验、模型及通用块调用、任务状态和运行记录；实例组织业务流程，包不承担完整业务编排。平台核心不包含查重业务分支。
+定向真实页面命令：`env -u ELECTRON_RUN_AS_NODE desktop/node_modules/.bin/electron desktop/checks/flow-editor.cjs`；按对应卡选择 `node-configuration.cjs`、`flow-controls.cjs`、`flow-history.cjs`、`flow-tasks.cjs`、`template-page.cjs`。模型检查使用本地协议替身，逐卡证据见 [I8](docs/tasks/i8.md)。
 
 ## 现有交付与保留规则（新版范围见需求）
 

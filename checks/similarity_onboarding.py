@@ -64,7 +64,7 @@ async def main(adapter='ollama-chat'):
                 assert (await client.get('/api/v1/services')).json() == []
         finally:
             await stop(restarted)
-    print('I5-T07：干净后端→创建环境→加载→保存→提交→查询双报告→退出；重启旧 runId=404、服务清空')
+    print('I8-T07：新版拼图，干净后端→创建环境→加载→保存→提交→查询双报告→退出；重启旧 runId=404、服务清空')
 
 
 if __name__ == '__main__':
