@@ -18,6 +18,8 @@ def resolve(schema, root):
 
 
 def assignable(source, target, source_root=None, target_root=None, seen=None):
+    if source.get('x-contract-id') and source.get('x-contract-id') == target.get('x-contract-id'):
+        return
     sr = source if '$defs' in source else (source_root or source)
     tr = target if '$defs' in target else (target_root or target)
     pair = (source.get('$ref', id(source)), target.get('$ref', id(target)))
@@ -29,8 +31,7 @@ def assignable(source, target, source_root=None, target_root=None, seen=None):
     if target.get('x-runtime-contract') and source.get('x-runtime-contract') != target['x-runtime-contract']:
         raise Incompatible('入口含自定义校验，需相同契约或显式转换块')
     # 递归 JSON 等循环引用以引用对截断，约束仍在首次访问时检查。
-    refs = (source.get('$id'), target.get('$id'))
-    cosmetic = {'title', 'description', 'default', 'examples', '$defs', '$id', 'x-runtime-contract'}
+    cosmetic = {'title', 'description', 'default', 'examples', '$defs', '$id', 'x-runtime-contract', 'x-contract-id'}
     supported = {'type', 'properties', 'required', 'additionalProperties', 'items', 'anyOf', 'enum', 'const',
                  'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'minLength', 'maxLength',
                  'minItems', 'maxItems', 'pattern', 'format', 'multipleOf'}
@@ -81,6 +82,11 @@ def assignable(source, target, source_root=None, target_root=None, seen=None):
             raise Incompatible('出口额外字段类型未限定')
         if isinstance(sa, dict) and isinstance(ta, dict):
             assignable(sa, ta, sr, tr, seen)
+        for name in tp.keys() - sp.keys():
+            if sa is True:
+                raise Incompatible('出口未限定的额外字段可能违反入口字段类型')
+            if isinstance(sa, dict):
+                assignable(sa, tp[name], sr, tr, seen)
         for name, value in sp.items():
             expected = tp.get(name, ta)
             if isinstance(expected, dict):

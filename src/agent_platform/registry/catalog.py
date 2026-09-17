@@ -17,9 +17,11 @@ class ContractResource:
     @property
     def schema(self):
         schema = self.adapter.json_schema(by_alias=True)
+        schema['x-contract-id'] = self.identity
         def custom(value):
             if isinstance(value, dict):
-                return str(value.get('type', '')).startswith('function-') or any(custom(v) for v in value.values())
+                return (str(value.get('type', '')).startswith('function-') or value.get('allow_inf_nan') is False
+                        or any(custom(v) for v in value.values()))
             if isinstance(value, (list, tuple)):
                 return any(custom(v) for v in value)
             return False

@@ -47,6 +47,9 @@ def create_app() -> FastAPI:
     app.state.packages = PackageRegistry()
     app.state.blocks = BlockRegistry()
     app.state.catalog = ModuleCatalog(app.state.packages)
+    from .flows.drafts import DraftRepository, preflight
+    from .contracts.drafts import DraftWrite, DraftDocument
+    app.state.drafts = DraftRepository()
     app.state.definitions = DefinitionRegistry()
     app.state.services = ServiceManager(app.state.definitions, app.state.packages, app.state.blocks, app.state.environments)
 
@@ -75,6 +78,31 @@ def create_app() -> FastAPI:
     @app.post('/api/v1/runs', response_model=Run, status_code=202)
     async def submit_run(value: RunSubmit):
         return app.state.submission.submit(value)
+
+    @app.post('/api/v1/drafts', response_model=DraftDocument, status_code=201)
+    async def create_draft(value: DraftWrite):
+        return app.state.drafts.save(value)
+
+    @app.get('/api/v1/drafts', response_model=list[DraftDocument])
+    async def list_drafts():
+        return app.state.drafts.list()
+
+    @app.get('/api/v1/drafts/{draft_id}', response_model=DraftDocument)
+    async def get_draft(draft_id: str):
+        return app.state.drafts.get(draft_id)
+
+    @app.put('/api/v1/drafts/{draft_id}', response_model=DraftDocument)
+    async def update_draft(draft_id: str, value: DraftWrite):
+        return app.state.drafts.save(value, draft_id)
+
+    @app.post('/api/v1/drafts/{draft_id}/validate', response_model=ValidationResult)
+    async def validate_saved_draft(draft_id: str):
+        document = app.state.drafts.get(draft_id)
+        return preflight(document.content, app.state.catalog, app.state.environments)
+
+    @app.post('/api/v1/flows/validate', response_model=ValidationResult)
+    async def validate_complete_flow(value: DraftWrite):
+        return preflight(value.content, app.state.catalog, app.state.environments)
 
     @app.post('/api/v1/flows/validate-node', response_model=NodeValidationResult)
     async def validate_node_configuration(value: NodeValidationRequest):

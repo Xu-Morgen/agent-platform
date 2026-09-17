@@ -39,6 +39,12 @@ module.exports = { registerHealthBridge };
 
 // 路由由主进程固定，页面不能指定任意 URL 或 HTTP 方法。
 const operations = {
+  createDraft: (body) => ['POST', '/drafts', body],
+  listDrafts: () => ['GET', '/drafts'],
+  getDraft: (id) => ['GET', `/drafts/${encodeURIComponent(id)}`],
+  updateDraft: (id, body) => ['PUT', `/drafts/${encodeURIComponent(id)}`, body],
+  validateDraft: (id) => ['POST', `/drafts/${encodeURIComponent(id)}/validate`],
+  validateFlow: (body) => ['POST', '/flows/validate', body],
   validateFlowNode: (body) => ['POST', '/flows/validate-node', body],
   validateFlowPorts: (body) => ['POST', '/flows/validate-ports', body],
   loadResource: (body) => ['POST', '/catalog/load', body],

@@ -1,0 +1,106 @@
+{
+  "content": {
+    "name": "端口示例",
+    "inputContract": "block:rename-text:1.0.0:24f2d1d54dadae7e107656395c1fc141b5746e351042443e67beb899bfa5043c:input",
+    "outputContract": "block:rename-text:1.0.0:24f2d1d54dadae7e107656395c1fc141b5746e351042443e67beb899bfa5043c:output",
+    "flow": [
+      {
+        "nodeId": "convert",
+        "kind": "block",
+        "artifactRef": "block:rename-text:1.0.0:24f2d1d54dadae7e107656395c1fc141b5746e351042443e67beb899bfa5043c",
+        "inputs": [
+          {
+            "source": {
+              "kind": "input"
+            }
+          }
+        ]
+      },
+      {
+        "nodeId": "test",
+        "kind": "block",
+        "artifactRef": "block:has-text:1.0.0:fa501eaf3320e82acb8604bc83add67636884ae4b5d92bfe8b96bbf4c9474885",
+        "inputs": [
+          {
+            "source": {
+              "kind": "node",
+              "nodeId": "convert"
+            }
+          }
+        ]
+      },
+      {
+        "nodeId": "choose",
+        "kind": "if",
+        "condition": {
+          "kind": "node",
+          "nodeId": "test"
+        },
+        "outputContract": "block:rename-text:1.0.0:24f2d1d54dadae7e107656395c1fc141b5746e351042443e67beb899bfa5043c:output",
+        "thenBranch": {
+          "nodes": [],
+          "output": [
+            {
+              "source": {
+                "kind": "node",
+                "nodeId": "convert"
+              }
+            }
+          ]
+        },
+        "elseBranch": {
+          "nodes": [],
+          "output": [
+            {
+              "source": {
+                "kind": "node",
+                "nodeId": "convert"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "nodeId": "repeat",
+        "kind": "repeat",
+        "count": 0,
+        "body": [],
+        "carry": {
+          "contract": "block:rename-text:1.0.0:24f2d1d54dadae7e107656395c1fc141b5746e351042443e67beb899bfa5043c:output",
+          "initial": [
+            {
+              "source": {
+                "kind": "node",
+                "nodeId": "choose"
+              }
+            }
+          ],
+          "update": [
+            {
+              "source": {
+                "kind": "carry",
+                "nodeId": "repeat"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "output": [
+      {
+        "source": {
+          "kind": "node",
+          "nodeId": "repeat"
+        }
+      }
+    ],
+    "examples": [
+      {
+        "name": "合成文本",
+        "input": {
+          "legacyText": "hello"
+        }
+      }
+    ]
+  }
+}

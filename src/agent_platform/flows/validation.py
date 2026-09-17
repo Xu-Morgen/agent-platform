@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from ..contracts.base import StrictModel
 from ..contracts.flows import ModuleNode, IfNode, RepeatNode, WhileNode, ConstantValue
 from ..contracts.errors import PlatformError, ValidationIssue
-from pydantic import Field
+from pydantic import Field, ValidationError
 from .compatibility import assignable, at_path, literal_schema, Incompatible
 
 
@@ -47,7 +47,15 @@ def validate_flow(draft, catalog):
                 if any(target[:len(old)] == old or old[:len(target)] == target for old in targets):
                     raise Incompatible('同一入口或父子入口存在重复来源')
                 targets.append(target)
-                port = source_port(binding.source, scope, carry)
+                if isinstance(binding.source, ConstantValue) and not target:
+                    try:
+                        catalog.contract(expected.contract).adapter.validate_python(binding.source.value, strict=True)
+                    except ValidationError as exc:
+                        from ..validation_issues import validation_exception
+                        raise validation_exception(exc, stage='flow.constant') from None
+                    port = expected
+                else:
+                    port = source_port(binding.source, scope, carry)
                 if not target:
                     assembled = port.schema
                 else:
