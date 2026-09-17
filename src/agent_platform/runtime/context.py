@@ -47,3 +47,28 @@ class RunContext:
             steps = self.runs.get(self.run_id).steps
             steps[index] = step
             self.runs.update(self.run_id, steps=steps)
+
+    def binding(self, binding_id, kind):
+        key = tuple(binding_id.split('.', 1))
+        binding = next((b for b in self.snapshot.definition.capability_bindings
+                        if (b.package_binding_id, b.capability_id) == key and b.kind == kind), None)
+        if binding is None:
+            raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage=kind + '.binding',
+                                message='能力绑定不存在或类型不符', run_id=self.run_id))
+        return key, binding
+
+    async def call_block(self, binding_id, value):
+        from .validation import validate
+        key, binding = self.binding(binding_id, 'block')
+        artifact = self.snapshot.blocks[key]
+        manifest = artifact.manifest
+        stage = 'blocks.' + binding_id
+
+        async def execute():
+            input_value = validate(artifact.content.load(manifest.input_model), value, stage + '.input')
+            output = artifact.content.load(manifest.entry)(input_value)
+            if isawaitable(output):
+                output = await output
+            return validate(artifact.content.load(manifest.output_model), output, stage + '.output')
+
+        return await self.run_step(stage, execute, kind='block', package_binding_id=binding.package_binding_id)
