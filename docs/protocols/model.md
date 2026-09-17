@@ -1,5 +1,24 @@
 # 模型协议：OpenAI 兼容 API 与 Ollama
 
+## 草稿连接诊断
+
+环境配置页仅提供 Base URL、凭据输入与模型下拉选择；连接参数由表单生成。修改地址或凭据后须重新获取模型，页面不提供手动模型输入。环境配置页与 HTTP 调用方共用两个通用接口：
+
+| 接口 | 请求 | 成功响应 |
+| --- | --- | --- |
+| `POST /api/v1/connection-tools/models` | `{"connection": {...}}`，模型连接的 `model` 可省略 | `models` 字符串数组、`elapsedMs` |
+| `POST /api/v1/connection-tools/test` | `{"connection": {...}, "maxOutputTokens": 256}`，必须指定模型 | `status: "passed"`、`elapsedMs`、`usage` |
+
+权威契约为 `contracts/connection_tools.py`，公开 Schema 随 FastAPI OpenAPI 导出。连接字段沿用环境写入契约，支持临时 `credential` 或已有 `credentialRef`，两者互斥；不写入环境或共享凭据仓储。诊断只支持 `kind: "model"`。模型列表使用 OpenAI 兼容 `GET /models` 或 Ollama `GET /api/tags`；路径拼接保留用户提供的 Base URL 前缀。
+
+推理测试复用实际适配器，按配置发送输出参数与 JSON 模式，要求响应完成且输出为 `{"ok": true}`。桌面测试输出上限为 256；HTTP 调用方可设为 16–8192。列表成功仅代表列表接口可用；测试通过仅代表此小型请求可用，不等于业务图、严格总 token 预算或远端计费验收。请求不自动重试，不创建运行任务。错误使用原有脱敏契约（包含 HTTP 状态和超时时间），不会返回上游原始错误。诊断超时遵循连接配置，桌面退出时关闭在途传输。
+
+参考 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的草稿发现、临时凭据与手动模型选择交互；具体阅读了本机已安装 `@deepseek-ai/dsh-client-ui-settings-models` 的 `fetchModels` 和 `@deepseek-ai/dsh-llm-pi-ai` 的 `discoverModels` 实现。平台保留自身严格响应校验，不引入 dsh 依赖。
+
+验证：`checks/connection_tools.py` 覆盖两种协议、临时/已存凭据、错误与退出清理；`desktop/checks/connection-tools.cjs` 覆盖真实 Electron 页面获取、回填、推理、凭据复用及旧响应隔离。均为本地替身，未调用真实模型。
+
+## Ollama Chat
+
 I3 选择 `ollama-chat`：POST `<baseUrl>/api/chat`，非流式 `stream=false`、`format=json`，文本 messages 与 `options.num_predict` 输出限额。这是最初实现的协议；baseUrl 配置为服务根地址。远程 OpenAI 兼容协议见下节。环境中的模型标识与可选 Bearer 凭据由平台注入，包不含地址或密钥。
 
 依据：[Ollama Chat](https://docs.ollama.com/api/chat)、[官方 API 参数](https://github.com/ollama/ollama/blob/main/docs/api.md)。协议实现验证使用本地可控 HTTP 替身，未验收真实模型或实际计费行为。

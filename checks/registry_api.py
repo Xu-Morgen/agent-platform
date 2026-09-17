@@ -19,6 +19,14 @@ async def main():
             response = await client.post('/api/v1/registry/load', json={'kind':'package','path':directory})
             assert response.status_code == 422 and response.json()['fieldPath'] == ['path']
             assert directory not in response.text
+        for kind, directory, message in [
+            ('instance', 'samples/assignment-similarity/instance/instance.json', '文件夹'),
+            ('instance', 'samples/assignment-similarity', 'instance.json'),
+            ('package', 'samples/assignment-similarity/instance', 'package.json'),
+        ]:
+            response = await client.post('/api/v1/registry/load', json={'kind': kind, 'path': directory})
+            assert response.status_code == 422 and response.json()['fieldPath'] == ['path']
+            assert message in response.json()['message']
         with TemporaryDirectory() as directory:
             shutil.copytree('examples/configuration/block', directory, dirs_exist_ok=True)
             Path(directory, 'block.py').write_text('')

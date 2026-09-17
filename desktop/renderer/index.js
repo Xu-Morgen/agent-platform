@@ -31,10 +31,7 @@ function errorText(error) {
 function editEnvironment() {
   const value = environments.find(item => item.environmentId === environmentSelect.value);
   document.querySelector('#environment-name').value = value?.name || '';
-  document.querySelector('#environment-connections').value = JSON.stringify(value?.connections || [
-    { connectionId: 'model', kind: 'model', modelAdapter: 'openai-chat', baseUrl: 'https://api.openai.com/v1', model: '填写服务商模型名', outputTokenParameter: 'max_completion_tokens', jsonMode: true, timeoutSeconds: 180 },
-  ], null, 2);
-  document.querySelector('#environment-credential').value = '';
+  connectionEditor.load(value?.connections);
   const occupied = value?.activeRunIds || [];
   document.querySelector('#environment-form button[type=submit]').disabled = occupied.length > 0;
   environmentResult.textContent = occupied.length ? `环境被任务占用：${occupied.join('、')}` : value ? `环境 ${value.environmentId} · revision ${value.revision}；凭据 ********（仅显示引用）` : '';
@@ -58,14 +55,7 @@ document.querySelector('#environment-form').addEventListener('submit', async eve
   const button = event.submitter;
   if (button) button.disabled = true;
   try {
-    const connections = JSON.parse(document.querySelector('#environment-connections').value);
-    const credential = document.querySelector('#environment-credential').value;
-    if (credential) {
-      const connection = connections.find(item => item.connectionId === document.querySelector('#credential-connection').value);
-      if (!connection) throw new Error('凭据对应的连接标识不存在');
-      delete connection.credentialRef;
-      connection.credential = credential;
-    }
+    const connections = connectionEditor.connections();
     const body = { name: document.querySelector('#environment-name').value, connections };
     const result = environmentSelect.value
       ? await window.agentPlatform.updateEnvironment(environmentSelect.value, body)

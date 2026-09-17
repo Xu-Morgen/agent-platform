@@ -39,11 +39,14 @@
       <button id="environment-refresh" type="button">刷新环境</button>
       <form id="environment-form">
         <label>环境名称 <input id="environment-name" required></label>
-        <label>连接配置（JSON 数组，可配置多个模型或 API）
-          <textarea id="environment-connections" rows="9" required></textarea>
-        </label>
-        <label>连接标识（为该连接设置凭据） <input id="credential-connection" value="model"></label>
-        <label>新凭据 <input id="environment-credential" type="password" autocomplete="new-password"></label>
+        <label id="connection-target-label" hidden>模型连接 <select id="connection-tool-select"></select></label>
+        <label>Base URL <input id="connection-base-url" type="url" required placeholder="https://api.deepseek.com"></label>
+        <label>凭据（API Key） <input id="environment-credential" type="password" autocomplete="new-password" placeholder="填写 API Key；已保存时留空保留"></label>
+        <button id="connection-models" type="button">获取模型</button>
+        <label>模型 <select id="connection-model-select" required disabled><option value="">请先获取模型</option></select></label>
+        <button id="connection-test" type="button" disabled>测试连接</button>
+        <p>测试连接会发送一次小型请求，可能产生模型费用。</p>
+        <p id="connection-tool-result" role="status"></p>
         <button type="submit">保存环境</button>
       </form>
       <p id="environment-result" role="status"></p>
@@ -102,6 +105,7 @@
     </section>
   </main>
   <script src="router.js"></script>
+  <script src="connection-tools.js"></script>
   <script src="index.js"></script>
 </body>
 </html>

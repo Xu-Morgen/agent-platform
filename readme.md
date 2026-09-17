@@ -35,28 +35,24 @@ cd /home/nemo/agent-platform
 
 ### 桌面配置
 
-启动桌面后，在“环境配置”中填写名称，将连接 JSON 改为：
+在“环境配置”中填写环境名称；连接设置只需要填写 **Base URL 和凭据（API Key）**，点击“获取模型”，再从返回的下拉列表选择模型，最后保存环境。不再手写连接 JSON、connectionId 或模型名称。
 
-```json
-[
-  {
-    "connectionId": "model",
-    "kind": "model",
-    "modelAdapter": "openai-chat",
-    "baseUrl": "https://api.openai.com/v1",
-    "model": "填写实际可用的模型名",
-    "outputTokenParameter": "max_completion_tokens",
-    "jsonMode": true,
-    "timeoutSeconds": 180
-  }
-]
-```
+Base URL 使用服务商提供的 API 根路径，不要填写完整 `/chat/completions` 地址。新建连接默认使用 OpenAI 兼容协议；DeepSeek 地址 `https://api.deepseek.com` 自动使用 `max_tokens`，其他 OpenAI 兼容地址默认使用 `max_completion_tokens`。本地 Ollama 的标准端口 `11434` 自动识别为 Ollama；已有连接加载时保留原协议及参数。特殊协议参数、API 类型连接仍可通过后端环境 API 配置，桌面保存会保留已有其他连接。
 
-使用其他兼容服务时，替换 baseUrl 和 model。baseUrl 是包含版本前缀的根路径，通常以 `/v1` 结尾；**不要填写完整的 `/chat/completions` 地址**，平台会追加该路径。API Key 填在独立的凭据密码框，凭据连接标识填 `model`，然后保存环境；无需把 Key 写入 JSON 或源码。
+凭据单独填写，保存后清空密码框，之后留空表示保留已存凭据。修改 Base URL 会移除旧地址的凭据引用，需重新填写凭据；修改地址或凭据会清空模型选择，须重新获取模型。已有环境直接显示当前保存的模型；如有多个模型连接，可切换连接分别编辑。
 
-默认发送 `max_completion_tokens` 和 JSON 模式。如果服务商只支持 `max_tokens`，修改 `outputTokenParameter`；如果不支持 `response_format`，设 `jsonMode: false`。关闭 JSON 模式后仍要求模型返回有效 JSON，平台不会修复或自动重试错误结果。参数语义见 [OpenAI 官方 Chat Completions 文档](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)。
+### DeepSeek 与模型连接工具
 
-配置好环境后，按 [业务接入步骤](samples/README.md#api-和桌面等价步骤) 加载语义包、配置实例、保存服务并提交输入。当前两种适配器均没有完整输入 token 上界预检，实例预算须明确设置 `strictTokenLimit: false`；否则会在请求前返回 `TOKEN_ACCOUNTING_UNSUPPORTED`。非严格模式仍记录并检查实际用量。
+1. Base URL 填 `https://api.deepseek.com`，凭据填 DeepSeek API Key。
+2. 点击“获取模型”，从列表选择可用模型。列表为空或请求失败时显示提示，模型不可手动输入。
+3. 可点击“测试连接”，实际发送一次小型 JSON 请求，显示耗时及 token 用量。测试输出上限为 256，可能产生模型费用；成功仅代表此请求可用。
+4. 点击“保存环境”。服务配置中使用该环境时，预算仍须明确设置 `strictTokenLimit: false`。
+
+获取模型使用 OpenAI 兼容 `GET /models` 或 Ollama `GET /api/tags`；测试和获取列表均使用当前未保存表单，且不创建业务任务。模型选择直接写入待保存配置，无需另外回填。连接标识、JSON 模式、超时时间及输出参数由页面管理。
+
+DeepSeek 依据：[官方接入说明](https://api-docs.deepseek.com/)、[JSON 输出说明](https://api-docs.deepseek.com/guides/json_mode/)。可用模型以实际获取的列表为准。
+
+定向验证（均使用本地协议替身）：`.venv/bin/python checks/connection_tools.py`；真实页面验证：`env -u ELECTRON_RUN_AS_NODE desktop/node_modules/.bin/electron desktop/checks/connection-tools.cjs`。
 
 ### 命令行跑通查重
 
@@ -161,7 +157,7 @@ unset MODEL_API_KEY
 
 桌面通过侧栏切换“平台概览”“环境配置”“服务配置”和“任务调用”，分别对应 `#/overview`、`#/environments`、`#/services`、`#/tasks`。页面切换保留未保存输入和任务查询状态，支持前进、后退及刷新后保持当前路由；刷新仍会清空未保存表单。任务页可独立选择已保存服务。
 
-1. 环境配置区填写名称和连接 JSON；凭据在独立密码框输入，保存后只返回引用。模型连接须指定 `model`，API 连接使用 `kind: "api"`。
+1. 环境配置区填写名称、Base URL 和凭据，获取模型后从下拉列表选择并保存。凭据保存后只返回引用。
 2. 服务配置区先选择“通用块”加载 `examples/configuration/block`，再选择“业务包”依次加载 `examples/configuration/package` 和 `examples/configuration/second`。
 3. 选择“实例定义”加载 `examples/configuration/instance`；页面展示两包两配置 JSON、输入输出及配置 Schema，全局默认预算为 loop 4、token 200，可编辑。
 4. 填写服务名称，校验并保存得到稳定 serviceId 和版本 1.0；修改配置再保存得到新实例与 1.1。

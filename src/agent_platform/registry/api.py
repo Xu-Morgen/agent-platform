@@ -1,4 +1,5 @@
 """本地加载 API 适配层；错误仅返回固定原因与字段路径。"""
+from pathlib import Path
 from ..contracts.registry import LoadResult
 from ..contracts.errors import PlatformError
 from ..configuration import validate_combination
@@ -7,6 +8,14 @@ from .validation import invalid, load_symbol
 
 def load_local(state, request):
     try:
+        directory = Path(request.path)
+        if directory.is_file():
+            raise invalid('请选择定义所在的文件夹，不要选择 JSON 或 Python 文件', ['path'], code='DEPENDENCY_ERROR')
+        if not directory.is_dir():
+            raise invalid('本地目录不存在，请填写后端可访问的文件夹路径', ['path'], code='DEPENDENCY_ERROR')
+        manifest = {'instance': 'instance.json', 'package': 'package.json', 'block': 'block.json'}[request.kind]
+        if not (directory / manifest).is_file():
+            raise invalid(f'所选文件夹缺少 {manifest}，请检查定义类型和目录层级', ['path'], code='DEPENDENCY_ERROR')
         if request.kind == 'instance':
             loaded = state.definitions.load(request.path)
             try:

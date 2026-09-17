@@ -32,12 +32,16 @@ async def serve(host: str, port: int, control_fd: int | None = None) -> None:
     buffer = bytearray()
     stopping_task = None
 
+    async def stop_services():
+        await asyncio.gather(server.config.app.state.connection_tools.close(),
+                            server.config.app.state.worker.stop())
+
     def stop():
         nonlocal watching, stopping_task
         server.config.app.state.ready = False
         server.should_exit = True
         if stopping_task is None:
-            stopping_task = loop.create_task(server.config.app.state.worker.stop())
+            stopping_task = loop.create_task(stop_services())
         if watching:
             loop.remove_reader(0)
             watching = False

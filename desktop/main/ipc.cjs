@@ -39,6 +39,8 @@ module.exports = { registerHealthBridge };
 
 // 路由由主进程固定，页面不能指定任意 URL 或 HTTP 方法。
 const operations = {
+  connectionModels: (body) => ['POST', '/connection-tools/models', body],
+  testConnection: (body) => ['POST', '/connection-tools/test', body],
   cancelRun: (id) => ['POST', `/runs/${encodeURIComponent(id)}/cancel`],
   submitRun: (body) => ['POST', '/runs', body],
   getRun: (id) => ['GET', `/runs/${encodeURIComponent(id)}`],
@@ -64,9 +66,14 @@ function registerConfigurationBridge(backend) {
       if (!backend.address) return failure('BACKEND_UNAVAILABLE', '后端尚未就绪');
       try {
         const [method, routePath, body] = route(...args);
+        // 诊断使用连接自己的超时；普通配置操作保持原有 10 秒限制。
+        const diagnostic = name === 'connectionModels' || name === 'testConnection';
+        const seconds = body?.connection?.timeoutSeconds ?? 60;
+        const timeout = diagnostic && Number.isFinite(seconds) && seconds > 0
+          ? Math.min(Math.ceil(seconds * 1000) + 5000, 2147483647) : 10000;
         const response = await fetch(`${backend.address}/api/v1${routePath}`, {
           method, headers: { 'Content-Type': 'application/json' },
-          body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(10000),
+          body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(timeout),
         });
         const data = await response.json();
         if (!response.ok) return validate(errorSchema, data) ? { ok: false, error: data } : failure('OUTPUT_VALIDATION_ERROR', '错误响应不符合契约');

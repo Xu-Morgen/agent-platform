@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
+  connectionModels: (body) => ipcRenderer.invoke('platform:connectionModels', body),
+  testConnection: (body) => ipcRenderer.invoke('platform:testConnection', body),
   cancelRun: (id) => ipcRenderer.invoke('platform:cancelRun', id),
   submitRun: (body) => ipcRenderer.invoke('platform:submitRun', body),
   getRun: (id) => ipcRenderer.invoke('platform:getRun', id),

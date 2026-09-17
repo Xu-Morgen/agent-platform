@@ -2,6 +2,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from .contracts.environments import Environment, EnvironmentWrite
+from .contracts.connection_tools import ModelListRequest, ModelListResult, ConnectionTestRequest, ConnectionTestResult
 from .contracts.registry import LoadRequest, LoadResult
 from .registry.api import load_local
 from .contracts.services import ServiceWrite, ServiceView, ServiceSchema, VersionView, ActivateRequest
@@ -19,6 +20,7 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         app.state.ready = False
+        await app.state.connection_tools.close()
         await app.state.worker.stop()
 
 
@@ -30,6 +32,8 @@ def create_app() -> FastAPI:
     from .repositories.environments import EnvironmentRepository
     app.state.credentials = CredentialRepository()
     app.state.environments = EnvironmentRepository(app.state.credentials)
+    from .connection_tools import ConnectionTools
+    app.state.connection_tools = ConnectionTools(app.state.credentials)
 
     from .registry.packages import PackageRegistry
     from .registry.blocks import BlockRegistry
@@ -97,6 +101,14 @@ def create_app() -> FastAPI:
     @app.get('/api/v1/environments', response_model=list[Environment])
     async def environments():
         return app.state.environments.list()
+
+    @app.post('/api/v1/connection-tools/models', response_model=ModelListResult)
+    async def connection_models(value: ModelListRequest):
+        return await app.state.connection_tools.models(value)
+
+    @app.post('/api/v1/connection-tools/test', response_model=ConnectionTestResult)
+    async def connection_test(value: ConnectionTestRequest):
+        return await app.state.connection_tools.test(value)
 
     @app.post('/api/v1/environments', response_model=Environment, status_code=201)
     async def create_environment(value: EnvironmentWrite):
