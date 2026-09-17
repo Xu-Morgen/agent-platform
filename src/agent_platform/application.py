@@ -13,11 +13,13 @@ from .http_errors import register_error_handlers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.worker.start()
     app.state.ready = True
     try:
         yield
     finally:
         app.state.ready = False
+        await app.state.worker.stop()
 
 
 def create_app() -> FastAPI:
@@ -42,6 +44,9 @@ def create_app() -> FastAPI:
     from .runtime.submission import RunSubmission
     app.state.runs = RunRepository()
     app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs)
+
+    from .runtime.worker import RunWorker
+    app.state.worker = RunWorker(app.state.submission)
 
     @app.post('/api/v1/runs', response_model=Run, status_code=202)
     async def submit_run(value: RunSubmit):

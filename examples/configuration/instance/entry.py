@@ -1,2 +1,2 @@
 async def run(value, context):
-    return value
+    return await context.run_graph(value)
