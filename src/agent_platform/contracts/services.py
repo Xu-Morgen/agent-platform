@@ -38,3 +38,13 @@ class ServiceSchema(StrictModel):
 
 class ActivateRequest(StrictModel):
     instance_id: Identifier
+
+
+class FlowHistory(StrictModel):
+    version: VersionView
+    flow: FlowDraft
+    compiler_version: str
+    input: dict[str, JsonValue]
+    output: dict[str, JsonValue]
+    examples: list[JsonValue]
+    configuration: dict[str, JsonValue]

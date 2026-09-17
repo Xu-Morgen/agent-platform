@@ -45,3 +45,10 @@ FlowDraft 原样放入 `flow`；不再提交旧 `definitionLoadId`／`definition
 `GET /api/v1/services/{serviceId}/schema` 返回输入输出 Schema、`examples`、
 完整 `flow`、`compilerVersion` 和各包节点配置 Schema。
 纯块实例可省略 `budget` 和 `nodeConfigurations`，无需环境。
+
+历史操作沿用 `GET /services/{serviceId}/versions` 和
+`POST /services/{serviceId}/activate`（请求 `{ "instanceId": "ins_..." }`），均带 `/api/v1` 前缀。
+新增 `GET /services/{serviceId}/versions/{instanceId}` 读取完整拼图及配置；
+`POST /services/{serviceId}/versions/{instanceId}/draft` 将历史复制为新的可编辑草稿。
+拓扑、契约或模块内容变化升大版本；仅节点参数、预算或环境绑定变化升小版本；
+两类同时变化标记 `breaking`。回退保留原实例标识，重新校验并使用当前环境。

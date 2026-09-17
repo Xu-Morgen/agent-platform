@@ -5,17 +5,16 @@ import json
 
 
 def signatures(snapshot):
-    definition = json.loads(snapshot.definition_json)
-    structural = {
-        key: definition[key] for key in ('entry', 'workflow', 'inputModel', 'outputModel', 'configurationModel', 'packageBindings')
-    }
-    # instance.json 包含可编辑配置，不能将配置编辑误判为源码变化。
-    structural['source'] = {name: sha256(value).hexdigest() for name, value in snapshot.content.files.items() if name != 'instance.json'}
-    structural['packages'] = {key: value.content.digest for key, value in snapshot.packages.items()}
-    structural['blocks'] = {'.'.join(key): value.content.digest for key, value in snapshot.blocks.items()}
-    structural['schema'] = snapshot.schema
-    configuration = {key: definition[key] for key in ('configRefs', 'environmentRefs', 'budget', 'capabilityBindings')}
-    configuration['resolved'] = snapshot.configuration
+    draft = snapshot.draft.model_dump(mode='json', by_alias=True)
+    structural = {key: draft[key] for key in ('inputContract', 'outputContract', 'flow', 'output')}
+    structural['compiler'] = snapshot.compiler_version
+    structural['modules'] = {ref: value.content.digest for ref, value in snapshot.catalog._artifacts.items()}
+    structural['contracts'] = {ref: value.schema for ref, value in snapshot.catalog._contracts.items()}
+    configuration = {'nodes': draft['nodeConfigurations'], 'budget': draft['budget']}
+    # 块能力内容属于模块版本，不能因内容地址变化同时误记配置变更。
+    for config in configuration['nodes'].values():
+        for binding in config['capabilities'].values():
+            binding.pop('artifactRef', None)
     return json.dumps(structural, sort_keys=True), json.dumps(configuration, sort_keys=True)
 
 

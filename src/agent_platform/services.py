@@ -34,10 +34,7 @@ class ServiceManager:
         key = service_id or 'svc_' + uuid4().hex
         current = self.resolve_current(key) if previous else None
         # 单事件循环内无 await；验证结束后一次性分配、入库、切换。
-        from .versions.numbering import VersionNumber
-        last = self.allocator._last.get(key)
-        number = VersionNumber(1, 1, 0, 'initial') if last is None else VersionNumber(last.revision + 1, last.major, last.minor + 1, 'minor')
-        self.allocator._last[key] = number
+        number = self.allocator.allocate(key, current, candidate)
         view = VersionView(instance_id=candidate.instance_id, revision=number.revision,
                            version=number.version, change_kind=number.change_kind, content_digest=candidate.content_digest)
         service = ServiceView(service_id=key, name=request.name, active_instance_id=candidate.instance_id, current=view)
@@ -60,6 +57,15 @@ class ServiceManager:
     def history(self, service_id):
         self.get(service_id)
         return [value.model_copy(deep=True) for value in self._history[service_id]]
+
+    def historical(self, service_id, instance_id):
+        from .contracts.services import FlowHistory
+        version = next((v for v in self.history(service_id) if v.instance_id == instance_id), None)
+        if version is None:
+            raise invalid('该实例不属于此服务的历史', ['instanceId'], code='RECORD_NOT_FOUND')
+        snapshot = self.snapshots.get(instance_id)
+        return FlowHistory(version=version, flow=snapshot.draft, compiler_version=snapshot.compiler_version,
+            configuration=snapshot.configuration, **snapshot.schema)
 
     def activate(self, service_id, instance_id):
         from .flows.drafts import preflight

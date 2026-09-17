@@ -5,7 +5,7 @@ from .contracts.environments import Environment, EnvironmentWrite
 from .contracts.connection_tools import ModelListRequest, ModelListResult, ConnectionTestRequest, ConnectionTestResult
 from .contracts.registry import LoadRequest, LoadResult
 from .registry.api import load_local
-from .contracts.services import ServiceWrite, ServiceView, ServiceSchema, VersionView, ActivateRequest
+from .contracts.services import ServiceWrite, ServiceView, ServiceSchema, VersionView, ActivateRequest, FlowHistory
 from .contracts.runs import Run, RunSubmit, RunResult
 from .contracts.health import HealthResponse
 from .contracts.errors import ErrorResponse, PlatformError
@@ -143,6 +143,17 @@ def create_app() -> FastAPI:
     @app.get('/api/v1/services/{service_id}/versions', response_model=list[VersionView])
     async def version_history(service_id: str):
         return app.state.services.history(service_id)
+
+    @app.get('/api/v1/services/{service_id}/versions/{instance_id}', response_model=FlowHistory)
+    async def historical_version(service_id: str, instance_id: str):
+        return app.state.services.historical(service_id, instance_id)
+
+    @app.post('/api/v1/services/{service_id}/versions/{instance_id}/draft', response_model=DraftDocument, status_code=201)
+    async def copy_historical_draft(service_id: str, instance_id: str):
+        history = app.state.services.historical(service_id, instance_id)
+        content = history.flow.model_dump(mode='json', by_alias=True)
+        content.pop('draftId', None)
+        return app.state.drafts.save(DraftWrite(content=content))
 
     @app.post('/api/v1/services/{service_id}/activate', response_model=ServiceView)
     async def activate_version(service_id: str, value: ActivateRequest):
