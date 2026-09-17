@@ -24,10 +24,13 @@ const flowEditor = (() => {
     if (value.$ref) value = root.$defs?.[value.$ref.split('/').pop()] || {};
     return [prefix, ...Object.entries(value.properties || {}).flatMap(([key, child]) => paths(child, root, [...prefix, key], depth + 1))];
   }
+  function sourceValue(source) {
+    return JSON.stringify({kind:source.kind,...(source.nodeId ? {nodeId:source.nodeId} : {}),path:source.path || []});
+  }
   function sourceOptions(nodes) {
     const ports = [[{kind:'input', path:[]}, '服务输入', content.inputContract], ...nodes.map(n => [
       {kind:n.kind === 'carry' ? 'carry' : 'node', nodeId:n.nodeId, path:[]}, n.kind === 'carry' ? n.nodeId + ' 携带值' : n.nodeId, outputRef(n)])];
-    return ports.flatMap(([source, title, ref]) => paths(schema(ref)).map(path => [JSON.stringify({...source, path}), title + (path.length ? '.' + path.join('.') : '（完整值）')]));
+    return ports.flatMap(([source, title, ref]) => paths(schema(ref)).map(path => [sourceValue({...source, path}), title + (path.length ? '.' + path.join('.') : '（完整值）')]));
   }
   function bindings(target, values, contract, nodes) {
     target.replaceChildren();
@@ -38,7 +41,7 @@ const flowEditor = (() => {
       const dest = choices(destinations, JSON.stringify(binding.target), value => { if (value) { binding.target = JSON.parse(value); changed(); } });
       dest.setAttribute('aria-label', '目标端口');
       const options = sourceOptions(nodes); options.push(['constant', '常量（JSON）']);
-      const source = choices(options, binding.source.kind === 'constant' ? 'constant' : JSON.stringify(binding.source), value => {
+      const source = choices(options, binding.source.kind === 'constant' ? 'constant' : sourceValue(binding.source), value => {
         if (!value) return;
         binding.source = value === 'constant' ? {kind:'constant', value:null} : JSON.parse(value); changed(); render();
       }); source.setAttribute('aria-label', '来源端口');
@@ -119,7 +122,7 @@ const flowEditor = (() => {
         if(node.kind==='package')card.append(button('配置 '+node.nodeId,()=>configure(node,resource)),el('p',content.nodeConfigurations[node.nodeId]?'已配置，最终状态以拼图校验为准':'无效：尚未配置参数、预算及环境'));
       } else if(node.kind==='if') {
         const condition=el('label','条件块输出（严格 bool）');
-        condition.append(choices(sourceOptions(scope),JSON.stringify(node.condition),v=>{if(v){node.condition=JSON.parse(v);changed()}}));card.append(condition);
+        condition.append(choices(sourceOptions(scope),sourceValue(node.condition),v=>{if(v){node.condition=JSON.parse(v);changed()}}));card.append(condition);
         contractChoice(card,'分支共同出口契约',node.outputContract,v=>node.outputContract=v);
         for(const [key,title] of [['thenBranch','成立分支'],['elseBranch','否则分支']]){
           const branch=el('fieldset');branch.dataset.branch=key;branch.append(el('legend',title));

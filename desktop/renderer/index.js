@@ -11,11 +11,11 @@ async function refreshHealth() {
       return;
     }
     backendAddress = result.address;
-    status.textContent = `后端已就绪：${result.address}`;
-    healthButton.disabled = false;
     await refreshEnvironments();
     await refreshServices();
     await flowEditor.refresh();
+    status.textContent = `后端已就绪：${result.address}`;
+    healthButton.disabled = false;
   } catch {
     status.textContent = '桌面请求桥不可用';
   }

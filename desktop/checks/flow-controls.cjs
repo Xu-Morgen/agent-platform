@@ -30,6 +30,16 @@ app.whenReady().then(async()=>{
    wire('[data-node-id="node_4"] [data-binding-section="下轮携带值"]','node_4 携带值（完整值）');
    wire('#flow-output-bindings','node_4（完整值）');`);
   let result=await run('flowEditor.validate()');assert.equal(result.data.valid,true,JSON.stringify(result));
+  await run("document.querySelector('#instance-save').click()");
+  await wait("document.querySelector('#service-result').textContent.includes('已保存版本')");
+  for(const [text,status] of [[' ','completed'],['合成','failed']]){
+    const previous=await run("document.querySelector('#task-run-id').value");
+    await run(`location.hash='/tasks';document.querySelector('#task-service-select').selectedIndex=1;document.querySelector('#task-input').value=JSON.stringify({text:${JSON.stringify(text)}});document.querySelector('#task-form').requestSubmit()`);
+    await wait(`document.querySelector('#task-run-id').value!==${JSON.stringify(previous)}`);
+    await wait(`document.querySelector('#task-status').textContent.startsWith('${status}')`);
+    if(status==='failed')assert.match(await run("document.querySelector('#task-error').textContent"),/LOOP_ITERATION_LIMIT/);
+  }
+  await run("location.hash='/services'");
   assert.equal(await run("document.querySelector('[data-node-id=node_3] [data-count]').value"),'0');
   assert.equal(await run("[...document.querySelector('#flow-output-bindings select[aria-label=\"来源端口\"]').options].some(o=>o.text.startsWith('node_3'))"),false);
   await run("document.querySelector('[data-count=maxIterations]').value='';document.querySelector('[data-count=maxIterations]').dispatchEvent(new Event('change'))");
