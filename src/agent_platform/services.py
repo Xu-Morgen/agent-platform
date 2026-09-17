@@ -2,7 +2,7 @@
 from uuid import uuid4
 from .contracts.services import ServiceView, VersionView, ServiceSchema
 from .registry.validation import invalid
-from .versions.snapshots import SnapshotRepository, prepare_snapshot
+from .versions.snapshots import SnapshotRepository
 from .versions.numbering import VersionAllocator
 
 
@@ -14,7 +14,6 @@ class ServiceManager:
         self.allocator = VersionAllocator()
         self._services = {}
         self._history = {}
-        self._sources = {}
 
     def get(self, service_id):
         if service_id not in self._services:

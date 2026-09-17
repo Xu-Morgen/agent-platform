@@ -5,6 +5,17 @@ from ..runtime.validation import validate
 
 
 class FlowRunContext(RunContext):
+    async def invoke_block(self, node_id, value):
+        from ..contracts.flows import ModuleNode, walk_nodes
+        from ..contracts.errors import PlatformError, ErrorResponse
+        node = next((node for node, _ in walk_nodes(self.snapshot.draft.flow)
+                     if node.node_id == node_id and isinstance(node, ModuleNode) and node.kind == 'block'), None)
+        if node is None:
+            raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage='block.binding',
+                node_id=node_id, message='独立块节点不存在'))
+        return await self.run_step('nodes.' + node_id,
+            lambda: self.snapshot.catalog.artifact(node.artifact_ref).invoke(value), kind='block')
+
     def binding(self, binding_id, kind):
         node_id, capability_id = binding_id.split('.', 1)
         selection = self.snapshot.draft.node_configurations[node_id].capabilities[capability_id]

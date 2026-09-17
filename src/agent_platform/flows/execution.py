@@ -130,7 +130,7 @@ def compile_flow(draft, catalog):
                 context = current_context.get()
                 if node.kind == 'block':
                     operation = lambda: catalog.artifact(node.artifact_ref).invoke(plain(value))
-                    result = await context.run_step(stage, operation, kind='block') if context else await operation()
+                    result = await context.invoke_block(node.node_id, plain(value)) if context else await operation()
                 else:
                     if context is None:
                         raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage=stage, message='包执行需要任务上下文'))
@@ -195,7 +195,11 @@ def compile_flow(draft, catalog):
                                 if iteration >= node.count:
                                     break
                             else:
-                                condition_state = await condition_graph.ainvoke(inner.model_dump())
+                                path_token = execution_path.set((*execution_path.get(), f'{node.node_id}[{iteration}].condition'))
+                                try:
+                                    condition_state = await condition_graph.ainvoke(inner.model_dump())
+                                finally:
+                                    execution_path.reset(path_token)
                                 decision = condition_state['outputs'][node.condition.node_id]
                                 if type(decision) is not bool:
                                     raise PlatformError(ErrorResponse(code='OUTPUT_VALIDATION_ERROR', stage='flow.condition',

@@ -6,6 +6,8 @@ from agent_platform.contracts.flows import FlowDraft
 from agent_platform.flows.execution import compile_flow
 from agent_platform.flows.validation import validate_flow
 from agent_platform.runtime.context import current_context
+from agent_platform.runtime.boundary import Boundary, current_boundary
+from agent_platform.runtime.budgets import LoopPolicy
 
 async def main():
     app, draft, env = fixture()
@@ -21,18 +23,23 @@ async def main():
     original['output'] = bind(ref('choose'))
     draft = FlowDraft.model_validate(original)
     ctx = context(app, FlowDraft.model_validate({**original, 'flow': [package]}), env)
+    ctx.snapshot.draft = draft
     token = current_context.set(ctx)
+    boundary_token = current_boundary.set(Boundary(policies=[LoopPolicy(ctx.run_id, ctx.snapshot, ctx.runs)]))
     try:
         graph = compile_flow(draft, app.state.catalog)
         assert (await graph.run({'legacyText': '非空'})) == {'text': '合成输出'}
         assert (await graph.run({'legacyText': ''})) == {'text': ''}
         assert ctx.model.calls == 1
+        assert ctx.runs.get(ctx.run_id).usage['loops']['global'] == 1
         assert len([s for s in ctx.runs.get(ctx.run_id).steps if s.kind == 'package']) == 1
         bad = deepcopy(original); bad['flow'][2]['elseBranch']['output'] = bind({'kind': 'constant', 'value': False})
         assert not validate_flow(FlowDraft.model_validate(bad), app.state.catalog).valid
         bad = deepcopy(original); bad['output'] = bind(ref('generate'))
         assert not validate_flow(FlowDraft.model_validate(bad), app.state.catalog).valid
-    finally: current_context.reset(token)
+    finally:
+        current_context.reset(token)
+        current_boundary.reset(boundary_token)
     print('flow branches: OK (true/false 互斥、未选包零调用、共同出口和作用域拒绝)')
 
 asyncio.run(main())

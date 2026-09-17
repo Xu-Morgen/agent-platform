@@ -1,4 +1,5 @@
 """每次任务独立的实例上下文；图和能力使用固定内容。"""
+import asyncio
 from contextvars import ContextVar
 from inspect import isawaitable
 from pydantic import ValidationError
@@ -14,6 +15,9 @@ def execution_error(exc, stage, run_id):
         error = exc.error.model_copy(deep=True)
         error.run_id = run_id
         return error
+    from langgraph.errors import GraphRecursionError
+    if isinstance(exc, GraphRecursionError):
+        return ErrorResponse(code='GRAPH_EXECUTION_LIMIT', stage=stage, message='图执行步数超过限制', run_id=run_id)
     if isinstance(exc, ValidationError):
         return ErrorResponse(code='OUTPUT_VALIDATION_ERROR', stage=stage + '.output',
                              message='步骤数据不符合契约', run_id=run_id, field_path=list(exc.errors()[0]['loc']))
@@ -54,6 +58,10 @@ class RunContext:
                 step.output = plain(value)
             step.status = 'completed'
             return value
+        except asyncio.CancelledError:
+            step.status = 'failed'
+            step.error = ErrorResponse(code='APPLICATION_EXIT', stage=step_id, message='应用停止', run_id=self.run_id)
+            raise
         except Exception as exc:
             step.status = 'failed'
             step.error = execution_error(exc, step_id, self.run_id)

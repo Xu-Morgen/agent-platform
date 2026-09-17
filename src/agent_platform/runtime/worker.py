@@ -5,8 +5,8 @@ from ..adapters.models import ModelAdapters
 from .boundary import Boundary, current_boundary
 from .cancellation import CancellationPolicy, terminal_for_error
 from .budgets import LoopPolicy, StrictTokenPolicy, NonStrictTokenPolicy
-from .context import RunContext, current_context, execution_error
-from .validation import validate
+from .context import current_context, execution_error
+from ..flows.context import FlowRunContext
 from ..contracts.errors import ErrorResponse
 from ..contracts.runs import TERMINAL
 
@@ -54,10 +54,14 @@ class RunWorker:
         boundary = self.boundary_factory()
         api = APIAdapter(envs.credentials)
         model = ModelAdapters(envs.credentials)
-        policy_type = StrictTokenPolicy if snapshot.definition.budget.strict_token_limit else NonStrictTokenPolicy
-        token_policy = policy_type(run_id, snapshot, runs)
-        boundary.policies = (CancellationPolicy(runs, run_id),) + boundary.policies + (token_policy, LoopPolicy(run_id, snapshot, runs))
-        context = RunContext(run_id, snapshot, runs, api, model, token_policy)
+        token_policy = None
+        policies = (CancellationPolicy(runs, run_id),) + boundary.policies
+        if snapshot.packages:
+            policy_type = StrictTokenPolicy if snapshot.draft.budget.strict_token_limit else NonStrictTokenPolicy
+            token_policy = policy_type(run_id, snapshot, runs)
+            policies += (token_policy, LoopPolicy(run_id, snapshot, runs))
+        boundary.policies = policies
+        context = FlowRunContext(run_id, snapshot, runs, api, model, token_policy)
         bt, ct = current_boundary.set(boundary), current_context.set(context)
         try:
             await boundary.check('run_start', run_id)
@@ -65,16 +69,13 @@ class RunWorker:
                 if runs.get(run_id).status in TERMINAL:
                     return
                 runs.update(run_id, status='running')
-            value = validate(snapshot.content.load(snapshot.definition.input_model), runs.get(run_id).input, 'runs.input')
-            entry = snapshot.content.load(snapshot.definition.entry)
-            result = await context.run_step('instance.entry', lambda: entry(value, context), kind='entry')
-            result = validate(snapshot.content.load(snapshot.definition.output_model), result, 'runs.output')
+            result = await snapshot.graph.run(runs.get(run_id).input)
             await boundary.check('terminal', run_id)
             with envs.lock, runs.lock:
                 if runs.get(run_id).cancel_requested:
                     runs.finish(run_id, 'cancelled')
                 else:
-                    runs.finish(run_id, 'completed', result=result.model_dump(mode='json', by_alias=True))
+                    runs.finish(run_id, 'completed', result=result)
         except asyncio.CancelledError:
             if runs.get(run_id).status not in TERMINAL:
                 runs.finish(run_id, 'cancelled', error=ErrorResponse(code='APPLICATION_EXIT', stage='runtime', message='应用停止', run_id=run_id))

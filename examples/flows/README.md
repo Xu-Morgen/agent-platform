@@ -1,6 +1,6 @@
-# I6 拼图配置协议
+# I6/I7 拼图配置与执行协议
 
-I6 交付结构、资源与预检；图编译及调用在 I7 实施。`control.json` 是包含四类结构的最小协议样例，使用占位资源名，只证明结构校验。
+I6 交付结构、资源与预检；I7 已交付图编译、实例版本和任务调用。`control.json` 是包含四类结构的最小协议样例，使用占位资源名，只证明结构校验。
 `flow.schema.json` 从 `FlowDraft` 导出；`validation.schema.json` 从统一 `ValidationResult` 导出。不要手写第二份字段定义。
 
 ## 可复现的纯块预检
@@ -52,3 +52,20 @@ FlowDraft 原样放入 `flow`；不再提交旧 `definitionLoadId`／`definition
 `POST /services/{serviceId}/versions/{instanceId}/draft` 将历史复制为新的可编辑草稿。
 拓扑、契约或模块内容变化升大版本；仅节点参数、预算或环境绑定变化升小版本；
 两类同时变化标记 `breaking`。回退保留原实例标识，重新校验并使用当前环境。
+
+任务提交仍为 `POST /api/v1/runs`：
+
+```json
+{"serviceId":"svc_...","expectedInstanceId":"ins_...","input":{"legacyText":"合成样例"}}
+```
+
+`input` 使用所保存拼图的输入契约；成功返回 202 和新的 `runId`。
+`GET /api/v1/runs/{runId}` 返回节点步骤、`executionPath`（如 `loop[0]`）、
+块／包 `output`、错误及累计 `usage`；`GET /api/v1/runs/{runId}/result`
+只在任务完整成功后提供最终报告。`POST /api/v1/runs/{runId}/cancel` 请求取消。
+草稿不可调用，旧实例只能回退后通过稳定服务入口调用。重复提交创建独立任务。
+排队起固定环境并占用，服务更新不影响在途任务。重启清空实例、历史和任务。
+
+可复现完整保存／worker／查询／取消示例：
+`.venv/bin/python checks/flow_runs.py`。此检查使用本地模型协议替身；
+真实模型与桌面页面闭环由 I8 验收。

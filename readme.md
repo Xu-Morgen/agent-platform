@@ -6,7 +6,11 @@
 
 2026-09-17 已更新为[服务拼图需求 v0.5](docs/product-requirements.md)：服务配置页拼装通用块和业务包，逐节点配置后生成完整实例供任务调用；支持类型约束端口、条件与循环，并允许无需模型环境及预算的纯通用块实例。新设计见[架构 v0.3](docs/architecture-design.md)。
 
-**I6 契约与配置基础已完成（7/7）。** 已提供单文件块、模块/契约目录、端口与节点配置校验、具体错误及内存草稿预检，协议与 API 示例见 [拼图配置说明](examples/flows/README.md)。新版图执行与页面尚未交付；下文启动、操作及 I1—I5 记录仍描述旧方案。新版开发按 [迭代计划](docs/iteration-plan.md)推进，下一张为 I7-T01（I8-T01 页面基础也已满足依赖）。旧 M1 演示仅作历史证据；新版 M1/M2 均待验收，旧 I5-T08 真实模型验收目标由 I8-T09 承接。旧脚本入口不要求兼容，新示例将迁移至拼图。
+**I6、I7 已各完成 7/7 张。** 后端已支持单文件块、端口与逐节点配置预检，以及顺序／条件／循环拼图编译、累计预算、取消、完整实例保存、版本回退和任务调用。API 协议见 [拼图配置说明](examples/flows/README.md)，逐卡证据见 [I7 交接](docs/tasks/i7.md)。
+
+**桌面服务页、任务页和业务样例待 I8 迁移。** 当前服务保存 API 已切换为 `{name, flow}`，不再接收旧 `definitionLoadId/definition`；下方旧桌面保存流程、查重调用脚本及旧检查命令仅保留为历史记录，不能用于新版闭环验收。后端启动与环境配置入口仍可使用，新版可通过 API 或 I7 局部样例验证。下一张任务为 I8-T01；新版 M1/M2 待 I8-T08/T09 验收，未进行真实模型验收。
+
+I7 定向验证：`.venv/bin/python checks/flow_execution.py`、`checks/flow_branches.py`、`checks/flow_loops.py`、`checks/flow_control.py`、`checks/flow_snapshots.py`、`checks/flow_versions.py`、`checks/flow_runs.py`（后六项也使用 `.venv/bin/python` 执行）。仅使用确定性块、合成模型和本地 HTTP 协议替身，不安装依赖或构建。
 
 ## 快速启动
 

@@ -1,6 +1,5 @@
 """按实际内容分类；分配序列独立于当前激活实例，回退不复用编号。"""
 from dataclasses import dataclass
-from hashlib import sha256
 import json
 
 

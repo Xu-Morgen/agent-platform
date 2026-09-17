@@ -1,9 +1,9 @@
 """原子受理：固定实际实例与环境后入队，不在 HTTP 中执行。"""
 from asyncio import Queue
 from dataclasses import dataclass
-from ..configuration import validate_environment_bindings
+from ..flows.execution import checked, plain
+from ..flows.configuration import validate_configurations
 from ..contracts.errors import ErrorResponse, PlatformError
-from .validation import validate
 
 
 @dataclass(frozen=True)
@@ -26,12 +26,18 @@ class RunSubmission:
             if request.expected_instance_id and request.expected_instance_id != service.active_instance_id:
                 raise PlatformError(ErrorResponse(code='VERSION_CONFLICT', stage='runs.submit', message='当前实例已变化'), 409)
             snapshot = self.services.resolve_current(request.service_id)
-            model = snapshot.content.load(snapshot.definition.input_model)
-            value = validate(model, request.input, 'runs.input')
-            environments = validate_environment_bindings(snapshot.definition, self.environments)
+            draft = snapshot.draft
+            value = checked(snapshot.catalog.contract(draft.input_contract), request.input, 'runs.input')
+            validation = validate_configurations(draft, snapshot.catalog, self.environments)
+            if not validation.valid:
+                raise PlatformError(ErrorResponse(code='CONFIGURATION_ERROR', stage='runs.submit',
+                    message='当前环境或节点配置校验失败', issues=validation.issues))
+            ids = {c.environment_id for config in draft.node_configurations.values()
+                   for c in config.capabilities.values() if c.environment_id}
+            environments = {key: self.environments.get(key) for key in sorted(ids)}
             run = self.runs.create(service_id=service.service_id, instance_id=snapshot.instance_id,
                 version=service.current.version, revision=service.current.revision,
-                input=value.model_dump(mode='json', by_alias=True), environment_snapshot=list(environments.values()))
+                input=plain(value), environment_snapshot=list(environments.values()))
             self.environments.occupy(environments, run.run_id)
             self.queue.put_nowait(PendingRun(run.run_id, snapshot))
             return run
