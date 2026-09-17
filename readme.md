@@ -14,12 +14,16 @@
 
 **I4 预算与终止行为已完成（12/12）**：局部/全局 loop 和 token 账本、严格与非严格策略、预算表单、排队/运行取消、错误优先级、取消按钮及在途退出清理。M1 合成平台闭环通过，见 [演示记录](docs/delivery/i4-platform.md) 和 [I4 交接](docs/tasks/i4.md)。
 
-验收使用合成数据、本地 HTTP 模型协议替身及真实 Electron 页面，尚未验收真实模型。Ollama 不声明严格总 token 保证，严格模式在发送前报错；使用该适配器需明确选择非严格模式，详见 [模型协议能力](docs/protocols/model.md)。查重产品留 I5；PostgreSQL 仅为后续选型，当前未启用持久化。
+验收使用合成数据、本地 HTTP 模型协议替身及真实 Electron 页面，尚未验收真实模型。Ollama 不声明严格总 token 保证，严格模式在发送前报错；使用该适配器需明确选择非严格模式，详见 [模型协议能力](docs/protocols/model.md)。I5 已实现查重契约、清洗计分、语义包、完整图、标准模板与接入说明，真实模型验收仍待完成；PostgreSQL 仅为后续选型，当前未启用持久化。
 
 - [产品需求文档](docs/product-requirements.md)：已确认范围、行为与验收标准。
 - [架构设计文档](docs/architecture-design.md)：运行结构、包与实例协议、版本快照、任务状态机及预算。
 - [迭代开发文档](docs/iteration-plan.md)：开发依赖、58 张单目标任务卡、轻量验收与交接记录；任务卡位于 `docs/tasks/`。
 - [项目协作约定](AGENT.md)：开发边界与工作约束。
+
+## 查重产品接入
+
+见 [samples 操作说明](samples/README.md)。无需真实模型可执行 `.venv/bin/python checks/similarity_onboarding.py`，从干净后端进程验证加载、配置、双报告与退出。该命令使用本地 HTTP 协议替身，不代替 M2 真实验收。用户 artifact 可通过 `.venv/bin/python checks/similarity_scoring.py --artifact-dir artifact` 在本地测验。
 
 ## 本地运行
 
@@ -138,7 +142,7 @@ agent-platform/
 ├── examples/                   # 控制消息、声明样例、两节点图
 ├── checks/                     # 轻量定向断言
 ├── scripts/                    # 契约导出与任务交接记录工具
-└── samples/                    # 后续 I5 业务产品，尚未实现
+└── samples/                    # 标准模板、查重实例与语义包、接入脚本
 ```
 
 权限、数据库持久化与直连、复杂业务规则、性能优化等后置。
