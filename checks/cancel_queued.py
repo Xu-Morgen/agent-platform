@@ -14,6 +14,9 @@ async def main():
     svc = app.state.services.save(ServiceWrite.model_validate(body))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
         for race in (False, True):
+            if race:
+                # 上一次 stop 表示应用退出；新一轮调度使用新 worker 生命周期。
+                app.state.submission.stopping = False
             run = app.state.submission.submit(RunSubmit(service_id=svc.service_id, input={'text':'合成'}))
             reached, release = asyncio.Event(), asyncio.Event()
             async def observer(phase, step):
