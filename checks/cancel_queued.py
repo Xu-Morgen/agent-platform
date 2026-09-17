@@ -9,7 +9,7 @@ from agent_platform.runtime.worker import RunWorker
 
 async def main():
     app, body = setup_app()
-    env = app.state.environments.save(EnvironmentWrite(name='合成', connections=[]))
+    env = app.state.environments.save(EnvironmentWrite(name='合成', connections=[{'connectionId':'api','kind':'api','baseUrl':'http://localhost:9000'}]))
     body['definition']['environmentRefs'] = [env.environment_id]
     svc = app.state.services.save(ServiceWrite.model_validate(body))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
