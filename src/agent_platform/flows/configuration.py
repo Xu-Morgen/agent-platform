@@ -4,7 +4,7 @@ from ..contracts.flows import ModuleNode, NodeConfiguration, walk_nodes
 from ..contracts.base import StrictModel
 from ..contracts.errors import PlatformError
 from ..contracts.models import ModelRequest, ModelResponse
-from ..configuration import schema_shape
+from ..registry.validation import schema_shape
 from .validation import ValidationIssue, ValidationResult
 from .compatibility import assignable, Incompatible
 

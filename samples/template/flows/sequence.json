@@ -4,15 +4,16 @@
       "kind": "block",
       "path": "blocks/text.py"
     },
-    "condition": {
-      "kind": "block",
-      "path": "blocks/condition.py"
+    "message": {
+      "kind": "contract",
+      "path": "flows/contracts.py",
+      "symbol": "Message"
     }
   },
   "flow": {
     "name": "纯块顺序",
-    "inputContract": "${text.inputContract}",
-    "outputContract": "${text.outputContract}",
+    "inputContract": "${message.resourceId}",
+    "outputContract": "${message.resourceId}",
     "flow": [
       {
         "kind": "block",

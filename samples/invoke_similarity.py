@@ -58,7 +58,7 @@ def main():
     parser.add_argument('--model', required=True)
     parser.add_argument('--credential-env', help='可选：存放模型凭据的环境变量名称')
     parser.add_argument('--non-strict', action='store_true', help='显式使用非严格 token 模式；当前两种适配器均需选择')
-    parser.add_argument('--input', default=str(ROOT / 'examples/input.json'))
+    parser.add_argument('--input', required=True, help='业务输入 JSON 文件路径')
     parser.add_argument('--output', help='可选：将脱敏结果写入指定路径')
     parser.add_argument('--timeout', type=float, default=180.0)
     raise SystemExit(0 if invoke(parser.parse_args()) else 1)

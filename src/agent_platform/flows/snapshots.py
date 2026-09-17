@@ -29,10 +29,6 @@ class FlowSnapshot:
         return FlowDraft.model_validate_json(self.draft_json)
 
     @property
-    def definition(self):
-        return self.draft
-
-    @property
     def configuration(self):
         return json.loads(self.configuration_json)
 

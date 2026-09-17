@@ -1,9 +1,9 @@
 # Agent Platform 架构设计
 
-- 版本：0.3
+- 版本：0.4
 - 日期：2026-09-17
-- 状态：I6 契约配置、I7 流程执行与实例版本已实现；I8 页面及产品验收待实施；I1—I5 保留旧基线交接记录
-- 需求依据：[产品需求 v0.5](product-requirements.md)
+- 状态：V1 拼图闭环已交付，用户确认验证完成；旧实例链路已精简，扩展评估见 [架构评估](cleanup-review.md)
+- 需求依据：[产品需求 v0.6](product-requirements.md)
 - 实施计划：[迭代开发文档](iteration-plan.md)
 
 ## 1. 设计目标与选择
@@ -311,7 +311,7 @@ stateDiagram-v2
 
 ## 10. API 与错误契约
 
-统一 `/api/v1` 前缀；旧版已有服务、环境、加载、runs 和 cancel 接口。以下包含新版目标：服务保存请求改为完整拼图及配置，返回生成实例；新增路由尚未实现。JSON 字段使用 camelCase，内部 Python 字段可用 snake_case 并从契约统一导出别名。
+统一 `/api/v1` 前缀；服务保存接收完整拼图及配置并返回生成实例，资源入口统一为 catalog。下表是当前接口；完整请求与响应以运行中的 /docs 为准。JSON 字段使用 camelCase，内部 Python 字段可用 snake_case 并从契约统一导出别名。
 
 | 方法与路径 | 语义 |
 | --- | --- |
@@ -323,10 +323,10 @@ stateDiagram-v2
 | GET /services/{serviceId}/schema | 当前实例契约、版本、样例 |
 | GET /environments、POST /environments | 环境列表与创建 |
 | PUT /environments/{environmentId} | 空闲时更新，否则冲突 |
-| POST /registry/load | 新版加载业务包目录、通用块 .py 文件或契约资源；不要求先绑定环境 |
-| GET /registry/modules | 新增：返回可拼接模块的标识、版本、端口及配置 Schema |
+| POST /catalog/load | 加载业务包目录、通用块 .py 文件或契约资源；不要求先绑定环境 |
+| GET /catalog；GET /catalog/{resourceId} | 返回资源标识、版本、端口及配置 Schema |
 | POST /flows/validate | 新增：校验草稿结构、接线、节点配置及期望输出，返回定位信息；不创建实例 |
-| GET/POST/PUT /flow-drafts（具体资源路径随契约落地） | 新增：同会话草稿读取与保存，不激活服务、不进入实例历史 |
+| GET/POST /drafts；GET/PUT /drafts/{draftId} | 同会话草稿读取与保存，不激活服务、不进入实例历史 |
 | POST /runs | 提交 serviceId、input，可带 expectedInstanceId 以避免读取 Schema 后版本已变化 |
 | GET /runs/{runId} | 状态、取消阶段、实际版本、预算使用与错误 |
 | GET /runs/{runId}/result | 仅 completed 返回最终结果 |
@@ -405,11 +405,12 @@ desktop/
   preload/                      # 有限页面桥接
   renderer/                     # HTML/CSS/JavaScript 表单
 src/agent_platform/
-  application/
+  application.py                # HTTP 路由与应用组装
   contracts/
   registry/
   versions/
-  runtime/                      # LangGraph 节点包装、调度与预算
+  flows/                        # 拼图校验、快照与 LangGraph 编译
+  runtime/                      # 任务调度、预算与取消
   adapters/
   repositories/
   blocks/
@@ -422,19 +423,15 @@ samples/
     packages/semantic/
     blocks/                      # 单文件通用块
     flows/                       # 拼图样例与契约
-    examples/
-tests/
-  contracts/
-  lifecycle/
-  integration/
+    source/                      # 契约、清洗与计分权威源
 ```
 
-上述目录为整体规划；I1 已实现部分见 readme.md，后续随迭代创建实际文件，不创建占位空目录。仓储接口隔离内存实现，后续 PostgreSQL 数据库版本再处理版本内容持久化、迁移、恢复及凭据存储策略；不提前实现数据库直连、权限、复杂重试、沙箱或无限制自由画布；本稿限定的服务拼图属于当前交付。
+上述为当前主要目录。旧测试目录和手写实例入口已移除。仓储目前是具体内存实现，后续 PostgreSQL 版本先明确仓储接口，再处理内容持久化、迁移、恢复及凭据存储策略；不提前实现数据库直连、权限、复杂重试、沙箱或无限制自由画布；本稿限定的服务拼图属于当前交付。
 
 首期主要技术验证点是内存代码快照隔离、退出传输中止、严格 token 计量、LangGraph 状态流转检查与 Electron/Python 子进程生命周期。对应验证排在早期迭代；技术验证不通过时调整适配器或宿主实现，并同步本稿，不以降低已确认语义代替完成。
 
 ## 14. 迁移与实现状态
 
-当前代码仍是手写实例与 SequentialExecutor 方案，尚未实现第 5.2、5.5—5.7 节和新版服务页面。I6—I8 交付新契约、编译器、页面与样例；旧脚本入口不要求兼容，不另建双轨执行框架。I1—I5 历史证据不删除，但不能作为新版 M1/M2 的完成依据。
+当前仅保留 FlowDraft → prepare_flow_snapshot → compile_flow → RunWorker 的拼图执行链路。旧 registry/load、手写实例、SequentialExecutor 与旧测试资料已移除；历史交接仅保留为记录。用户已确认当前产品验证完成。扩展边界、代码拆分和服务拆分触发条件见 [架构评估](cleanup-review.md)。
 
 旧取消、预算、环境占用、版本与内存隔离机制优先复用，迁移时按受影响边界验证。四项产品决策见需求第 9 节，均已确认。实现中遇到新的产品边界不确定性应先询问用户，不以技术选择扩大范围。

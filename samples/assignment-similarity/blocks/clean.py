@@ -74,21 +74,25 @@ class SimilarityReport(StrictModel):
         aligned(self.qualitative.items, len(self.quantitative.items))
         return self
 from agent_platform.blocks import block
-
 class PreparedTexts(StrictModel):
     target_paragraphs: list[NonemptyText] = Field(min_length=1)
     comparison_paragraphs: list[list[NonemptyText]] = Field(min_length=1)
-
+"""paragraph-exact-v1：只规范文本，不做近似匹配或语义改写。"""
 import re
 import unicodedata
+from pydantic import Field
+from agent_platform.contracts.base import StrictModel
 from agent_platform.contracts.errors import ErrorResponse, PlatformError
+
+def paragraphs(text: str) -> list[str]:
+    text = unicodedata.normalize('NFC', text.replace('\r\n', '\n').replace('\r', '\n'))
+    return [clean for line in text.split('\n') if (clean := re.sub('[^\\S\\r\\n\\v\\f\\x85\\u2028\\u2029]+', ' ', line).strip())]
+
 @block(id='similarity-clean', version='1.0.0', name='查重清洗', description='NFC、换行与水平空白规范；拒绝清洗后空文本', dependencies=['pydantic-core>=2,<3'])
 def run(value: SimilarityInput) -> PreparedTexts:
-    result = []
-    for index, text in enumerate([value.target_text, *value.comparison_texts]):
-        text = unicodedata.normalize('NFC', text.replace('\r\n', '\n').replace('\r', '\n'))
-        parts = [clean for line in text.split('\n') if (clean := re.sub(r'[^\S\r\n\v\f\x85\u2028\u2029]+', ' ', line).strip())]
-        if not parts:
-            raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='similarity.preprocess', message='清洗后文本不得为空', field_path=['targetText'] if index == 0 else ['comparisonTexts', index-1]), 422)
-        result.append(parts)
-    return PreparedTexts(target_paragraphs=result[0], comparison_paragraphs=result[1:])
+    target = paragraphs(value.target_text)
+    comparisons = [paragraphs(text) for text in value.comparison_texts]
+    for path, content in [(['targetText'], target), *[(['comparisonTexts', index], parts) for index, parts in enumerate(comparisons)]]:
+        if not content:
+            raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='similarity.preprocess', message='清洗后文本不得为空', field_path=path), 422)
+    return PreparedTexts(target_paragraphs=target, comparison_paragraphs=comparisons)

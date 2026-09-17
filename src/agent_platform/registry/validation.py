@@ -28,3 +28,13 @@ def load_symbol(content, reference, path, *, model=False):
         raise invalid(f'缺少代码依赖模块：{exc.name}', path, code='DEPENDENCY_ERROR') from None
     except Exception:
         raise invalid('入口或契约不可用，请检查声明和本地依赖', path, code='DEPENDENCY_ERROR') from None
+
+
+def schema_shape(model):
+    def clean(value):
+        if isinstance(value, dict):
+            return {k: clean(v) for k, v in value.items() if k not in ('title', 'description')}
+        if isinstance(value, list):
+            return [clean(v) for v in value]
+        return value
+    return clean(model.model_json_schema())

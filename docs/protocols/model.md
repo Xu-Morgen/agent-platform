@@ -15,13 +15,12 @@
 
 参考 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的草稿发现、临时凭据与手动模型选择交互；具体阅读了本机已安装 `@deepseek-ai/dsh-client-ui-settings-models` 的 `fetchModels` 和 `@deepseek-ai/dsh-llm-pi-ai` 的 `discoverModels` 实现。平台保留自身严格响应校验，不引入 dsh 依赖。
 
-验证：`checks/connection_tools.py` 覆盖两种协议、临时/已存凭据、错误与退出清理；`desktop/checks/connection-tools.cjs` 覆盖真实 Electron 页面获取、回填、推理、凭据复用及旧响应隔离。均为本地替身，未调用真实模型。
 
 ## Ollama Chat
 
 I3 选择 `ollama-chat`：POST `<baseUrl>/api/chat`，非流式 `stream=false`、`format=json`，文本 messages 与 `options.num_predict` 输出限额。这是最初实现的协议；baseUrl 配置为服务根地址。远程 OpenAI 兼容协议见下节。环境中的模型标识与可选 Bearer 凭据由平台注入，包不含地址或密钥。
 
-依据：[Ollama Chat](https://docs.ollama.com/api/chat)、[官方 API 参数](https://github.com/ollama/ollama/blob/main/docs/api.md)。协议实现验证使用本地可控 HTTP 替身，未验收真实模型或实际计费行为。
+依据：[Ollama Chat](https://docs.ollama.com/api/chat)、[官方 API 参数](https://github.com/ollama/ollama/blob/main/docs/api.md)。协议实现验证使用本地可控 HTTP 替身，本轮未重新验收真实模型或实际计费行为。
 
 | 能力 | 声明 | 条件与边界 |
 | --- | --- | --- |
@@ -43,5 +42,3 @@ I3 选择 `ollama-chat`：POST `<baseUrl>/api/chat`，非流式 `stream=false`�
 依据：[OpenAI Chat Completions API](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)。默认发送 `max_completion_tokens`；兼容服务仅支持旧参数时，环境显式设置 `outputTokenParameter: "max_tokens"`。默认 `jsonMode: true` 发送 `response_format: {"type":"json_object"}`；不支持该参数的端点可以显式设为 false，平台仍要求响应内容为合法 JSON。不会自动重试或更换参数。
 
 仅接受单个 choice、finish_reason=stop、assistant 文本，拒绝截断、工具调用、拒绝回答和非法 JSON。prompt_tokens 和 completion_tokens 必须为非负整数；total_tokens 若提供则必须与两者之和相等。推理 token 明细不再重复累计。exact 表示采用供应商报告计数，不代表已验证远程计费。缺少 usage 返回 unsupported，预算策略明确失败；无输入上界预检，因此严格总 token 模式仍在发送前拒绝，调用须显式选择非严格模式。
-
-`.venv/bin/python checks/openai_chat.py` 已用本地 HTTP 替身验证路径、Bearer 认证、两种输出参数、JSON 开关、计量、截断/拒绝/畸形/超时、传输关闭及完整查重图。`.venv/bin/python checks/similarity_onboarding.py` 已验证两种协议从干净后端进程加载至双报告及重启清空。尚未提供实际远程地址、模型名与凭据，不能据此标记 I5-T08 真实验收完成。

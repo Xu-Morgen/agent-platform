@@ -60,7 +60,6 @@ const operations = {
   copyServiceVersion: (id, instanceId) => ['POST', `/services/${encodeURIComponent(id)}/versions/${encodeURIComponent(instanceId)}/draft`],
   serviceHistory: (id) => ['GET', `/services/${encodeURIComponent(id)}/versions`],
   activateService: (id, instanceId) => ['POST', `/services/${encodeURIComponent(id)}/activate`, { instanceId }],
-  loadDefinition: (body) => ['POST', '/registry/load', body],
   listServices: () => ['GET', '/services'],
   createService: (body) => ['POST', '/services', body],
   saveServiceVersion: (id, body) => ['POST', `/services/${encodeURIComponent(id)}/versions`, body],

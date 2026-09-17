@@ -5,7 +5,7 @@ from ..contracts.errors import ErrorDetails, ErrorResponse, PlatformError
 class LoopPolicy:
     def __init__(self, run_id, snapshot, runs):
         self.run_id, self.runs = run_id, runs
-        self.global_limit = snapshot.definition.budget.loop_limit
+        self.global_limit = snapshot.draft.budget.loop_limit
         self.local_limits = {
             key: snapshot.configuration['packages.' + key]['loopLimit']
             for key in snapshot.packages
@@ -80,7 +80,7 @@ class TokenLedger:
 class StrictTokenPolicy:
     def __init__(self, run_id, snapshot, runs):
         self.ledger = TokenLedger(run_id, runs)
-        self.global_limit = snapshot.definition.budget.token_limit
+        self.global_limit = snapshot.draft.budget.token_limit
         self.local_limits = {b: snapshot.configuration['packages.' + b]['tokenLimit'] for b in snapshot.packages}
 
     def error(self, code, message):

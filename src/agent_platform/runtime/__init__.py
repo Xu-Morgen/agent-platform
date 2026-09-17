@@ -1,3 +1,1 @@
-from .graphs import SequentialExecutor, build_sequential
-
-__all__ = ['SequentialExecutor', 'build_sequential']
+"""拼图任务调度、预算、取消与包执行。"""

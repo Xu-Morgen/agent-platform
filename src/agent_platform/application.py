@@ -3,8 +3,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from .contracts.environments import Environment, EnvironmentWrite
 from .contracts.connection_tools import ModelListRequest, ModelListResult, ConnectionTestRequest, ConnectionTestResult
-from .contracts.registry import LoadRequest, LoadResult
-from .registry.api import load_local
 from .contracts.services import ServiceWrite, ServiceView, ServiceSchema, VersionView, ActivateRequest, FlowHistory
 from .contracts.runs import Run, RunSubmit, RunResult
 from .contracts.health import HealthResponse
@@ -36,22 +34,18 @@ def create_app() -> FastAPI:
     app.state.connection_tools = ConnectionTools(app.state.credentials)
 
     from .registry.packages import PackageRegistry
-    from .registry.blocks import BlockRegistry
     from .flows.configuration import NodeValidationRequest, NodeValidationResult, validate_node
     from .contracts.flows import FlowDraft
     from .flows.validation import ValidationResult, validate_flow
     from .registry.catalog import ModuleCatalog
     from .contracts.catalog import CatalogLoad, CatalogResource
-    from .registry.definitions import DefinitionRegistry
     from .services import ServiceManager
     app.state.packages = PackageRegistry()
-    app.state.blocks = BlockRegistry()
     app.state.catalog = ModuleCatalog(app.state.packages)
     from .flows.drafts import DraftRepository, preflight
     from .contracts.drafts import DraftWrite, DraftDocument
     app.state.drafts = DraftRepository()
-    app.state.definitions = DefinitionRegistry()
-    app.state.services = ServiceManager(app.state.definitions, app.state.packages, app.state.blocks, app.state.environments, app.state.catalog)
+    app.state.services = ServiceManager(app.state.catalog, app.state.environments)
 
     from .repositories.runs import RunRepository
     from .runtime.submission import RunSubmission
@@ -123,10 +117,6 @@ def create_app() -> FastAPI:
     @app.get('/api/v1/catalog/{resource_id}', response_model=CatalogResource)
     async def catalog_get(resource_id: str):
         return app.state.catalog.get(resource_id)
-
-    @app.post('/api/v1/registry/load', response_model=LoadResult)
-    async def registry_load(value: LoadRequest):
-        return load_local(app.state, value)
 
     @app.get('/api/v1/services', response_model=list[ServiceView])
     async def services():

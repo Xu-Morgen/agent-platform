@@ -7,9 +7,9 @@ from .versions.numbering import VersionAllocator
 
 
 class ServiceManager:
-    def __init__(self, definitions, packages, blocks, environments, catalog=None):
+    def __init__(self, catalog, environments):
         self.catalog = catalog
-        self.definitions, self.packages, self.blocks, self.environments = definitions, packages, blocks, environments
+        self.environments = environments
         self.snapshots = SnapshotRepository()
         self.allocator = VersionAllocator()
         self._services = {}

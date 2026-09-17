@@ -74,7 +74,6 @@ class SimilarityReport(StrictModel):
         aligned(self.qualitative.items, len(self.quantitative.items))
         return self
 from agent_platform.blocks import block
-
 class PreparedTexts(StrictModel):
     target_paragraphs: list[NonemptyText] = Field(min_length=1)
     comparison_paragraphs: list[list[NonemptyText]] = Field(min_length=1)

@@ -1,43 +1,52 @@
-# 最小文本查重
+# 最小查重产品
 
-平台源码没有查重分支。`flows/similarity.json` 组织严格输入→`blocks/clean.py`→`score.py`→`adapt.py`→`packages/semantic/` 单次模型交互→`assemble.py` 双报告组装；实例由平台编译生成，`instance/` 仅保留既有契约/算法权威源和旧基线资料；启动、加载、配置和调用见 [接入操作](../README.md)。
+平台核心不包含查重分支。`flows/similarity.json` 组织清洗 → 计分 → 语义输入适配 → 模型语义分析 → 双报告组装。服务保存时由平台编译实例；调用方式见 [接入操作](../README.md)。
 
-输入 `targetText` 和非空 `comparisonTexts` 字符串数组，不接受文件路径、未知字段或隐式类型转换。清洗统一 CRLF/CR 换行为 LF，Unicode NFC、折叠水平空白、去首尾空白和空段，每个非空行视为段落，保留大小写及标点。空白目标或对照按原始字段路径报错。
+## 源码与分发
 
-`quantitative.method=paragraph-exact-v1`。每个目标段落与对照任一段落完全相同才算匹配，similarity=匹配目标字符数/目标字符总数，按 Python Unicode 码点计数且不计换行。目标重复段落按位置计，对照重复不放大分值；matches 返回从 0 开始的段落索引。数字不是抄袭概率，也不做近似匹配。
+| 路径 | 职责 |
+| --- | --- |
+| `source/contracts.py` | 输入、定量、定性及完整报告的权威契约 |
+| `source/preprocessing.py` | 文本规范化与清洗后非空检查 |
+| `source/scoring.py` | paragraph-exact-v1 确定性计分 |
+| `blocks/*.py` | 从权威源生成的独立单文件分发块 |
+| `packages/semantic/` | 一次模型交互的语义分析包 |
+| `flows/similarity.json` | 业务拼图配方 |
 
-`qualitative.items` 覆盖全部 comparisonIndex，每项 relation 为 similar / possible_paraphrase / no_clear_relation，附 reason 与 suggestion。模型不输出抄袭布尔结论；由教师综合判断。两类报告必须同时成功，模型错误不会转成定量部分成功。
-
-示例 `examples/input.json` 的两个分值为 0.5、0；`examples/report-contract.json` 中定性部分是人工契约样例，不是真实模型结果。原始契约只维护 `instance/contracts.py`；修改后运行：
+修改权威源后，在根目录运行：
 
 ```bash
 .venv/bin/python samples/assignment-similarity/sync_contracts.py
-.venv/bin/python samples/assignment-similarity/sync_contracts.py --check
+.venv/bin/python samples/assignment-similarity/generate_blocks.py
 ```
 
-生成副本让语义包可以独立复制和快照加载，不依赖实例源路径。模型消息通过平台上下文发送，Prompt 从包快照读取；地址和凭据由平台环境配置注入。
+两者均支持 `--check` 检查生成内容的一致性。生成文件是运行时分发资源，不能作为“重复测试代码”删除；不直接编辑分发副本。同一会话内修改内容后须更新模块版本再加载，已有实例仍使用固定快照。
 
-用户提供的 artifact DOCX 仅用于本地计分测验，未将原文提交或发送至外部模型；PDF/XLSX 未作为文本查重标签或 AI 准确率评估。最终真实模型验收使用独立合成输入，新版证据以 [I8 任务卡](../../docs/tasks/i8.md) 为准。
+旧 `instance.json`、`entry.py`、`workflow.py` 和旧图状态模型已移除。`source/` 仅用于维护算法和生成模块，不是另一套服务入口。
 
-真实验收输入为 `examples/acceptance-1v6.json`，七篇各约 1560 字的合成文本；本地输入检查命令为 `.venv/bin/python checks/similarity_acceptance_input.py`。真实模型环境当前缺失，I8-T09/M2 状态见 [任务卡](../../docs/tasks/i8.md#i8-t09)。
+## 输入、算法与输出
 
-## 新版服务页面接线
+输入为 `targetText` 和非空 `comparisonTexts` 数组，均为纯文本。清洗统一 NFC、换行与水平空白，去除空行；清洗后任一文本为空即失败。
 
-加载 `blocks/` 的四个单文件和 `packages/semantic`。服务输入选择“查重清洗 · 输入”，输出选择“查重报告组装 · 输出”；顺序插入清洗、计分、适配、语义、组装。
+每个目标段落仅与对照文本的完整段落精确比较。相似度为匹配目标段落字符数 / 目标总字符数；按 Unicode 码点计数，不计段落间换行。目标重复段落按出现位置分别计数；对照重复段落不重复增加分值。算法不做模糊匹配或语义改写。
 
-| 节点 | 入口来源 |
+教学例：目标“甲乙\n丙丁”，对照“甲乙”，比例为 0.5。实际业务输入由调用者提供；不附带原验收数据与人工模拟报告。
+
+输出包含 quantitative 和 qualitative。模型说明仅提供风险与建议，不输出最终是否抄袭的布尔判定。报告组装检查全部对照项覆盖；模型失败或输出不合法时整个任务失败，不发布部分成功报告。
+
+## 拼图接线
+
+| 节点 | 输入来源 |
 | --- | --- |
-| 清洗 | 服务输入完整值 |
-| 计分 | 清洗完整输出 |
-| 适配 | 清洗完整输出（显式前序引用） |
-| 语义 | 适配完整输出 |
-| 组装 request | 服务输入完整值 |
-| 组装 quantitative | 计分完整输出 |
-| 组装 qualitative | 语义完整输出 |
-| 服务出口 | 组装完整输出 |
+| clean | 完整服务输入 |
+| score | clean 完整输出 |
+| adapt | clean 完整输出 |
+| semantic | adapt 完整输出 |
+| assemble.request | 原服务输入 |
+| assemble.quantitative | score 完整输出 |
+| assemble.qualitative | semantic 完整输出 |
+| 服务出口 | assemble 完整输出 |
 
-组装节点分别添加三条接线并选择目标字段。点击语义包配置参数、loop=1、token=32768 和已保存的 model 环境连接；全局预算同上，当前适配器显式选择非严格模式。输入样例复制 `examples/input.json`，校验保存后到任务页调用。
+语义节点绑定已保存环境的 `model` 连接，默认 maxOutputTokens=4096、loopLimit=1、tokenLimit=32768；全局预算也为 loop=1、token=32768。当前适配器需显式选择非严格模式，按实际部署调整预算和超时。
 
-单文件块由 `.venv/bin/python samples/assignment-similarity/generate_blocks.py` 生成，`--check` 检查漂移。计分直接复用原函数 AST，清洗保持原规则；生成的传输结构与权威报告校验分开：组装块明确执行跨字段覆盖校验，不宣称不同 Python 自定义校验器静态等价。块可独立复制，不相对导入仓库文件；声明已有 pydantic-core 依赖，不安装任何包。
-
-新版定向验收：`.venv/bin/python checks/similarity_flow.py`（0/0.5/1、双报告、失败无部分成功），`.venv/bin/python checks/similarity_onboarding.py`（两个本地协议替身和全新后端 HTTP 链路）。替身报告不是 M2。
+2026-09-17 用户确认当前产品验证完成。本轮仅验证精简后的本地执行与契约，没有重新调用真实模型或生成新的真实模型验收报告。

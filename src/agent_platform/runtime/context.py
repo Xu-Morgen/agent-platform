@@ -1,4 +1,4 @@
-"""每次任务独立的实例上下文；图和能力使用固定内容。"""
+"""拼图运行上下文的公共任务记录与包调用能力。"""
 import asyncio
 from contextvars import ContextVar
 from inspect import isawaitable
@@ -30,9 +30,6 @@ class RunContext:
         self.api = api
         self.model = model
         self.token_policy = token_policy
-
-    async def run_graph(self, value):
-        return await self.snapshot.graph.run(value)
 
     async def run_step(self, step_id, operation, *, kind='step', package_binding_id=None):
         await checkpoint('step_start', step_id)
@@ -76,47 +73,10 @@ class RunContext:
             steps[index] = step
             self.runs.update(self.run_id, steps=steps)
 
-    def binding(self, binding_id, kind):
-        key = tuple(binding_id.split('.', 1))
-        binding = next((b for b in self.snapshot.definition.capability_bindings
-                        if (b.package_binding_id, b.capability_id) == key and b.kind == kind), None)
-        if binding is None:
-            raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage=kind + '.binding',
-                                message='能力绑定不存在或类型不符', run_id=self.run_id))
-        return key, binding
-
-    async def call_block(self, binding_id, value):
-        from .validation import validate
-        key, binding = self.binding(binding_id, 'block')
-        artifact = self.snapshot.blocks[key]
-        manifest = artifact.manifest
-        stage = 'blocks.' + binding_id
-
-        async def execute():
-            input_value = validate(artifact.content.load(manifest.input_model), value, stage + '.input')
-            output = artifact.content.load(manifest.entry)(input_value)
-            if isawaitable(output):
-                output = await output
-            return validate(artifact.content.load(manifest.output_model), output, stage + '.output')
-
-        return await self.run_step(stage, execute, kind='block', package_binding_id=binding.package_binding_id)
-
     def connection(self, binding):
         environments = self.runs.get(self.run_id).environment_snapshot
         environment = next(e for e in environments if e.environment_id == binding.environment_id)
         return next(c for c in environment.connections if c.connection_id == binding.connection_id)
-
-    async def call_api(self, binding_id, value):
-        from .validation import validate
-        _, binding = self.binding(binding_id, 'api')
-        stage = 'api.' + binding_id
-
-        async def execute():
-            input_value = validate(self.snapshot.content.load(binding.input_model), value, stage + '.input')
-            result = await self.api.call(self.connection(binding), binding, input_value)
-            return validate(self.snapshot.content.load(binding.output_model), result, stage + '.output')
-
-        return await self.run_step(stage, execute, kind='api', package_binding_id=binding.package_binding_id)
 
     async def invoke_package(self, binding_id, value):
         from .validation import validate
@@ -137,20 +97,3 @@ class RunContext:
             return validate(artifact.content.load(manifest.contract_refs.output), result, stage + '.output')
 
         return await self.run_step(stage, execute, kind='package', package_binding_id=binding_id)
-
-    async def _call_model(self, binding_id, value):
-        from .validation import validate
-        _, binding = self.binding(binding_id, 'model')
-        stage = 'model.' + binding_id
-
-        async def execute():
-            request = validate(self.snapshot.content.load(binding.input_model), value, stage + '.input')
-            connection = self.connection(binding)
-            adapter = self.model.for_connection(connection) if hasattr(self.model, 'for_connection') else self.model
-            if self.token_policy:
-                result = await self.token_policy.invoke(binding.package_binding_id, adapter, connection, request)
-            else:
-                result = await adapter.invoke(connection, request)
-            return validate(self.snapshot.content.load(binding.output_model), result, stage + '.output')
-
-        return await self.run_step(stage, execute, kind='model', package_binding_id=binding.package_binding_id)

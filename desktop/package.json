@@ -6,7 +6,6 @@
   "private": true,
   "main": "main/index.cjs",
   "scripts": {
-    "start": "electron .",
-    "check:window": "electron checks/window.cjs"
+    "start": "electron ."
   }
 }

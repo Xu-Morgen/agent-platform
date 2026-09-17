@@ -3,10 +3,6 @@
     "text": {
       "kind": "block",
       "path": "blocks/text.py"
-    },
-    "condition": {
-      "kind": "block",
-      "path": "blocks/condition.py"
     }
   },
   "flow": {
