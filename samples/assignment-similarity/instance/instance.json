@@ -1,0 +1,13 @@
+{
+  "definitionId": "assignment-similarity",
+  "entry": "entry:run", "workflow": "workflow:build_graph",
+  "inputModel": "models:SimilarityInput", "outputModel": "models:SimilarityReport",
+  "packageBindings": [{"bindingId": "semantic", "packageId": "text-semantic", "version": "1.0.0"}],
+  "configRefs": [{"configId": "semantic-config", "revision": 1, "scope": "packages.semantic",
+    "values": {"loopLimit": 1, "tokenLimit": 32768, "maxOutputTokens": 4096}}],
+  "environmentRefs": ["replace-with-environment-id"],
+  "budget": {"loopLimit": 1, "tokenLimit": 32768, "strictTokenLimit": true},
+  "capabilityBindings": [{"packageBindingId": "semantic", "capabilityId": "chat", "kind": "model",
+    "environmentId": "replace-with-environment-id", "connectionId": "model",
+    "inputModel": "models:ModelRequest", "outputModel": "models:ModelResponse"}]
+}
