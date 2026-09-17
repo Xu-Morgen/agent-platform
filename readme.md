@@ -8,7 +8,7 @@
 
 **I6、I7 已各完成 7/7 张。** 后端已支持单文件块、端口与逐节点配置预检，以及顺序／条件／循环拼图编译、累计预算、取消、完整实例保存、版本回退和任务调用。API 协议见 [拼图配置说明](examples/flows/README.md)，逐卡证据见 [I7 交接](docs/tasks/i7.md)。
 
-**I8 已完成 8/9 张，查重拼图与调用脚本已迁移。** 桌面已支持模块库、契约选择、顺序/条件/循环拼图、包节点独立配置、草稿、实例保存/历史/回退和任务节点展示。新版服务保存协议为 `{name, flow}`，无需 instance.json。标准模板已迁移，操作见 [模板说明](samples/template/README.md)。新版 M1 已通过，[验收记录](docs/delivery/i8-platform.md)；I8-T09/M2 真实模型尚未验收。
+**I8 已完成 8/9 张，查重拼图与调用脚本已迁移。** 桌面已支持模块库、契约选择、顺序/条件/循环拼图、包节点独立配置、草稿、实例保存/历史/回退和任务节点展示。新版服务保存协议为 `{name, flow}`，无需 instance.json。标准模板已迁移，操作见 [模板说明](samples/template/README.md)。新版 M1 已通过，[验收记录](docs/delivery/i8-platform.md)；I8-T09/M2 因缺少真实模型环境阻塞，[准备与解除条件](docs/delivery/i8-similarity.md)。
 
 I7 定向验证：`.venv/bin/python checks/flow_execution.py`、`checks/flow_branches.py`、`checks/flow_loops.py`、`checks/flow_control.py`、`checks/flow_snapshots.py`、`checks/flow_versions.py`、`checks/flow_runs.py`（后六项也使用 `.venv/bin/python` 执行）。仅使用确定性块、合成模型和本地 HTTP 协议替身，不安装依赖或构建。
 

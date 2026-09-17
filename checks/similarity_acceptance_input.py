@@ -1,4 +1,4 @@
-"""只验证真实验收输入准备情况，不调用模型、不代表 T08/M2 完成。"""
+"""只验证真实验收输入准备情况，不调用模型、不代表 I8-T09/M2 完成。"""
 from pathlib import Path
 from agent_platform.registry.snapshots import capture
 
@@ -15,7 +15,7 @@ try:
     report = snapshot.load('scoring:score')(prepared)
     assert report.items[0].similarity == 1.0
     assert report.items[-1].similarity == 0.0
-    print('T08 输入已准备；码点数=', counts, '；确定性分值=', [item.similarity for item in report.items])
-    print('未调用真实模型，不能据此宣布 T08 或 M2 完成')
+    print('I8-T09 输入已准备；码点数=', counts, '；确定性分值=', [item.similarity for item in report.items])
+    print('未调用真实模型，不能据此宣布 I8-T09 或 M2 完成')
 finally:
     snapshot.close()

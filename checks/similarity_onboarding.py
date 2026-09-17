@@ -30,15 +30,16 @@ async def stop(process):
     assert process.returncode == 0
 
 
-async def main(adapter='ollama-chat'):
+async def main(adapter='ollama-chat', input_path='samples/assignment-similarity/examples/input.json'):
+    expected_count = len(json.loads(Path(input_path).read_text())['comparisonTexts'])
     calls = []
     async def respond(head, body, reader):
         calls.append(json.loads(body))
         if adapter == 'openai-chat':
             from openai_chat import completion
             assert head.startswith(b'POST /v1/chat/completions ')
-            return 200, completion(qualitative(2))
-        return 200, ollama_response(qualitative(2))
+            return 200, completion(qualitative(expected_count))
+        return 200, ollama_response(qualitative(expected_count))
     async with local_http(respond) as url:
         process, address = await backend()
         try:
@@ -46,11 +47,16 @@ async def main(adapter='ollama-chat'):
                 output = Path(directory) / 'report.json'
                 client = await asyncio.create_subprocess_exec(sys.executable, 'samples/invoke_similarity.py',
                     '--adapter',adapter,'--platform-url',address,'--model-url',url + ('/v1' if adapter == 'openai-chat' else ''),'--model','local-http-synthetic',
-                    '--non-strict','--output',str(output), stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+                    '--non-strict','--input',str(input_path),'--output',str(output), stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
                 stdout, stderr = await asyncio.wait_for(client.communicate(), 20)
                 assert client.returncode == 0, stderr.decode() + stdout.decode()
                 record = json.loads(output.read_text())
                 assert record['adapter'] == adapter
+                assert record['flowProtocol'] == 'FlowDraft' and record['instanceId'].startswith('ins_')
+                assert record['strictTokenLimit'] is False
+                assert record['usage']['loops']['bindings']['semantic'] == 1
+                assert len(record['result']['quantitative']['items']) == expected_count
+                assert len(record['result']['qualitative']['items']) == expected_count
                 assert record['status'] == 'completed' and record['usage']['loops']['global'] == 1
                 assert set(record['result']) == {'quantitative','qualitative'}
                 assert len(calls) == 1
@@ -64,9 +70,13 @@ async def main(adapter='ollama-chat'):
                 assert (await client.get('/api/v1/services')).json() == []
         finally:
             await stop(restarted)
-    print('I8-T07：新版拼图，干净后端→创建环境→加载→保存→提交→查询双报告→退出；重启旧 runId=404、服务清空')
+    print(f'I8 新版拼图替身：{adapter}、1 对 {expected_count} completed、双报告/局部全局 loop/usage/实例模式通过；重启清空。不代表真实 M2。')
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
-    asyncio.run(main('openai-chat'))
+    import argparse
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--input', default='samples/assignment-similarity/examples/input.json')
+    args = parser.parse_args()
+    asyncio.run(main(input_path=args.input))
+    asyncio.run(main('openai-chat', args.input))
