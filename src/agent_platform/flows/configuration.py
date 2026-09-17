@@ -47,8 +47,9 @@ def validate_node(request, catalog, environments):
                     parameters.pop(key, None)
                 normalized = config.model_copy(update={'parameters': parameters}, deep=True)
             except ValidationError as exc:
-                for error in exc.errors(include_input=False, include_context=False):
-                    issue('参数不符合契约：' + error['type'], ['parameters', *error['loc']])
+                from ..validation_issues import issues_from_errors
+                issues.extend(issues_from_errors(exc.errors(), stage='node.configuration',
+                    prefix=['nodeConfigurations', node.node_id, 'parameters'], node_id=node.node_id, code='CONFIGURATION_ERROR'))
             requirements = {r.capability_id: r for r in artifact.manifest.required_capabilities}
             for extra in config.capabilities.keys() - requirements.keys():
                 issue('存在包未声明的能力', ['capabilities', extra])

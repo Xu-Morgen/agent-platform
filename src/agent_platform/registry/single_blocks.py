@@ -30,10 +30,19 @@ class SingleBlockArtifact:
         return BlockMetadata.model_validate_json(self.metadata_json)
 
     async def invoke(self, value):
-        result = self.entry(self.input_adapter.validate_python(value, strict=True))
+        from pydantic import ValidationError
+        from ..validation_issues import validation_exception
+        try:
+            parsed = self.input_adapter.validate_python(value, strict=True)
+        except ValidationError as exc:
+            raise validation_exception(exc, stage='block.input') from None
+        result = self.entry(parsed)
         if inspect.isawaitable(result):
             result = await result
-        return self.output_adapter.validate_python(result, strict=True)
+        try:
+            return self.output_adapter.validate_python(result, strict=True)
+        except ValidationError as exc:
+            raise validation_exception(exc, stage='block.output', code='OUTPUT_VALIDATION_ERROR') from None
 
 
 def capture_file(path):

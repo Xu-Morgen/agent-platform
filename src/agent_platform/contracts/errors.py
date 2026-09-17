@@ -4,13 +4,26 @@ from pydantic import Field
 from .base import StrictModel
 
 ErrorCode = Literal[
-    'RUN_CANCELLED', 'GRAPH_EXECUTION_LIMIT', 'RESULT_NOT_READY', 'UPSTREAM_BUSINESS_ERROR', 'CONFIGURATION_ERROR', 'CONTRACT_VALIDATION_ERROR', 'DEPENDENCY_ERROR',
+    'LOOP_ITERATION_LIMIT', 'RUN_CANCELLED', 'GRAPH_EXECUTION_LIMIT', 'RESULT_NOT_READY', 'UPSTREAM_BUSINESS_ERROR', 'CONFIGURATION_ERROR', 'CONTRACT_VALIDATION_ERROR', 'DEPENDENCY_ERROR',
     'ENVIRONMENT_IN_USE', 'LOOP_BUDGET_EXCEEDED', 'TOKEN_BUDGET_EXCEEDED',
     'TOKEN_ACCOUNTING_UNSUPPORTED', 'MODEL_TIMEOUT', 'MODEL_TRANSPORT_ERROR',
     'API_TIMEOUT', 'API_TRANSPORT_ERROR', 'OUTPUT_VALIDATION_ERROR',
     'RECORD_NOT_FOUND', 'VERSION_CONFLICT', 'INTERNAL_ERROR', 'HTTP_ERROR',
     'BACKEND_UNAVAILABLE', 'STARTUP_ERROR', 'APPLICATION_EXIT',
 ]
+
+
+class ValidationIssue(StrictModel):
+    code: str = 'CONTRACT_VALIDATION_ERROR'
+    stage: str = 'flow.validation'
+    reason: str
+    reason_type: str = 'constraint'
+    expected: str | None = None
+    field_path: list[str | int] = Field(default_factory=list)
+    node_id: str | None = None
+    source_node_id: str | None = None
+    source_port: list[str | int] | None = None
+    target_port: list[str | int] | None = None
 
 
 class ErrorDetails(StrictModel):
@@ -33,6 +46,11 @@ class ErrorResponse(StrictModel):
     message: str
     run_id: str | None = None
     field_path: list[str | int] | None = None
+    node_id: str | None = None
+    source_node_id: str | None = None
+    source_port: list[str | int] | None = None
+    target_port: list[str | int] | None = None
+    issues: list[ValidationIssue] = Field(default_factory=list)
     details: ErrorDetails = Field(default_factory=ErrorDetails)
 
 

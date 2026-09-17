@@ -10,7 +10,8 @@ def invalid(message, path, *, code='CONFIGURATION_ERROR'):
 
 
 def validation_error(exc: ValidationError, prefix=()):
-    return invalid('字段不符合契约约束', [*prefix, *exc.errors()[0]['loc']])
+    from ..validation_issues import validation_exception
+    return validation_exception(exc, prefix=prefix, code='CONFIGURATION_ERROR')
 
 
 def load_symbol(content, reference, path, *, model=False):

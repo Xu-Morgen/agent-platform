@@ -35,7 +35,7 @@ async def main():
         loaded = SingleBlockRegistry().load(path)  # 返回值错误仅在调用时校验，加载不调用。
         try:
             await loaded.invoke('x')
-        except ValidationError:
+        except (ValidationError, PlatformError):
             pass
         else:
             raise AssertionError('bool 输出接受字符串')

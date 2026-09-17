@@ -22,13 +22,9 @@ def response(error: ErrorResponse, status: int) -> JSONResponse:
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def invalid_input(request: Request, exc: RequestValidationError):
-        first = exc.errors()[0]
-        # 不使用 msg、input、ctx；自定义校验异常可能将密钥嵌入其中。
-        return response(ErrorResponse(
-            code='CONTRACT_VALIDATION_ERROR', stage='request.input',
-            message=_REASONS.get(first['type'], '字段不符合契约约束'),
-            field_path=list(first['loc']),
-        ), 422)
+        from .validation_issues import validation_exception
+        error = validation_exception(exc, stage='request.input')
+        return response(error.error, error.status_code)
 
     @app.exception_handler(PlatformError)
     async def platform_error(request: Request, exc: PlatformError):
@@ -44,10 +40,9 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(ResponseValidationError)
     async def invalid_output(request: Request, exc: ResponseValidationError):
-        return response(ErrorResponse(
-            code='OUTPUT_VALIDATION_ERROR', stage='response.output',
-            message='输出不符合契约约束', field_path=list(exc.errors()[0]['loc']),
-        ), 500)
+        from .validation_issues import validation_exception
+        error = validation_exception(exc, stage='response.output', code='OUTPUT_VALIDATION_ERROR', status=500)
+        return response(error.error, error.status_code)
 
     @app.exception_handler(Exception)
     async def unexpected(request: Request, exc: Exception):

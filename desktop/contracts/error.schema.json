@@ -133,12 +133,136 @@
       },
       "title": "ErrorDetails",
       "type": "object"
+    },
+    "ValidationIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "default": "CONTRACT_VALIDATION_ERROR",
+          "title": "Code",
+          "type": "string"
+        },
+        "stage": {
+          "default": "flow.validation",
+          "title": "Stage",
+          "type": "string"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "reasonType": {
+          "default": "constraint",
+          "title": "Reasontype",
+          "type": "string"
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expected"
+        },
+        "fieldPath": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "title": "Fieldpath",
+          "type": "array"
+        },
+        "nodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nodeid"
+        },
+        "sourceNodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourcenodeid"
+        },
+        "sourcePort": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourceport"
+        },
+        "targetPort": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Targetport"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "ValidationIssue",
+      "type": "object"
     }
   },
   "additionalProperties": false,
   "properties": {
     "code": {
       "enum": [
+        "LOOP_ITERATION_LIMIT",
         "RUN_CANCELLED",
         "GRAPH_EXECUTION_LIMIT",
         "RESULT_NOT_READY",
@@ -207,6 +331,81 @@
       ],
       "default": null,
       "title": "Fieldpath"
+    },
+    "nodeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Nodeid"
+    },
+    "sourceNodeId": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sourcenodeid"
+    },
+    "sourcePort": {
+      "anyOf": [
+        {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Sourceport"
+    },
+    "targetPort": {
+      "anyOf": [
+        {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Targetport"
+    },
+    "issues": {
+      "items": {
+        "$ref": "#/$defs/ValidationIssue"
+      },
+      "title": "Issues",
+      "type": "array"
     },
     "details": {
       "$ref": "#/$defs/ErrorDetails"

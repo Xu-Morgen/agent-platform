@@ -2,20 +2,9 @@
 from dataclasses import dataclass
 from ..contracts.base import StrictModel
 from ..contracts.flows import ModuleNode, IfNode, RepeatNode, WhileNode, ConstantValue
-from ..contracts.errors import PlatformError
+from ..contracts.errors import PlatformError, ValidationIssue
 from pydantic import Field
 from .compatibility import assignable, at_path, literal_schema, Incompatible
-
-
-class ValidationIssue(StrictModel):
-    code: str = 'CONTRACT_VALIDATION_ERROR'
-    stage: str = 'flow.validation'
-    reason: str
-    field_path: list[str | int] = Field(default_factory=list)
-    node_id: str | None = None
-    source_node_id: str | None = None
-    source_port: list[str | int] | None = None
-    target_port: list[str | int] | None = None
 
 
 class ValidationResult(StrictModel):

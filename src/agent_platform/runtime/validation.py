@@ -9,6 +9,5 @@ def validate(model, value, stage):
     try:
         return model.model_validate(value, strict=True)
     except ValidationError as exc:
-        raise PlatformError(ErrorResponse(
-            code='OUTPUT_VALIDATION_ERROR' if stage.endswith('output') else 'CONTRACT_VALIDATION_ERROR',
-            stage=stage, message='数据不符合契约', field_path=list(exc.errors()[0]['loc'])), 422) from None
+        from ..validation_issues import validation_exception
+        raise validation_exception(exc, stage=stage, code='OUTPUT_VALIDATION_ERROR' if stage.endswith('output') else 'CONTRACT_VALIDATION_ERROR') from None
