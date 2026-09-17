@@ -1,0 +1,82 @@
+{
+  "resources": {
+    "text": {
+      "kind": "block",
+      "path": "blocks/text.py"
+    },
+    "condition": {
+      "kind": "block",
+      "path": "blocks/condition.py"
+    }
+  },
+  "flow": {
+    "name": "固定循环",
+    "inputContract": "${text.inputContract}",
+    "outputContract": "${text.outputContract}",
+    "flow": [
+      {
+        "kind": "repeat",
+        "nodeId": "loop",
+        "count": 2,
+        "carry": {
+          "contract": "${text.inputContract}",
+          "initial": [
+            {
+              "target": [],
+              "source": {
+                "kind": "input",
+                "path": []
+              }
+            }
+          ],
+          "update": [
+            {
+              "target": [],
+              "source": {
+                "kind": "node",
+                "nodeId": "body",
+                "path": []
+              }
+            }
+          ]
+        },
+        "body": [
+          {
+            "kind": "block",
+            "nodeId": "body",
+            "artifactRef": "${text.resourceId}",
+            "inputs": [
+              {
+                "target": [],
+                "source": {
+                  "kind": "carry",
+                  "nodeId": "loop",
+                  "path": []
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "output": [
+      {
+        "target": [],
+        "source": {
+          "kind": "node",
+          "nodeId": "loop",
+          "path": []
+        }
+      }
+    ],
+    "nodeConfigurations": {},
+    "examples": [
+      {
+        "name": "合成文本",
+        "input": {
+          "text": "合成输入"
+        }
+      }
+    ]
+  }
+}

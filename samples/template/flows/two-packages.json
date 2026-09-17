@@ -1,0 +1,111 @@
+{
+  "resources": {
+    "text": {
+      "kind": "block",
+      "path": "blocks/text.py"
+    },
+    "condition": {
+      "kind": "block",
+      "path": "blocks/condition.py"
+    },
+    "package": {
+      "kind": "package",
+      "path": "packages/example"
+    }
+  },
+  "flow": {
+    "name": "同包双节点",
+    "inputContract": "${package.inputContract}",
+    "outputContract": "${package.outputContract}",
+    "flow": [
+      {
+        "kind": "package",
+        "nodeId": "first",
+        "artifactRef": "${package.resourceId}",
+        "inputs": [
+          {
+            "target": [],
+            "source": {
+              "kind": "input",
+              "path": []
+            }
+          }
+        ]
+      },
+      {
+        "kind": "package",
+        "nodeId": "second",
+        "artifactRef": "${package.resourceId}",
+        "inputs": [
+          {
+            "target": [],
+            "source": {
+              "kind": "node",
+              "nodeId": "first",
+              "path": []
+            }
+          }
+        ]
+      }
+    ],
+    "output": [
+      {
+        "target": [],
+        "source": {
+          "kind": "node",
+          "nodeId": "second",
+          "path": []
+        }
+      }
+    ],
+    "nodeConfigurations": {
+      "first": {
+        "parameters": {
+          "instruction": "概括输入内容。",
+          "maxOutputTokens": 128
+        },
+        "budget": {
+          "loopLimit": 1,
+          "tokenLimit": 32768
+        },
+        "capabilities": {
+          "chat": {
+            "kind": "model",
+            "environmentId": "${environmentId}",
+            "connectionId": "model"
+          }
+        }
+      },
+      "second": {
+        "parameters": {
+          "instruction": "对前序结果给出建议。",
+          "maxOutputTokens": 256
+        },
+        "budget": {
+          "loopLimit": 1,
+          "tokenLimit": 32768
+        },
+        "capabilities": {
+          "chat": {
+            "kind": "model",
+            "environmentId": "${environmentId}",
+            "connectionId": "model"
+          }
+        }
+      }
+    },
+    "examples": [
+      {
+        "name": "合成文本",
+        "input": {
+          "text": "合成输入"
+        }
+      }
+    ],
+    "budget": {
+      "loopLimit": 2,
+      "tokenLimit": 65536,
+      "strictTokenLimit": "${strictTokenLimit}"
+    }
+  }
+}

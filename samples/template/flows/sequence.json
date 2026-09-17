@@ -1,0 +1,67 @@
+{
+  "resources": {
+    "text": {
+      "kind": "block",
+      "path": "blocks/text.py"
+    },
+    "condition": {
+      "kind": "block",
+      "path": "blocks/condition.py"
+    }
+  },
+  "flow": {
+    "name": "纯块顺序",
+    "inputContract": "${text.inputContract}",
+    "outputContract": "${text.outputContract}",
+    "flow": [
+      {
+        "kind": "block",
+        "nodeId": "first",
+        "artifactRef": "${text.resourceId}",
+        "inputs": [
+          {
+            "target": [],
+            "source": {
+              "kind": "input",
+              "path": []
+            }
+          }
+        ]
+      },
+      {
+        "kind": "block",
+        "nodeId": "second",
+        "artifactRef": "${text.resourceId}",
+        "inputs": [
+          {
+            "target": [],
+            "source": {
+              "kind": "node",
+              "nodeId": "first",
+              "path": []
+            }
+          }
+        ]
+      }
+    ],
+    "output": [
+      {
+        "target": [],
+        "source": {
+          "kind": "node",
+          "nodeId": "second",
+          "path": []
+        }
+      }
+    ],
+    "nodeConfigurations": {},
+    "examples": [
+      {
+        "name": "合成文本",
+        "input": {
+          "text": "合成输入"
+        }
+      }
+    ]
+  }
+}

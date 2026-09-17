@@ -1,0 +1,97 @@
+{
+  "resources": {
+    "text": {
+      "kind": "block",
+      "path": "blocks/text.py"
+    },
+    "condition": {
+      "kind": "block",
+      "path": "blocks/condition.py"
+    }
+  },
+  "flow": {
+    "name": "条件循环（默认零次）",
+    "inputContract": "${text.inputContract}",
+    "outputContract": "${text.outputContract}",
+    "flow": [
+      {
+        "kind": "while",
+        "nodeId": "loop",
+        "carry": {
+          "contract": "${text.inputContract}",
+          "initial": [
+            {
+              "target": [],
+              "source": {
+                "kind": "input",
+                "path": []
+              }
+            }
+          ],
+          "update": [
+            {
+              "target": [],
+              "source": {
+                "kind": "node",
+                "nodeId": "body",
+                "path": []
+              }
+            }
+          ]
+        },
+        "body": [
+          {
+            "kind": "block",
+            "nodeId": "body",
+            "artifactRef": "${text.resourceId}",
+            "inputs": [
+              {
+                "target": [],
+                "source": {
+                  "kind": "carry",
+                  "nodeId": "loop",
+                  "path": []
+                }
+              }
+            ]
+          }
+        ],
+        "maxIterations": 3,
+        "condition": {
+          "kind": "block",
+          "nodeId": "test",
+          "artifactRef": "${condition.resourceId}",
+          "inputs": [
+            {
+              "target": [],
+              "source": {
+                "kind": "carry",
+                "nodeId": "loop",
+                "path": []
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "output": [
+      {
+        "target": [],
+        "source": {
+          "kind": "node",
+          "nodeId": "loop",
+          "path": []
+        }
+      }
+    ],
+    "nodeConfigurations": {},
+    "examples": [
+      {
+        "name": "合成文本",
+        "input": {
+          "text": "合成输入"
+        }
+      }
+    ]
+  }
+}
