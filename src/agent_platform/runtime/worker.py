@@ -1,7 +1,7 @@
 """单 worker 消费固定快照，生命周期独立于提交连接。"""
 import asyncio
 from ..adapters.api import APIAdapter
-from ..adapters.ollama import OllamaAdapter
+from ..adapters.models import ModelAdapters
 from .boundary import Boundary, current_boundary
 from .cancellation import CancellationPolicy, terminal_for_error
 from .budgets import LoopPolicy, StrictTokenPolicy, NonStrictTokenPolicy
@@ -53,7 +53,7 @@ class RunWorker:
             return
         boundary = self.boundary_factory()
         api = APIAdapter(envs.credentials)
-        model = OllamaAdapter(envs.credentials)
+        model = ModelAdapters(envs.credentials)
         policy_type = StrictTokenPolicy if snapshot.definition.budget.strict_token_limit else NonStrictTokenPolicy
         token_policy = policy_type(run_id, snapshot, runs)
         boundary.policies = (CancellationPolicy(runs, run_id),) + boundary.policies + (token_policy, LoopPolicy(run_id, snapshot, runs))

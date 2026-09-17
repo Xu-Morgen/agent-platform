@@ -32,7 +32,7 @@ function editEnvironment() {
   const value = environments.find(item => item.environmentId === environmentSelect.value);
   document.querySelector('#environment-name').value = value?.name || '';
   document.querySelector('#environment-connections').value = JSON.stringify(value?.connections || [
-    { connectionId: 'model', kind: 'model', baseUrl: 'http://localhost:9000', model: 'synthetic', timeoutSeconds: 60 },
+    { connectionId: 'model', kind: 'model', modelAdapter: 'openai-chat', baseUrl: 'https://api.openai.com/v1', model: '填写服务商模型名', outputTokenParameter: 'max_completion_tokens', jsonMode: true, timeoutSeconds: 180 },
   ], null, 2);
   document.querySelector('#environment-credential').value = '';
   const occupied = value?.activeRunIds || [];

@@ -10,7 +10,9 @@ class Connection(StrictModel):
     connection_id: Identifier
     kind: Literal['model', 'api']
     base_url: str
-    model_adapter: Literal['ollama-chat'] = 'ollama-chat'
+    model_adapter: Literal['ollama-chat', 'openai-chat'] = 'ollama-chat'
+    output_token_parameter: Literal['max_completion_tokens', 'max_tokens'] = 'max_completion_tokens'
+    json_mode: bool = True
     model: str | None = Field(default=None, min_length=1)
     timeout_seconds: float = Field(default=60, gt=0, allow_inf_nan=False)
     credential_ref: str | None = None

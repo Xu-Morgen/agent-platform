@@ -10,11 +10,11 @@ from agent_platform.contracts.runs import RunSubmit
 ROOT = Path('samples/assignment-similarity')
 
 
-def configure(url, instance_dir, *, model='synthetic', strict=False, timeout=30.0):
+def configure(url, instance_dir, *, model='synthetic', strict=False, timeout=30.0, adapter='ollama-chat'):
     app = create_app()
     env = app.state.environments.save(EnvironmentWrite(name='I5 验收环境', connections=[{
         'connectionId':'model', 'kind':'model', 'model':model, 'baseUrl':url,
-        'timeoutSeconds':timeout}]))
+        'timeoutSeconds':timeout,'modelAdapter':adapter}]))
     app.state.packages.load(ROOT / 'packages/semantic')
     loaded = app.state.definitions.load(instance_dir)
     definition = loaded.definition.model_dump(by_alias=True)

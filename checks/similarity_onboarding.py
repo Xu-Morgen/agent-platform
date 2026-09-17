@@ -30,10 +30,14 @@ async def stop(process):
     assert process.returncode == 0
 
 
-async def main():
+async def main(adapter='ollama-chat'):
     calls = []
     async def respond(head, body, reader):
         calls.append(json.loads(body))
+        if adapter == 'openai-chat':
+            from openai_chat import completion
+            assert head.startswith(b'POST /v1/chat/completions ')
+            return 200, completion(qualitative(2))
         return 200, ollama_response(qualitative(2))
     async with local_http(respond) as url:
         process, address = await backend()
@@ -41,11 +45,12 @@ async def main():
             with TemporaryDirectory() as directory:
                 output = Path(directory) / 'report.json'
                 client = await asyncio.create_subprocess_exec(sys.executable, 'samples/invoke_similarity.py',
-                    '--platform-url',address,'--model-url',url,'--model','local-http-synthetic',
+                    '--adapter',adapter,'--platform-url',address,'--model-url',url + ('/v1' if adapter == 'openai-chat' else ''),'--model','local-http-synthetic',
                     '--non-strict','--output',str(output), stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
                 stdout, stderr = await asyncio.wait_for(client.communicate(), 20)
                 assert client.returncode == 0, stderr.decode() + stdout.decode()
                 record = json.loads(output.read_text())
+                assert record['adapter'] == adapter
                 assert record['status'] == 'completed' and record['usage']['loops']['global'] == 1
                 assert set(record['result']) == {'quantitative','qualitative'}
                 assert len(calls) == 1
@@ -64,3 +69,4 @@ async def main():
 
 if __name__ == '__main__':
     asyncio.run(main())
+    asyncio.run(main('openai-chat'))

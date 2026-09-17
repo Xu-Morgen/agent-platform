@@ -133,10 +133,12 @@ class RunContext:
 
         async def execute():
             request = validate(self.snapshot.content.load(binding.input_model), value, stage + '.input')
+            connection = self.connection(binding)
+            adapter = self.model.for_connection(connection) if hasattr(self.model, 'for_connection') else self.model
             if self.token_policy:
-                result = await self.token_policy.invoke(binding.package_binding_id, self.model, self.connection(binding), request)
+                result = await self.token_policy.invoke(binding.package_binding_id, adapter, connection, request)
             else:
-                result = await self.model.invoke(self.connection(binding), request)
+                result = await adapter.invoke(connection, request)
             return validate(self.snapshot.content.load(binding.output_model), result, stage + '.output')
 
         return await self.run_step(stage, execute, kind='model', package_binding_id=binding.package_binding_id)
