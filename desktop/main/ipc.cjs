@@ -13,7 +13,7 @@ function failure(code, message) {
 function registerHealthBridge(backend) {
   ipcMain.removeHandler('platform:health');
   ipcMain.handle('platform:health', async (event) => {
-    if (event.senderFrame?.url !== pageURL || event.senderFrame !== event.sender.mainFrame) {
+    if (event.senderFrame?.url.split('#')[0] !== pageURL || event.senderFrame !== event.sender.mainFrame) {
       return failure('CONTRACT_VALIDATION_ERROR', '请求来源无效');
     }
     try {
@@ -58,7 +58,7 @@ function registerConfigurationBridge(backend) {
   for (const [name, route] of Object.entries(operations)) {
     ipcMain.removeHandler(`platform:${name}`);
     ipcMain.handle(`platform:${name}`, async (event, ...args) => {
-      if (event.senderFrame?.url !== pageURL || event.senderFrame !== event.sender.mainFrame) {
+      if (event.senderFrame?.url.split('#')[0] !== pageURL || event.senderFrame !== event.sender.mainFrame) {
         return failure('CONTRACT_VALIDATION_ERROR', '请求来源无效');
       }
       if (!backend.address) return failure('BACKEND_UNAVAILABLE', '后端尚未就绪');

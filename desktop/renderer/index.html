@@ -2,17 +2,38 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
   <title>Agent Platform</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main>
+  <aside class="sidebar">
     <h1>Agent Platform</h1>
+    <nav aria-label="主导航">
+      <a href="#/overview">平台概览</a>
+      <a href="#/environments">环境配置</a>
+      <a href="#/services">服务配置</a>
+      <a href="#/tasks">任务调用</a>
+    </nav>
+    <p class="session-note">配置、历史和任务仅在本次会话中保留。</p>
+  </aside>
+  <main>
+    <header class="page-header">
+      <h2 id="page-title" tabindex="-1">平台概览</h2>
     <p id="status" role="status">后端启动中…</p>
     <button id="health" disabled>检查健康状态</button>
-    <section>
-      <h2>环境配置</h2>
+    </header>
+    <section data-page="overview" aria-label="平台概览">
+      <h3>开始使用</h3>
+      <p>配置连接环境，加载并保存服务，然后提交任务查看运行结果。</p>
+      <div class="module-cards">
+        <a href="#/environments"><strong>环境配置</strong><span>管理模型、API 连接和凭据</span></a>
+        <a href="#/services"><strong>服务配置</strong><span>加载本地定义，配置预算和管理版本</span></a>
+        <a href="#/tasks"><strong>任务调用</strong><span>提交输入，查询进度、用量和结果</span></a>
+      </div>
+    </section>
+    <section data-page="environments" aria-label="环境配置" hidden>
       <p>配置仅在本次应用运行期间保留。凭据保存后仅显示引用；留空表示保留已有凭据。</p>
       <select id="environment-select"><option value="">新建环境</option></select>
       <button id="environment-refresh" type="button">刷新环境</button>
@@ -27,8 +48,7 @@
       </form>
       <p id="environment-result" role="status"></p>
     </section>
-    <section>
-      <h2>服务配置</h2>
+    <section data-page="services" aria-label="服务配置" hidden>
       <p>先加载包及所需通用块，再加载实例定义。配置保存后立即生效；本次会话退出后清空。</p>
       <form id="load-form">
         <label>本地定义类型 <select id="load-kind"><option value="package">业务包</option><option value="block">通用块</option><option value="instance">实例定义</option></select></label>
@@ -57,9 +77,11 @@
       <p id="history-result" role="status"></p>
       <details><summary>输入输出及包配置 Schema</summary><pre id="service-schemas"></pre></details>
     </section>
-    <section aria-labelledby="task-title">
-      <h2 id="task-title">任务调用</h2>
-      <p>调用上方选中的服务。任务和结果只在本次应用运行期间保留，刷新页面后可按 runId 查询。</p>
+    <section data-page="tasks" aria-label="任务调用" hidden>
+      <p>选择已保存的服务提交任务。任务和结果只在本次应用运行期间保留，刷新页面后可按 runId 查询。</p>
+      <label>调用服务 <select id="task-service-select"><option value="">请选择服务</option></select></label>
+      <button id="task-service-refresh" type="button">刷新可调用服务</button>
+      <p>需要新增或修改服务？<a href="#/services">前往服务配置</a></p>
 
       <form id="task-form">
         <button id="task-example" type="button">填入输入样例</button>
@@ -79,6 +101,7 @@
       <h3>最终结果</h3><pre id="task-result"></pre>
     </section>
   </main>
+  <script src="router.js"></script>
   <script src="index.js"></script>
 </body>
 </html>

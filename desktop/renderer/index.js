@@ -79,6 +79,7 @@ document.querySelector('#environment-form').addEventListener('submit', async eve
 editEnvironment();
 
 const serviceSelect = document.querySelector('#service-select');
+const taskServiceSelect = document.querySelector('#task-service-select');
 const definitionSelect = document.querySelector('#definition-select');
 const serviceResult = document.querySelector('#service-result');
 const definitionEditor = document.querySelector('#service-definition');
@@ -133,12 +134,28 @@ async function refreshServices(selected = serviceSelect.value) {
   const result = await window.agentPlatform.listServices();
   if (!result.ok) { serviceResult.textContent = errorText(result.error); return; }
   services = result.data;
+  updateTaskServices(taskServiceSelect.value || selected);
   serviceSelect.replaceChildren(new Option('新建服务', ''));
   for (const item of services) serviceSelect.add(new Option(item.name, item.serviceId));
   serviceSelect.value = selected;
   await editService();
 }
-serviceSelect.addEventListener('change', editService);
+function updateTaskServices(selected = taskServiceSelect.value) {
+  taskServiceSelect.replaceChildren(new Option('请选择服务', ''));
+  for (const item of services) taskServiceSelect.add(new Option(`${item.name} · ${item.current.version}`, item.serviceId));
+  taskServiceSelect.value = selected;
+}
+document.querySelector('#task-service-refresh').addEventListener('click', async () => {
+  const result = await window.agentPlatform.listServices();
+  if (!result.ok) { taskError.textContent = taskFailure(result.error); return; }
+  services = result.data;
+  updateTaskServices();
+  taskError.textContent = '';
+});
+serviceSelect.addEventListener('change', () => {
+  taskServiceSelect.value = serviceSelect.value;
+  editService();
+});
 document.querySelector('#service-refresh').addEventListener('click', () => refreshServices());
 document.querySelector('#bind-environment').addEventListener('click', () => {
   try {
@@ -213,8 +230,8 @@ function schemaExample(schema, root = schema) {
   return '合成输入';
 }
 document.querySelector('#task-example').addEventListener('click', async () => {
-  if (!serviceSelect.value) { taskError.textContent = '请先选择已保存的服务'; return; }
-  const response = await window.agentPlatform.serviceSchema(serviceSelect.value);
+  if (!taskServiceSelect.value) { taskError.textContent = '请先选择已保存的服务'; return; }
+  const response = await window.agentPlatform.serviceSchema(taskServiceSelect.value);
   if (!response.ok) { taskError.textContent = taskFailure(response.error); return; }
   document.querySelector('#task-input').value = JSON.stringify(response.data.examples[0] || schemaExample(response.data.input), null, 2);
   taskError.textContent = '样例可编辑，提交时由服务契约校验。';
@@ -266,7 +283,7 @@ document.querySelector('#task-form').addEventListener('submit', async event => {
   const button = document.querySelector('#task-submit');
   button.disabled = true;
   try {
-    const selected = services.find(value => value.serviceId === serviceSelect.value);
+    const selected = services.find(value => value.serviceId === taskServiceSelect.value);
     if (!selected) { taskError.textContent = '请先选择已保存的服务'; return; }
     const input = JSON.parse(document.querySelector('#task-input').value);
     const response = await window.agentPlatform.submitRun({ serviceId: selected.serviceId, expectedInstanceId: selected.activeInstanceId, input });

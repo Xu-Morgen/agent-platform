@@ -159,6 +159,8 @@ unset MODEL_API_KEY
 
 ## 配置与版本操作
 
+桌面通过侧栏切换“平台概览”“环境配置”“服务配置”和“任务调用”，分别对应 `#/overview`、`#/environments`、`#/services`、`#/tasks`。页面切换保留未保存输入和任务查询状态，支持前进、后退及刷新后保持当前路由；刷新仍会清空未保存表单。任务页可独立选择已保存服务。
+
 1. 环境配置区填写名称和连接 JSON；凭据在独立密码框输入，保存后只返回引用。模型连接须指定 `model`，API 连接使用 `kind: "api"`。
 2. 服务配置区先选择“通用块”加载 `examples/configuration/block`，再选择“业务包”依次加载 `examples/configuration/package` 和 `examples/configuration/second`。
 3. 选择“实例定义”加载 `examples/configuration/instance`；页面展示两包两配置 JSON、输入输出及配置 Schema，全局默认预算为 loop 4、token 200，可编辑。
