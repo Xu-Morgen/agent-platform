@@ -47,6 +47,7 @@
         <button id="bind-environment" type="button">添加环境引用</button>
         <label>实例配置（JSON，依下方 Schema 校验）<textarea id="service-definition" rows="18" required></textarea></label>
         <p id="budget-defaults"></p>
+        <fieldset><legend>单任务预算</legend><div id="budget-fields"></div></fieldset>
         <button type="submit">校验并保存版本</button>
       </form>
       <p id="service-result" role="status"></p>
@@ -59,7 +60,7 @@
     <section aria-labelledby="task-title">
       <h2 id="task-title">任务调用</h2>
       <p>调用上方选中的服务。任务和结果只在本次应用运行期间保留，刷新页面后可按 runId 查询。</p>
-      <p>当前为执行能力预览，预算和取消控制尚未接入。</p>
+
       <form id="task-form">
         <button id="task-example" type="button">填入输入样例</button>
         <label>任务输入（JSON）<textarea id="task-input" rows="5" required>{}</textarea></label>
@@ -71,6 +72,7 @@
       </form>
       <p id="task-status" role="status"></p>
       <p id="task-error" role="alert"></p>
+      <h3>预算用量</h3><pre id="task-usage"></pre>
       <h3>执行步骤</h3><ol id="task-steps"></ol>
       <h3>最终结果</h3><pre id="task-result"></pre>
     </section>

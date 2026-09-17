@@ -87,8 +87,9 @@ let services = [];
 let backendAddress = '';
 function showDefinition(value) {
   definitionEditor.value = JSON.stringify(value.definition, null, 2);
+  showBudgetFields(value.definition);
   document.querySelector('#service-schemas').textContent = JSON.stringify(value.schemas, null, 2);
-  document.querySelector('#budget-defaults').textContent = `全局预算默认值（各包绑定上限之和，可在 budget 修改）：${JSON.stringify(value.budgetDefaults || value.definition.budget)}`;
+  document.querySelector('#budget-defaults').textContent = `全局预算默认值（各包绑定上限之和，可在下方修改）：${JSON.stringify(value.budgetDefaults || value.definition.budget)}`;
 }
 function rememberDefinition(value) {
   if (!definitions.has(value.loadId)) definitionSelect.add(new Option(value.id || value.definition.definitionId, value.loadId));
@@ -225,6 +226,7 @@ async function pollTask(runId, generation) {
   const run = response.data;
   taskStatus.textContent = `${run.status} · ${run.runId} · 实际版本 ${run.version} · ${run.instanceId}`;
   taskError.textContent = run.error ? taskFailure(run.error) : '';
+  showUsage(run.usage);
   const steps = document.querySelector('#task-steps');
   steps.replaceChildren();
   for (const step of run.steps) {
@@ -249,6 +251,7 @@ function watchTask(runId) {
   document.querySelector('#task-result').textContent = '';
   document.querySelector('#task-steps').replaceChildren();
   taskError.textContent = '';
+  document.querySelector('#task-usage').textContent = '';
   taskStatus.textContent = '查询中…';
   return pollTask(runId, generation);
 }
@@ -272,3 +275,57 @@ document.querySelector('#task-query-form').addEventListener('submit', event => {
   watchTask(document.querySelector('#task-run-id').value.trim());
 });
 window.addEventListener('beforeunload', () => { clearTimeout(taskPollTimer); taskQueryGeneration++; });
+
+function showBudgetFields(definition) {
+  const target = document.querySelector('#budget-fields');
+  target.replaceChildren();
+  const budgets = [{scope: 'global', name: '任务总量', values: definition.budget}];
+  for (const binding of definition.packageBindings) {
+    const scope = 'packages.' + binding.bindingId;
+    const values = Object.assign({}, ...definition.configRefs.filter(c => c.scope === scope).map(c => c.values));
+    budgets.push({scope, name: '包 ' + binding.bindingId, values});
+  }
+  for (const budget of budgets) {
+    for (const key of ['loopLimit', 'tokenLimit', ...(budget.scope === 'global' ? ['strictTokenLimit'] : [])]) {
+      const label = document.createElement('label');
+      label.textContent = `${budget.name} · ${{loopLimit:'loop 上限',tokenLimit:'token 上限',strictTokenLimit:'严格 token 限额'}[key]} `;
+      const input = document.createElement('input');
+      input.dataset.scope = budget.scope;
+      input.dataset.budgetKey = key;
+      input.type = key === 'strictTokenLimit' ? 'checkbox' : 'number';
+      if (input.type === 'checkbox') input.checked = budget.values[key] ?? true;
+      else { input.min = '1'; input.step = '1'; input.required = true; input.value = budget.values[key]; }
+      input.addEventListener('change', () => {
+        try {
+          const current = JSON.parse(definitionEditor.value);
+          const value = input.type === 'checkbox' ? input.checked : Number(input.value);
+          if (budget.scope === 'global') current.budget[key] = value;
+          else {
+            const configs = current.configRefs.filter(c => c.scope === budget.scope);
+            const config = configs.find(c => key in c.values) || configs[0];
+            config.values[key] = value;
+          }
+          definitionEditor.value = JSON.stringify(current, null, 2);
+        } catch { serviceResult.textContent = '请先修正实例配置 JSON'; }
+      });
+      label.append(input); target.append(label);
+    }
+  }
+}
+definitionEditor.addEventListener('change', () => {
+  try { showBudgetFields(JSON.parse(definitionEditor.value)); }
+  catch { serviceResult.textContent = '实例配置 JSON 无效'; }
+});
+function showUsage(usage) {
+  const qualities = {exact: '精确', upper_bound: '上界', estimated: '估算', unsupported: '未知'};
+  const lines = [];
+  const bindings = new Set([...Object.keys(usage.loops?.bindings || {}), ...Object.keys(usage.tokens?.bindings || {})]);
+  for (const binding of [null, ...bindings]) {
+    const loop = binding === null ? usage.loops?.global : usage.loops?.bindings[binding];
+    const token = binding === null ? usage.tokens?.global : usage.tokens?.bindings[binding];
+    lines.push(`${binding === null ? '任务总量' : '包 ' + binding}：loop ${loop ?? 0}` + (token
+      ? `；token ${token.totalTokens ?? '未知'}（输入 ${token.inputTokens ?? '未知'}，输出 ${token.outputTokens ?? '未知'}；${qualities[token.quality]}；预留 ${token.reservedTokens}；来源 ${token.sources.join('、')}）`
+      : '；尚无模型用量'));
+  }
+  document.querySelector('#task-usage').textContent = lines.join('\n');
+}
