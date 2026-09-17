@@ -21,7 +21,7 @@ async def main():
         env_id = response.json()['environmentId']
         body['definition']['environmentRefs'] = [env_id]
         body['definition']['packageBindings'][0]['version'] = '2.0.0'
-        body['definition']['capabilityBindings'][0] = {'packageBindingId':'echo','capabilityId':'identity','kind':'api','environmentId':env_id,'connectionId':'api','inputModel':'models:Message','outputModel':'models:Message'}
+        body['definition']['capabilityBindings'][0] = {'packageBindingId':'echo','capabilityId':'identity','kind':'api','apiMethod':'POST','environmentId':env_id,'connectionId':'api','inputModel':'models:Message','outputModel':'models:Message'}
         response = await client.post('/api/v1/services', json=body)
         assert response.status_code == 201, response.text
         a = response.json()

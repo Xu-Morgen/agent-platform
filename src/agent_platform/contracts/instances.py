@@ -26,6 +26,8 @@ class CapabilityBinding(StrictModel):
     connection_id: Identifier | None = None
     block_id: Identifier | None = None
     version: Version | None = None
+    api_method: Literal['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] | None = None
+    api_path: str = Field(default='', pattern=r'^(?:|/|/[^/?#][^?#]*)$')
     input_model: SymbolReference
     output_model: SymbolReference
 
@@ -35,6 +37,10 @@ class CapabilityBinding(StrictModel):
             valid = self.block_id and self.version and not self.environment_id and not self.connection_id
         else:
             valid = self.environment_id and self.connection_id and not self.block_id and not self.version
+        if self.kind == 'api':
+            valid = valid and self.api_method is not None
+        elif self.api_method is not None or self.api_path:
+            valid = False
         if not valid:
             raise ValueError('能力绑定目标不完整或混合了不同类型')
         return self

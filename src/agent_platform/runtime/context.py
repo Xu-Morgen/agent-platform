@@ -17,8 +17,9 @@ def execution_error(exc, stage, run_id):
 
 
 class RunContext:
-    def __init__(self, run_id, snapshot, runs):
+    def __init__(self, run_id, snapshot, runs, api=None):
         self.run_id, self.snapshot, self.runs = run_id, snapshot, runs
+        self.api = api
 
     async def run_graph(self, value):
         return await self.snapshot.graph.run(value)
@@ -72,3 +73,20 @@ class RunContext:
             return validate(artifact.content.load(manifest.output_model), output, stage + '.output')
 
         return await self.run_step(stage, execute, kind='block', package_binding_id=binding.package_binding_id)
+
+    def connection(self, binding):
+        environments = self.runs.get(self.run_id).environment_snapshot
+        environment = next(e for e in environments if e.environment_id == binding.environment_id)
+        return next(c for c in environment.connections if c.connection_id == binding.connection_id)
+
+    async def call_api(self, binding_id, value):
+        from .validation import validate
+        _, binding = self.binding(binding_id, 'api')
+        stage = 'api.' + binding_id
+
+        async def execute():
+            input_value = validate(self.snapshot.content.load(binding.input_model), value, stage + '.input')
+            result = await self.api.call(self.connection(binding), binding, input_value)
+            return validate(self.snapshot.content.load(binding.output_model), result, stage + '.output')
+
+        return await self.run_step(stage, execute, kind='api', package_binding_id=binding.package_binding_id)
