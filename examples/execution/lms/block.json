@@ -1,0 +1,7 @@
+{
+  "blockId": "lms-message",
+  "version": "1.0.0",
+  "entry": "block:execute",
+  "inputModel": "block:LMSResponse",
+  "outputModel": "block:Message"
+}
