@@ -1,6 +1,5 @@
 """单 worker 消费固定快照，生命周期独立于提交连接。"""
 import asyncio
-from inspect import isawaitable
 from ..adapters.api import APIAdapter
 from ..adapters.ollama import OllamaAdapter
 from .boundary import Boundary, current_boundary

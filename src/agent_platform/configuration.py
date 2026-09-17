@@ -84,6 +84,11 @@ def validate_combination(definition, content, packages, blocks, environments):
                 declared = load_symbol(content, getattr(binding, direction), ['capabilityBindings', i, direction], model=True)
                 if schema_shape(expected) != schema_shape(declared):
                     raise invalid('能力输入输出契约不兼容', ['capabilityBindings', i, direction])
+                if binding.kind == 'model':
+                    from .contracts.models import ModelRequest, ModelResponse
+                    platform_model = ModelRequest if direction == 'input_model' else ModelResponse
+                    if schema_shape(declared) != schema_shape(platform_model):
+                        raise invalid('模型能力必须使用平台请求/响应契约', ['capabilityBindings', i, direction])
                 if binding.kind == 'block':
                     block = blocks.get(binding.block_id, binding.version)
                     actual = load_symbol(block.content, getattr(block.manifest, direction), ['block'], model=True)
