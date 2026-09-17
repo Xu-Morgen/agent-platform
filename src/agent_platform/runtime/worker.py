@@ -7,6 +7,7 @@ from .budgets import LoopPolicy, StrictTokenPolicy, NonStrictTokenPolicy
 from .context import RunContext, current_context, execution_error
 from .validation import validate
 from ..contracts.errors import ErrorResponse
+from ..contracts.runs import TERMINAL
 
 
 class RunWorker:
@@ -35,6 +36,8 @@ class RunWorker:
     async def execute(self, pending):
         runs, envs = self.submission.runs, self.submission.environments
         run_id, snapshot = pending.run_id, pending.snapshot
+        if runs.get(run_id).status in TERMINAL:
+            return
         boundary = self.boundary_factory()
         api = APIAdapter(envs.credentials)
         model = OllamaAdapter(envs.credentials)
@@ -45,7 +48,10 @@ class RunWorker:
         bt, ct = current_boundary.set(boundary), current_context.set(context)
         try:
             await boundary.check('run_start', run_id)
-            runs.update(run_id, status='running')
+            with envs.lock, runs.lock:
+                if runs.get(run_id).status in TERMINAL:
+                    return
+                runs.update(run_id, status='running')
             value = validate(snapshot.content.load(snapshot.definition.input_model), runs.get(run_id).input, 'runs.input')
             entry = snapshot.content.load(snapshot.definition.entry)
             result = await context.run_step('instance.entry', lambda: entry(value, context), kind='entry')

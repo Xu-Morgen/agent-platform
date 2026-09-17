@@ -48,6 +48,11 @@ def create_app() -> FastAPI:
     from .runtime.worker import RunWorker
     app.state.worker = RunWorker(app.state.submission)
 
+    @app.post('/api/v1/runs/{run_id}/cancel', response_model=Run)
+    async def cancel(run_id: str):
+        from .runtime.cancellation import cancel_run
+        return cancel_run(app.state.submission, run_id)
+
     @app.get('/api/v1/runs/{run_id}', response_model=Run)
     async def run_status(run_id: str):
         return app.state.runs.get(run_id)
