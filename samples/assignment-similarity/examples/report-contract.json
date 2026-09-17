@@ -1,0 +1,45 @@
+{
+  "quantitative": {
+    "method": "paragraph-exact-v1",
+    "items": [
+      {
+        "comparisonIndex": 0,
+        "similarity": 0.5,
+        "matchedTargetCharacters": 2,
+        "totalTargetCharacters": 4,
+        "matches": [
+          {
+            "targetParagraphIndex": 0,
+            "comparisonParagraphIndices": [
+              0,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "comparisonIndex": 1,
+        "similarity": 0.0,
+        "matchedTargetCharacters": 0,
+        "totalTargetCharacters": 4,
+        "matches": []
+      }
+    ]
+  },
+  "qualitative": {
+    "items": [
+      {
+        "comparisonIndex": 0,
+        "relation": "no_clear_relation",
+        "reason": "人工契约样例，未经模型分析。",
+        "suggestion": "仅检查结构。"
+      },
+      {
+        "comparisonIndex": 1,
+        "relation": "no_clear_relation",
+        "reason": "人工契约样例，未经模型分析。",
+        "suggestion": "仅检查结构。"
+      }
+    ]
+  }
+}
