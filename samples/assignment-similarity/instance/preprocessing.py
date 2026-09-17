@@ -15,7 +15,7 @@ class PreparedTexts(StrictModel):
 def paragraphs(text: str) -> list[str]:
     text = unicodedata.normalize('NFC', text.replace('\r\n', '\n').replace('\r', '\n'))
     return [clean for line in text.split('\n')
-            if (clean := re.sub(r'[^\S\n]+', ' ', line).strip())]
+            if (clean := re.sub(r'[^\S\r\n\v\f\x85\u2028\u2029]+', ' ', line).strip())]
 
 
 def preprocess(value: SimilarityInput) -> PreparedTexts:

@@ -7,6 +7,7 @@ preprocess = snapshot.load('preprocessing:preprocess')
 result = preprocess(Input(target_text='  Cafe\u0301\t A! \r\n\r\n 乙\u3000\u3000丙。\rD? ', comparison_texts=['Cafe\u0301 A!\n\n']))
 assert result.target_paragraphs == ['Café A!', '乙 丙。', 'D?']
 assert result.comparison_paragraphs == [['Café A!']]
+assert preprocess(Input(target_text='甲\v乙\u2028丙', comparison_texts=['甲'])).target_paragraphs == ['甲\v乙\u2028丙']
 for target, comparisons, path in [
     (' \t\r\n', ['a'], ['targetText']),
     ('a', ['a', '\t\u3000\n'], ['comparisonTexts', 1]),
