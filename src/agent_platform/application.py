@@ -51,7 +51,7 @@ def create_app() -> FastAPI:
     from .contracts.drafts import DraftWrite, DraftDocument
     app.state.drafts = DraftRepository()
     app.state.definitions = DefinitionRegistry()
-    app.state.services = ServiceManager(app.state.definitions, app.state.packages, app.state.blocks, app.state.environments)
+    app.state.services = ServiceManager(app.state.definitions, app.state.packages, app.state.blocks, app.state.environments, app.state.catalog)
 
     from .repositories.runs import RunRepository
     from .runtime.submission import RunSubmission

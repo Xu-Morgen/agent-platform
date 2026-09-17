@@ -32,3 +32,16 @@ I6 交付结构、资源与预检；图编译及调用在 I7 实施。`control.j
 端口 `source` 为 input/node/carry/constant，`target=[]` 代表完整输入；对象可按字符串字段路径装配，数组只支持整值装配。数组索引读取必须由 minItems 保证存在。缺省字段由输入契约明确约束，不做隐式结构转换。分支各自声明共同出口；循环外只可读取循环节点出口，零次返回 initial，carry.update 只影响下一轮。
 
 无法证明的特殊约束拒绝连接；相同已加载契约允许连接，运行时仍必须执行自定义校验。issues 包含 nodeId、sourceNodeId、sourcePort、targetPort、fieldPath、reasonType、reason 和 expected，不含原始输入或异常 ctx。
+
+## 生成完整实例（I7）
+
+`POST /api/v1/services` 和 `POST /api/v1/services/{serviceId}/versions`
+现在接收 `{ "name": "服务名", "flow": <FlowDraft> }`。将前文预检通过的完整
+FlowDraft 原样放入 `flow`；不再提交旧 `definitionLoadId`／`definition`。
+成功返回 201、`serviceId`、`activeInstanceId` 及 `current` 版本信息。
+
+保存会预检全部端口、节点配置、环境和输入样例，编译 LangGraph 并固定内存内容，
+不会调用块或模型。失败不创建半成品、不切换当前实例。
+`GET /api/v1/services/{serviceId}/schema` 返回输入输出 Schema、`examples`、
+完整 `flow`、`compilerVersion` 和各包节点配置 Schema。
+纯块实例可省略 `budget` 和 `nodeConfigurations`，无需环境。

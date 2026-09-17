@@ -1,14 +1,13 @@
 from typing import Literal
 from pydantic import Field, JsonValue
 from .base import StrictModel
-from .instances import InstanceDefinition
+from .flows import FlowDraft
 from .packages import Identifier, PositiveInt
 
 
 class ServiceWrite(StrictModel):
     name: str = Field(min_length=1)
-    definition_load_id: Identifier
-    definition: InstanceDefinition
+    flow: FlowDraft
 
 
 class VersionView(StrictModel):
@@ -31,8 +30,8 @@ class ServiceSchema(StrictModel):
     input: dict[str, JsonValue]
     output: dict[str, JsonValue]
     examples: list[JsonValue]
-    definition: InstanceDefinition
-    definition_load_id: Identifier
+    flow: FlowDraft
+    compiler_version: str
     configuration: dict[str, JsonValue]
     configuration_schemas: dict[str, JsonValue]
 

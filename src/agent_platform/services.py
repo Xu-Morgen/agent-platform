@@ -7,7 +7,8 @@ from .versions.numbering import VersionAllocator
 
 
 class ServiceManager:
-    def __init__(self, definitions, packages, blocks, environments):
+    def __init__(self, definitions, packages, blocks, environments, catalog=None):
+        self.catalog = catalog
         self.definitions, self.packages, self.blocks, self.environments = definitions, packages, blocks, environments
         self.snapshots = SnapshotRepository()
         self.allocator = VersionAllocator()
@@ -28,19 +29,19 @@ class ServiceManager:
 
     def save(self, request, service_id=None):
         previous = self.get(service_id) if service_id else None
-        loaded = self.definitions.get(request.definition_load_id)
-        if request.definition.definition_id != loaded.definition.definition_id:
-            raise invalid('定义标识与加载内容不一致', ['definition', 'definitionId'])
-        candidate = prepare_snapshot(request.definition, loaded.content, self.packages, self.blocks, self.environments)
+        from .flows.snapshots import prepare_flow_snapshot
+        candidate = prepare_flow_snapshot(request.flow, self.catalog, self.environments)
         key = service_id or 'svc_' + uuid4().hex
         current = self.resolve_current(key) if previous else None
         # 单事件循环内无 await；验证结束后一次性分配、入库、切换。
-        number = self.allocator.allocate(key, current, candidate)
+        from .versions.numbering import VersionNumber
+        last = self.allocator._last.get(key)
+        number = VersionNumber(1, 1, 0, 'initial') if last is None else VersionNumber(last.revision + 1, last.major, last.minor + 1, 'minor')
+        self.allocator._last[key] = number
         view = VersionView(instance_id=candidate.instance_id, revision=number.revision,
                            version=number.version, change_kind=number.change_kind, content_digest=candidate.content_digest)
         service = ServiceView(service_id=key, name=request.name, active_instance_id=candidate.instance_id, current=view)
         self.snapshots.add(candidate)
-        self._sources[candidate.instance_id] = request.definition_load_id
         self._history.setdefault(key, []).append(view)
         self._services[key] = service
         return service.model_copy(deep=True)
@@ -52,24 +53,26 @@ class ServiceManager:
             'packages.' + binding: artifact.content.load(artifact.manifest.contract_refs.configuration).model_json_schema()
             for binding, artifact in snapshot.packages.items()
         }
-        if snapshot.definition.configuration_model:
-            configuration_schemas['instance'] = snapshot.content.load(snapshot.definition.configuration_model).model_json_schema()
-        return ServiceSchema(service=service, **snapshot.schema, definition=snapshot.definition,
-                             definition_load_id=self._sources[snapshot.instance_id], configuration=snapshot.configuration, configuration_schemas=configuration_schemas)
+        return ServiceSchema(service=service, **snapshot.schema, flow=snapshot.draft,
+            compiler_version=snapshot.compiler_version, configuration=snapshot.configuration,
+            configuration_schemas=configuration_schemas)
 
     def history(self, service_id):
         self.get(service_id)
         return [value.model_copy(deep=True) for value in self._history[service_id]]
 
     def activate(self, service_id, instance_id):
-        from .configuration import validate_environment_bindings
+        from .flows.drafts import preflight
         service = self.get(service_id)
         version = next((value for value in self._history[service_id] if value.instance_id == instance_id), None)
         if version is None:
             raise invalid('该实例不属于此服务的历史', ['instanceId'], code='RECORD_NOT_FOUND')
         snapshot = self.snapshots.get(instance_id)
         # 只校验当前环境；入口、包和块继续使用历史快照，不重读源目录。
-        validate_environment_bindings(snapshot.definition, self.environments)
+        result = preflight(snapshot.draft.model_dump(by_alias=True), snapshot.catalog, self.environments)
+        if not result.valid:
+            from .contracts.errors import PlatformError, ErrorResponse
+            raise PlatformError(ErrorResponse(code='CONFIGURATION_ERROR', stage='flow.activate', message='历史实例当前环境校验失败', issues=result.issues))
         service.active_instance_id = instance_id
         service.current = version.model_copy(deep=True)
         self._services[service_id] = service
