@@ -18,7 +18,10 @@ class SequentialExecutor:
     node_count: int
 
     async def run(self, value: Mapping[str, Any] | StrictModel, *, boundary=None) -> StrictModel:
-        token = current_boundary.set(boundary or current_boundary.get() or Boundary())
+        inherited = current_boundary.get()
+        if boundary is not None and inherited is not None and boundary is not inherited:
+            boundary = Boundary(boundary.policies, boundary.observer, parent=inherited)
+        token = current_boundary.set(boundary or inherited or Boundary())
         try:
             await checkpoint('start', 'graph')
             data = value.model_dump() if isinstance(value, StrictModel) else dict(value)

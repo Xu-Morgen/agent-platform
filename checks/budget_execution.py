@@ -27,7 +27,7 @@ async def case(limit):
                         return (await context.invoke_package('echo', {'text':state.text})).model_dump()
                     async def second(state):
                         return (await context.invoke_package('second', {'text':state.text})).model_dump()
-                    return await build_sequential(State, [('first', first), ('second', second)]).run(value.model_dump())
+                    return await build_sequential(State, [('first', first), ('second', second)]).run(value.model_dump(), boundary=Boundary())
                 return entry
             return original.content.load(ref)
     events = []

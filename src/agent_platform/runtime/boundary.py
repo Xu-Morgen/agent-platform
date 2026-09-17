@@ -6,11 +6,14 @@ current_boundary = ContextVar('current_boundary', default=None)
 
 
 class Boundary:
-    def __init__(self, policies=(), observer=None):
+    def __init__(self, policies=(), observer=None, parent=None):
         self.policies = tuple(policies)
         self.observer = observer
+        self.parent = parent
 
     async def check(self, phase, step_id):
+        if self.parent is not None:
+            await self.parent.check(phase, step_id)
         if self.observer:
             result = self.observer(phase, step_id)
             if isawaitable(result):
