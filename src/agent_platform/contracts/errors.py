@@ -15,6 +15,7 @@ ErrorCode = Literal[
 
 class ErrorDetails(StrictModel):
     """仅允许已知非敏感元数据，不能附带任意上游字典。"""
+    active_run_ids: list[str] = Field(default_factory=list)
     timeout_seconds: float | None = Field(default=None, gt=0)
     http_status: int | None = Field(default=None, ge=100, le=599)
 

@@ -63,3 +63,4 @@ class Environment(StrictModel):
     revision: PositiveInt
     name: str
     connections: list[Connection]
+    active_run_ids: list[str] = Field(default_factory=list)
