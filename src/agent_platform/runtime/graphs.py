@@ -65,7 +65,13 @@ def build_sequential(
             await checkpoint('node_update', name)
             await checkpoint('edge', name)
             return output.model_dump()
-        return checked
+        async def recorded(state):
+            from .context import current_context
+            context = current_context.get()
+            if context is None:
+                return await checked(state)
+            return await context.run_step('nodes.' + name, lambda: checked(state), kind='node')
+        return recorded
 
     previous = START
     for name, operation in nodes:

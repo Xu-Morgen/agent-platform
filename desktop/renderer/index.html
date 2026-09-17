@@ -56,6 +56,24 @@
       <p id="history-result" role="status"></p>
       <details><summary>输入输出及包配置 Schema</summary><pre id="service-schemas"></pre></details>
     </section>
+    <section aria-labelledby="task-title">
+      <h2 id="task-title">任务调用</h2>
+      <p>调用上方选中的服务。任务和结果只在本次应用运行期间保留，刷新页面后可按 runId 查询。</p>
+      <p>当前为执行能力预览，预算和取消控制尚未接入。</p>
+      <form id="task-form">
+        <button id="task-example" type="button">填入输入样例</button>
+        <label>任务输入（JSON）<textarea id="task-input" rows="5" required>{}</textarea></label>
+        <button id="task-submit" type="submit">提交任务</button>
+      </form>
+      <form id="task-query-form">
+        <label>runId <input id="task-run-id" required placeholder="run_…"></label>
+        <button type="submit">查询任务</button>
+      </form>
+      <p id="task-status" role="status"></p>
+      <p id="task-error" role="alert"></p>
+      <h3>执行步骤</h3><ol id="task-steps"></ol>
+      <h3>最终结果</h3><pre id="task-result"></pre>
+    </section>
   </main>
   <script src="index.js"></script>
 </body>

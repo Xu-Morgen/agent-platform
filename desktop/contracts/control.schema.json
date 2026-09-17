@@ -4,6 +4,105 @@
       "additionalProperties": false,
       "description": "仅允许已知非敏感元数据，不能附带任意上游字典。",
       "properties": {
+        "runStatus": {
+          "anyOf": [
+            {
+              "enum": [
+                "queued",
+                "running",
+                "completed",
+                "failed",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runstatus"
+        },
+        "packageBindingId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Packagebindingid"
+        },
+        "attempt": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attempt"
+        },
+        "upstreamCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstreamcode"
+        },
+        "upstreamMsg": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstreammsg"
+        },
+        "upstreamSubCode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstreamsubcode"
+        },
+        "upstreamSubMsg": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Upstreamsubmsg"
+        },
+        "activeRunIds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Activerunids",
+          "type": "array"
+        },
         "timeoutSeconds": {
           "anyOf": [
             {
@@ -40,6 +139,8 @@
       "properties": {
         "code": {
           "enum": [
+            "RESULT_NOT_READY",
+            "UPSTREAM_BUSINESS_ERROR",
             "CONFIGURATION_ERROR",
             "CONTRACT_VALIDATION_ERROR",
             "DEPENDENCY_ERROR",

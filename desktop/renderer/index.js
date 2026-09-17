@@ -35,7 +35,9 @@ function editEnvironment() {
     { connectionId: 'model', kind: 'model', baseUrl: 'http://localhost:9000', model: 'synthetic', timeoutSeconds: 60 },
   ], null, 2);
   document.querySelector('#environment-credential').value = '';
-  environmentResult.textContent = value ? `环境 ${value.environmentId} · revision ${value.revision}；凭据 ********（仅显示引用）` : '';
+  const occupied = value?.activeRunIds || [];
+  document.querySelector('#environment-form button[type=submit]').disabled = occupied.length > 0;
+  environmentResult.textContent = occupied.length ? `环境被任务占用：${occupied.join('、')}` : value ? `环境 ${value.environmentId} · revision ${value.revision}；凭据 ********（仅显示引用）` : '';
 }
 async function refreshEnvironments(selected = environmentSelect.value) {
   const result = await window.agentPlatform.listEnvironments();
@@ -189,3 +191,84 @@ async function refreshHistory() {
     list.append(item);
   }
 }
+
+
+const taskStatus = document.querySelector('#task-status');
+const taskError = document.querySelector('#task-error');
+let taskPollTimer;
+let taskQueryGeneration = 0;
+function taskFailure(error) {
+  return `${error.code} · ${error.stage}：${errorText(error)}`;
+}
+function schemaExample(schema, root = schema) {
+  if (schema.$ref) return schemaExample(root.$defs?.[schema.$ref.split('/').pop()] || {}, root);
+  if ('default' in schema) return schema.default;
+  if (schema.examples?.length) return schema.examples[0];
+  if (schema.enum?.length) return schema.enum[0];
+  if (schema.type === 'object') return Object.fromEntries((schema.required || []).map(key => [key, schemaExample(schema.properties[key], root)]));
+  if (schema.type === 'array') return [];
+  if (schema.type === 'boolean') return false;
+  if (schema.type === 'integer' || schema.type === 'number') return schema.minimum ?? 0;
+  return '合成输入';
+}
+document.querySelector('#task-example').addEventListener('click', async () => {
+  if (!serviceSelect.value) { taskError.textContent = '请先选择已保存的服务'; return; }
+  const response = await window.agentPlatform.serviceSchema(serviceSelect.value);
+  if (!response.ok) { taskError.textContent = taskFailure(response.error); return; }
+  document.querySelector('#task-input').value = JSON.stringify(response.data.examples[0] || schemaExample(response.data.input), null, 2);
+  taskError.textContent = '样例可编辑，提交时由服务契约校验。';
+});
+async function pollTask(runId, generation) {
+  const response = await window.agentPlatform.getRun(runId);
+  if (generation !== taskQueryGeneration) return;
+  if (!response.ok) { taskError.textContent = taskFailure(response.error); taskStatus.textContent = '查询失败'; return; }
+  const run = response.data;
+  taskStatus.textContent = `${run.status} · ${run.runId} · 实际版本 ${run.version} · ${run.instanceId}`;
+  taskError.textContent = run.error ? taskFailure(run.error) : '';
+  const steps = document.querySelector('#task-steps');
+  steps.replaceChildren();
+  for (const step of run.steps) {
+    const item = document.createElement('li');
+    item.textContent = `${step.stepId} · ${step.status} · 尝试 ${step.attempt}${step.packageBindingId ? ' · 包 ' + step.packageBindingId : ''}${step.error ? ' · ' + taskFailure(step.error) : ''}`;
+    if (Object.keys(step.usage).length) item.textContent += ` · 用量 ${JSON.stringify(step.usage)}`;
+    steps.append(item);
+  }
+  if (run.status === 'completed') {
+    const result = await window.agentPlatform.getRunResult(runId);
+    if (generation !== taskQueryGeneration) return;
+    if (result.ok) document.querySelector('#task-result').textContent = JSON.stringify(result.data.result, null, 2);
+    else taskError.textContent = taskFailure(result.error);
+  } else if (run.status === 'queued' || run.status === 'running') {
+    taskPollTimer = setTimeout(() => pollTask(runId, generation), 500);
+  }
+}
+function watchTask(runId) {
+  clearTimeout(taskPollTimer);
+  const generation = ++taskQueryGeneration;
+  document.querySelector('#task-run-id').value = runId;
+  document.querySelector('#task-result').textContent = '';
+  document.querySelector('#task-steps').replaceChildren();
+  taskError.textContent = '';
+  taskStatus.textContent = '查询中…';
+  return pollTask(runId, generation);
+}
+document.querySelector('#task-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = document.querySelector('#task-submit');
+  button.disabled = true;
+  try {
+    const selected = services.find(value => value.serviceId === serviceSelect.value);
+    if (!selected) { taskError.textContent = '请先选择已保存的服务'; return; }
+    const input = JSON.parse(document.querySelector('#task-input').value);
+    const response = await window.agentPlatform.submitRun({ serviceId: selected.serviceId, expectedInstanceId: selected.activeInstanceId, input });
+    if (!response.ok) { taskError.textContent = taskFailure(response.error); return; }
+    await watchTask(response.data.runId);
+  } catch (error) {
+    taskError.textContent = error instanceof SyntaxError ? '任务输入：JSON 格式无效' : '任务请求失败';
+  } finally { button.disabled = false; }
+});
+document.querySelector('#task-query-form').addEventListener('submit', event => {
+  event.preventDefault();
+  watchTask(document.querySelector('#task-run-id').value.trim());
+});
+window.addEventListener('beforeunload', () => { clearTimeout(taskPollTimer); taskQueryGeneration++; });

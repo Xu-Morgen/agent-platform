@@ -1,6 +1,7 @@
 """每次任务独立的实例上下文；图和能力使用固定内容。"""
 from contextvars import ContextVar
 from inspect import isawaitable
+from pydantic import ValidationError
 from .boundary import checkpoint
 from ..contracts.runs import StepRecord
 from ..contracts.errors import ErrorResponse, PlatformError
@@ -13,6 +14,9 @@ def execution_error(exc, stage, run_id):
         error = exc.error.model_copy(deep=True)
         error.run_id = run_id
         return error
+    if isinstance(exc, ValidationError):
+        return ErrorResponse(code='OUTPUT_VALIDATION_ERROR', stage=stage + '.output',
+                             message='步骤数据不符合契约', run_id=run_id, field_path=list(exc.errors()[0]['loc']))
     return ErrorResponse(code='INTERNAL_ERROR', stage=stage, message='步骤执行失败', run_id=run_id)
 
 
