@@ -15,6 +15,8 @@ ErrorCode = Literal[
 
 class ErrorDetails(StrictModel):
     """仅允许已知非敏感元数据，不能附带任意上游字典。"""
+    package_binding_id: str | None = None
+    attempt: int | None = Field(default=None, ge=1)
     upstream_code: str | None = None
     upstream_msg: str | None = None
     upstream_sub_code: str | None = None

@@ -2,6 +2,7 @@
 import asyncio
 from inspect import isawaitable
 from ..adapters.api import APIAdapter
+from ..adapters.ollama import OllamaAdapter
 from .boundary import Boundary, current_boundary
 from .context import RunContext, current_context, execution_error
 from .validation import validate
@@ -36,7 +37,8 @@ class RunWorker:
         run_id, snapshot = pending.run_id, pending.snapshot
         boundary = self.boundary_factory()
         api = APIAdapter(envs.credentials)
-        context = RunContext(run_id, snapshot, runs, api)
+        model = OllamaAdapter(envs.credentials)
+        context = RunContext(run_id, snapshot, runs, api, model)
         bt, ct = current_boundary.set(boundary), current_context.set(context)
         try:
             await boundary.check('run_start', run_id)
@@ -57,6 +59,7 @@ class RunWorker:
             try:
                 await boundary.check('cleanup', run_id)
             finally:
+                await model.close()
                 await api.close()
                 envs.release(run_id)
                 current_context.reset(ct)

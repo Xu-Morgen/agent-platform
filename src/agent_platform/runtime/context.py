@@ -17,9 +17,10 @@ def execution_error(exc, stage, run_id):
 
 
 class RunContext:
-    def __init__(self, run_id, snapshot, runs, api=None):
+    def __init__(self, run_id, snapshot, runs, api=None, model=None):
         self.run_id, self.snapshot, self.runs = run_id, snapshot, runs
         self.api = api
+        self.model = model
 
     async def run_graph(self, value):
         return await self.snapshot.graph.run(value)
@@ -38,11 +39,18 @@ class RunContext:
             if isawaitable(value):
                 value = await value
             await checkpoint('step_update', step_id)
+            if kind == 'model':
+                step.usage = value.usage.model_dump(mode='json', by_alias=True)
             step.status = 'completed'
             return value
         except Exception as exc:
             step.status = 'failed'
             step.error = execution_error(exc, step_id, self.run_id)
+            if getattr(exc, 'usage', None) is not None:
+                step.usage = exc.usage.model_dump(mode='json', by_alias=True)
+            if kind == 'package':
+                step.error.details.package_binding_id = package_binding_id
+                step.error.details.attempt = attempt
             raise PlatformError(step.error) from None
         finally:
             steps = self.runs.get(self.run_id).steps
@@ -90,3 +98,36 @@ class RunContext:
             return validate(self.snapshot.content.load(binding.output_model), result, stage + '.output')
 
         return await self.run_step(stage, execute, kind='api', package_binding_id=binding.package_binding_id)
+
+    async def invoke_package(self, binding_id, value):
+        from .validation import validate
+        from .packages import PackageContext
+        artifact = self.snapshot.packages.get(binding_id)
+        if artifact is None:
+            raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage='packages.binding', message='包绑定不存在'))
+        stage = 'packages.' + binding_id
+        await checkpoint('package_start', binding_id)
+
+        async def execute():
+            manifest = artifact.manifest
+            input_value = validate(artifact.content.load(manifest.contract_refs.input), value, stage + '.input')
+            config = validate(artifact.content.load(manifest.contract_refs.configuration),
+                              self.snapshot.configuration['packages.' + binding_id], stage + '.configuration')
+            result = artifact.content.load(manifest.entry)(input_value, config, PackageContext(self, binding_id, artifact))
+            if isawaitable(result):
+                result = await result
+            return validate(artifact.content.load(manifest.contract_refs.output), result, stage + '.output')
+
+        return await self.run_step(stage, execute, kind='package', package_binding_id=binding_id)
+
+    async def _call_model(self, binding_id, value):
+        from .validation import validate
+        _, binding = self.binding(binding_id, 'model')
+        stage = 'model.' + binding_id
+
+        async def execute():
+            request = validate(self.snapshot.content.load(binding.input_model), value, stage + '.input')
+            result = await self.model.invoke(self.connection(binding), request)
+            return validate(self.snapshot.content.load(binding.output_model), result, stage + '.output')
+
+        return await self.run_step(stage, execute, kind='model', package_binding_id=binding.package_binding_id)

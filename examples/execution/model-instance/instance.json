@@ -1,0 +1,8 @@
+{
+  "definitionId":"model-example", "entry":"entry:run", "workflow":"workflow:build_graph",
+  "inputModel":"models:Message", "outputModel":"models:Message",
+  "packageBindings":[{"bindingId":"assistant","packageId":"model-template","version":"1.0.0"}],
+  "configRefs":[{"configId":"assistant-config","revision":1,"scope":"packages.assistant","values":{"loopLimit":1,"tokenLimit":1024,"maxOutputTokens":128}}],
+  "environmentRefs":["replace-with-environment-id"], "budget":{"strictTokenLimit":false},
+  "capabilityBindings":[{"packageBindingId":"assistant","capabilityId":"chat","kind":"model","environmentId":"replace-with-environment-id","connectionId":"model","inputModel":"models:ModelRequest","outputModel":"models:ModelResponse"}]
+}

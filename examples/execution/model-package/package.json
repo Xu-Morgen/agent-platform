@@ -1,0 +1,7 @@
+{
+  "packageId":"model-template", "version":"1.0.0", "name":"模型调用模板", "description":"Ollama JSON 能力调用样例",
+  "entry":"entry:invoke", "contractRefs":{"input":"models:Message","output":"models:Message","configuration":"models:Config"},
+  "runtimeRequirements":{"python":">=3.12","platformApi":1,"dependencies":["pydantic>=2.10,<3"]},
+  "requiredCapabilities":[{"capabilityId":"chat","kind":"model","inputModel":"models:ModelRequest","outputModel":"models:ModelResponse"}],
+  "budgetDefaults":{"loopLimit":1,"tokenLimit":1024}
+}
