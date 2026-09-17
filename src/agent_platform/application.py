@@ -37,6 +37,8 @@ def create_app() -> FastAPI:
 
     from .registry.packages import PackageRegistry
     from .registry.blocks import BlockRegistry
+    from .contracts.flows import FlowDraft
+    from .flows.validation import ValidationResult, validate_flow
     from .registry.catalog import ModuleCatalog
     from .contracts.catalog import CatalogLoad, CatalogResource
     from .registry.definitions import DefinitionRegistry
@@ -72,6 +74,10 @@ def create_app() -> FastAPI:
     @app.post('/api/v1/runs', response_model=Run, status_code=202)
     async def submit_run(value: RunSubmit):
         return app.state.submission.submit(value)
+
+    @app.post('/api/v1/flows/validate-ports', response_model=ValidationResult)
+    async def validate_ports(value: FlowDraft):
+        return validate_flow(value, app.state.catalog)
 
     @app.post('/api/v1/catalog/load', response_model=CatalogResource)
     async def catalog_load(value: CatalogLoad):
