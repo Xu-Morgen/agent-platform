@@ -16,6 +16,8 @@ class StepRecord(StrictModel):
     package_binding_id: str | None = None
     attempt: int = Field(default=1, ge=1)
     status: Literal['running', 'completed', 'failed'] = 'running'
+    execution_path: list[str] = Field(default_factory=list)
+    output: JsonValue = None
     usage: dict[str, JsonValue] = Field(default_factory=dict)
     error: ErrorResponse | None = None
 

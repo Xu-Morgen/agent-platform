@@ -1,4 +1,6 @@
 """显式端口编译器：图状态只存已校验的值，模块只接收自己的输入。"""
+import asyncio
+from contextvars import ContextVar
 from copy import deepcopy
 from dataclasses import dataclass
 from inspect import isawaitable
@@ -14,6 +16,34 @@ from ..runtime.boundary import checkpoint
 from .validation import validate_flow
 
 COMPILER_VERSION = 'flow-1'
+execution_path = ContextVar('flow_path', default=())
+step_counter = ContextVar('flow_steps', default=None)
+
+
+async def boundary(phase, node):
+    await asyncio.sleep(0)
+    await checkpoint(phase, node)
+    counter = step_counter.get()
+    if phase == 'node_start' and counter is not None:
+        counter[0] += 1
+        if counter[0] > counter[1]:
+            raise PlatformError(ErrorResponse(code='GRAPH_EXECUTION_LIMIT', stage='flow',
+                node_id=node, message='图执行步数超过限制'))
+
+
+def guarded(node_id, operation):
+    async def run(state):
+        await boundary('node_start', node_id)
+        async def execute():
+            result = operation(state)
+            if isawaitable(result):
+                result = await result
+            await boundary('node_update', node_id)
+            await boundary('edge', node_id)
+            return result
+        context = current_context.get()
+        return await context.run_step('nodes.' + node_id, execute, kind='node') if context else await execute()
+    return run
 
 
 def plain(value):
@@ -69,11 +99,19 @@ class FlowExecutor:
 
     async def run(self, value, *, recursion_limit=10000):
         value = checked(self.catalog.contract(self.draft.input_contract), value, 'flow.input')
+        token = step_counter.set([0, recursion_limit])
         try:
+            await boundary('start', 'flow')
             result = await self.graph.ainvoke({'input': plain(value)}, config={'recursion_limit': recursion_limit})
+            await boundary('terminal', 'flow')
             return deepcopy(result['result'])
         except GraphRecursionError:
             raise PlatformError(ErrorResponse(code='GRAPH_EXECUTION_LIMIT', stage='flow', message='图执行步数超过限制')) from None
+        finally:
+            try:
+                await checkpoint('cleanup', 'flow')
+            finally:
+                step_counter.reset(token)
 
 
 def compile_flow(draft, catalog):
@@ -110,7 +148,7 @@ def compile_flow(draft, catalog):
         for index, node in enumerate(nodes):
             name = f'node_{index}'
             if isinstance(node, ModuleNode):
-                graph.add_node(name, wrap(node), retry_policy=None)
+                graph.add_node(name, guarded(node.node_id, wrap(node)), retry_policy=None)
                 graph.add_edge(previous, name)
                 previous = name
             elif isinstance(node, IfNode):
@@ -131,12 +169,12 @@ def compile_flow(draft, catalog):
                             assemble(bindings, FlowState.model_validate(child)), 'nodes.' + node.node_id + '.output')
                         return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(value)}}
                     return run
-                graph.add_node(name, lambda state: {})
+                graph.add_node(name, guarded(node.node_id, lambda state: {}))
                 graph.add_edge(previous, name)
                 for decision, (compiled, bindings) in branches.items():
-                    graph.add_node(name + ('_true' if decision else '_false'), branch_run(node, compiled, bindings))
+                    graph.add_node(name + ('_true' if decision else '_false'), guarded(node.node_id, branch_run(node, compiled, bindings)))
                 graph.add_conditional_edges(name, chooser(node), {'true': name + '_true', 'false': name + '_false'})
-                graph.add_node(name + '_join', lambda state: {})
+                graph.add_node(name + '_join', guarded(node.node_id, lambda state: {}))
                 graph.add_edge(name + '_true', name + '_join')
                 graph.add_edge(name + '_false', name + '_join')
                 previous = name + '_join'
@@ -149,6 +187,8 @@ def compile_flow(draft, catalog):
                         carried = checked(contract, assemble(node.carry.initial, state), 'nodes.' + node.node_id + '.input')
                         iteration = 0
                         while True:
+                            await boundary('node_start', node.node_id)
+                            await boundary('edge', node.node_id)
                             inner = state.model_copy(deep=True)
                             inner.carry[node.node_id] = plain(carried)
                             if isinstance(node, RepeatNode):
@@ -165,13 +205,17 @@ def compile_flow(draft, catalog):
                                 if iteration >= node.max_iterations:
                                     raise PlatformError(ErrorResponse(code='LOOP_ITERATION_LIMIT', stage='flow.loop',
                                         node_id=node.node_id, message='达到最大次数后循环条件仍为 true'))
-                            updated = await child.ainvoke(inner.model_dump())
+                            path_token = execution_path.set((*execution_path.get(), f'{node.node_id}[{iteration}]'))
+                            try:
+                                updated = await child.ainvoke(inner.model_dump())
+                            finally:
+                                execution_path.reset(path_token)
                             carried = checked(contract, assemble(node.carry.update, FlowState.model_validate(updated)),
                                 'nodes.' + node.node_id + '.output')
                             iteration += 1
                         return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(carried)}}
                     return run
-                graph.add_node(name, loop_run(node, child, condition_graph))
+                graph.add_node(name, guarded(node.node_id, loop_run(node, child, condition_graph)))
                 graph.add_edge(previous, name)
                 previous = name
         graph.add_edge(previous, END)
@@ -187,7 +231,7 @@ def compile_flow(draft, catalog):
         result = checked(catalog.contract(draft.output_contract), assemble(draft.output, state), 'flow.output')
         return {'result': plain(result)}
 
-    graph.add_node('output', output)
+    graph.add_node('output', guarded('output', output))
     graph.add_edge('body', 'output')
     graph.add_edge('output', END)
     return FlowExecutor(draft, catalog, graph.compile(checkpointer=None))

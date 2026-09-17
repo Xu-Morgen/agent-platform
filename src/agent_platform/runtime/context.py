@@ -36,7 +36,8 @@ class RunContext:
             await checkpoint('package_start', package_binding_id)
         steps = self.runs.get(self.run_id).steps
         attempt = 1 + sum(s.step_id == step_id and s.kind == kind for s in steps)
-        step = StepRecord(run_id=self.run_id, step_id=step_id, kind=kind,
+        from ..flows.execution import execution_path
+        step = StepRecord(execution_path=list(execution_path.get()), run_id=self.run_id, step_id=step_id, kind=kind,
                           package_binding_id=package_binding_id, attempt=attempt)
         index = len(steps)
         steps.append(step)
@@ -48,6 +49,9 @@ class RunContext:
             if kind == 'model':
                 step.usage = value.usage.model_dump(mode='json', by_alias=True)
             await checkpoint('step_update', step_id)
+            if kind in ('block', 'package'):
+                from ..flows.execution import plain
+                step.output = plain(value)
             step.status = 'completed'
             return value
         except Exception as exc:
