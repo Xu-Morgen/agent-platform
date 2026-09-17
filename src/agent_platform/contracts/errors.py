@@ -4,7 +4,7 @@ from pydantic import Field
 from .base import StrictModel
 
 ErrorCode = Literal[
-    'UPSTREAM_BUSINESS_ERROR', 'CONFIGURATION_ERROR', 'CONTRACT_VALIDATION_ERROR', 'DEPENDENCY_ERROR',
+    'RESULT_NOT_READY', 'UPSTREAM_BUSINESS_ERROR', 'CONFIGURATION_ERROR', 'CONTRACT_VALIDATION_ERROR', 'DEPENDENCY_ERROR',
     'ENVIRONMENT_IN_USE', 'LOOP_BUDGET_EXCEEDED', 'TOKEN_BUDGET_EXCEEDED',
     'TOKEN_ACCOUNTING_UNSUPPORTED', 'MODEL_TIMEOUT', 'MODEL_TRANSPORT_ERROR',
     'API_TIMEOUT', 'API_TRANSPORT_ERROR', 'OUTPUT_VALIDATION_ERROR',
@@ -15,6 +15,7 @@ ErrorCode = Literal[
 
 class ErrorDetails(StrictModel):
     """仅允许已知非敏感元数据，不能附带任意上游字典。"""
+    run_status: Literal['queued', 'running', 'completed', 'failed', 'cancelled'] | None = None
     package_binding_id: str | None = None
     attempt: int | None = Field(default=None, ge=1)
     upstream_code: str | None = None

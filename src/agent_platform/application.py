@@ -5,7 +5,7 @@ from .contracts.environments import Environment, EnvironmentWrite
 from .contracts.registry import LoadRequest, LoadResult
 from .registry.api import load_local
 from .contracts.services import ServiceWrite, ServiceView, ServiceSchema, VersionView, ActivateRequest
-from .contracts.runs import Run, RunSubmit
+from .contracts.runs import Run, RunSubmit, RunResult
 from .contracts.health import HealthResponse
 from .contracts.errors import ErrorResponse, PlatformError
 from .http_errors import register_error_handlers
@@ -47,6 +47,15 @@ def create_app() -> FastAPI:
 
     from .runtime.worker import RunWorker
     app.state.worker = RunWorker(app.state.submission)
+
+    @app.get('/api/v1/runs/{run_id}', response_model=Run)
+    async def run_status(run_id: str):
+        return app.state.runs.get(run_id)
+
+    @app.get('/api/v1/runs/{run_id}/result', response_model=RunResult)
+    async def run_result(run_id: str):
+        from .runtime.queries import result_for
+        return result_for(app.state.runs, run_id)
 
     @app.post('/api/v1/runs', response_model=Run, status_code=202)
     async def submit_run(value: RunSubmit):

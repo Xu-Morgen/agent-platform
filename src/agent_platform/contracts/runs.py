@@ -41,3 +41,9 @@ class RunSubmit(StrictModel):
     service_id: str
     input: JsonValue
     expected_instance_id: str | None = None
+
+
+class RunResult(StrictModel):
+    run_id: str
+    instance_id: str
+    result: JsonValue
