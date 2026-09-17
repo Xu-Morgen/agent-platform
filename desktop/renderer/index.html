@@ -80,6 +80,7 @@
         <button type="submit">校验并应用节点配置</button><button id="node-close" type="button">取消</button>
       </form></dialog>
       <fieldset><legend>服务出口接线</legend><div id="flow-output-bindings"></div></fieldset>
+      <label>输入样例（可选 JSON；保存时校验）<textarea id="flow-example" rows="4" placeholder="填入符合服务输入契约的样例"></textarea></label>
       <button id="flow-validate">校验拼图</button>
       <p id="service-result" role="status"></p>
       <ul id="flow-issues" role="alert"></ul>
@@ -94,6 +95,7 @@
     <section data-page="tasks" aria-label="任务调用" hidden>
       <p>选择已保存的服务提交任务。任务和结果只在本次应用运行期间保留，刷新页面后可按 runId 查询。</p>
       <label>调用服务 <select id="task-service-select"><option value="">请选择服务</option></select></label>
+      <p id="task-current"></p>
       <button id="task-service-refresh" type="button">刷新可调用服务</button>
       <p>需要新增或修改服务？<a href="#/services">前往服务配置</a></p>
 

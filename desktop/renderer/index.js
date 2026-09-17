@@ -81,6 +81,7 @@ function updateTaskServices(selected = taskServiceSelect.value) {
   taskServiceSelect.replaceChildren(new Option('请选择服务', ''));
   for (const item of services) taskServiceSelect.add(new Option(`${item.name} · ${item.current.version}`, item.serviceId));
   taskServiceSelect.value = selected;
+  showTaskService();
 }
 document.querySelector('#task-service-refresh').addEventListener('click', async () => {
   const result = await window.agentPlatform.listServices();
@@ -96,23 +97,22 @@ let taskQueryGeneration = 0;
 function taskFailure(error) {
   return `${error.code} · ${error.stage}：${errorText(error)}`;
 }
-function schemaExample(schema, root = schema) {
-  if (schema.$ref) return schemaExample(root.$defs?.[schema.$ref.split('/').pop()] || {}, root);
-  if ('default' in schema) return schema.default;
-  if (schema.examples?.length) return schema.examples[0];
-  if (schema.enum?.length) return schema.enum[0];
-  if (schema.type === 'object') return Object.fromEntries((schema.required || []).map(key => [key, schemaExample(schema.properties[key], root)]));
-  if (schema.type === 'array') return [];
-  if (schema.type === 'boolean') return false;
-  if (schema.type === 'integer' || schema.type === 'number') return schema.minimum ?? 0;
-  return '合成输入';
+function showTaskService() {
+  const selected = services.find(s=>s.serviceId===taskServiceSelect.value);
+  document.querySelector('#task-current').textContent = selected
+    ? `稳定入口 ${selected.serviceId} · 当前实例 ${selected.activeInstanceId} · 版本 ${selected.current.version}` : '请选择已保存服务';
 }
+taskServiceSelect.addEventListener('change',showTaskService);
 document.querySelector('#task-example').addEventListener('click', async () => {
-  if (!taskServiceSelect.value) { taskError.textContent = '请先选择已保存的服务'; return; }
-  const response = await window.agentPlatform.serviceSchema(taskServiceSelect.value);
+  const id=taskServiceSelect.value;
+  if (!id) { taskError.textContent = '请先选择已保存的服务'; return; }
+  const response = await window.agentPlatform.serviceSchema(id);
+  if(taskServiceSelect.value!==id)return;
   if (!response.ok) { taskError.textContent = taskFailure(response.error); return; }
-  document.querySelector('#task-input').value = JSON.stringify(response.data.examples[0] || schemaExample(response.data.input), null, 2);
-  taskError.textContent = '样例可编辑，提交时由服务契约校验。';
+  const index=services.findIndex(s=>s.serviceId===id);services[index]=response.data.service;showTaskService();
+  if(!response.data.examples.length){taskError.textContent='服务没有可用输入样例，请按输入契约填写';return;}
+  document.querySelector('#task-input').value = JSON.stringify(response.data.examples[0].input, null, 2);
+  taskError.textContent = '已填入服务校验过的输入样例，可编辑后提交。';
 });
 async function pollTask(runId, generation) {
   const response = await window.agentPlatform.getRun(runId);
@@ -131,7 +131,9 @@ async function pollTask(runId, generation) {
   for (const step of run.steps) {
     const item = document.createElement('li');
     item.textContent = `${step.stepId} · ${step.status} · 尝试 ${step.attempt}${step.packageBindingId ? ' · 包 ' + step.packageBindingId : ''}${step.error ? ' · ' + taskFailure(step.error) : ''}`;
+    if (step.executionPath?.length) item.textContent += ' · 路径 ' + step.executionPath.join(' / ');
     if (Object.keys(step.usage).length) item.textContent += ` · 用量 ${JSON.stringify(step.usage)}`;
+    if (step.output !== null) { const output=document.createElement('pre');output.textContent=JSON.stringify(step.output,null,2);item.append(output); }
     steps.append(item);
   }
   if (run.status === 'completed') {

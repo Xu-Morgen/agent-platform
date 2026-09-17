@@ -70,6 +70,7 @@ const flowEditor = (() => {
   function changed() { revision++; $('service-result').textContent = '草稿已修改，等待校验'; clearTimeout(timer); timer = setTimeout(validate, 250); }
   function render() {
     $('service-name').value = content.name;
+    $('flow-example').value = content.examples.length ? JSON.stringify(content.examples[0].input,null,2) : '';
     for (const [id,key] of [['flow-input','inputContract'],['flow-output','outputContract']]) {
       const select = choices(contracts(), content[key], value => { content[key] = value; changed(); render(); });
       select.id = id; $(id).replaceWith(select);
@@ -298,6 +299,7 @@ const flowEditor = (() => {
     await refreshSaved(id);
   };
   $('instance-save').onclick=async()=>{
+    if(!$('flow-example').reportValidity())return;
     const control=$('instance-save');control.disabled=true;
     try{
       const snapshot=clone(content), id=$('service-select').value;
@@ -319,6 +321,12 @@ const flowEditor = (() => {
     if (response.ok) await refresh();
   };
   $('service-name').oninput = () => { content.name = $('service-name').value; changed(); };
+  $('flow-example').onchange = () => {
+    try {
+      content.examples = $('flow-example').value.trim() ? [{name:'页面输入样例',input:JSON.parse($('flow-example').value)}] : [];
+      $('flow-example').setCustomValidity('');changed();
+    } catch { $('flow-example').setCustomValidity('输入样例 JSON 格式无效');$('flow-example').reportValidity(); }
+  };
   $('flow-validate').onclick = validate;
   $('draft-save').onclick = async () => {
     const body = {content:clone(content)};
