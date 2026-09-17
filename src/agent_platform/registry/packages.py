@@ -30,16 +30,27 @@ class PackageRegistry:
             manifest = PackageManifest.model_validate_json(content.read_resource('package.json'))
             runtime = manifest.runtime_requirements
             try:
-                if platform.python_version() not in SpecifierSet(runtime.python):
-                    raise ValueError()
-                for dependency in runtime.dependencies:
+                compatible_python = platform.python_version() in SpecifierSet(runtime.python)
+            except ValueError:
+                raise invalid('Python 版本约束格式无效', ['runtimeRequirements', 'python'], code='DEPENDENCY_ERROR') from None
+            if not compatible_python:
+                raise invalid('当前 Python 版本不满足包声明', ['runtimeRequirements', 'python'], code='DEPENDENCY_ERROR')
+            for index, dependency in enumerate(runtime.dependencies):
+                path = ['runtimeRequirements', 'dependencies', index]
+                try:
                     requirement = Requirement(dependency)
-                    if requirement.marker and not requirement.marker.evaluate():
-                        continue
-                    if requirement.url or requirement.extras or version(requirement.name) not in requirement.specifier:
-                        raise ValueError()
-            except (ValueError, PackageNotFoundError):
-                raise invalid('Python 或已安装依赖不满足声明（首期不支持 URL/extras 依赖）', ['runtimeRequirements'], code='DEPENDENCY_ERROR') from None
+                except ValueError:
+                    raise invalid('代码依赖声明格式无效', path, code='DEPENDENCY_ERROR') from None
+                if requirement.marker and not requirement.marker.evaluate():
+                    continue
+                if requirement.url or requirement.extras:
+                    raise invalid('首期不支持 URL/extras 依赖', path, code='DEPENDENCY_ERROR')
+                try:
+                    installed = version(requirement.name)
+                except PackageNotFoundError:
+                    raise invalid(f'缺少已安装代码依赖：{requirement.name}', path, code='DEPENDENCY_ERROR') from None
+                if installed not in requirement.specifier:
+                    raise invalid(f'代码依赖版本不满足声明：{requirement.name}', path, code='DEPENDENCY_ERROR')
             load_symbol(content, manifest.entry, ['entry'])
             for key, reference in manifest.contract_refs.model_dump().items():
                 model = load_symbol(content, reference, ['contractRefs', key], model=True)

@@ -31,6 +31,8 @@ async def main():
                 pass
             else:
                 raise AssertionError('非法声明未拒绝')
+        path.write_text(header + "def f(value: str) -> str: raise RuntimeError('business function called')")
+        SingleBlockRegistry().load(path)  # 加载必须成功，业务函数绝不能被调用。
         path.write_text(header + "def f(value: str) -> bool: return 'true'")
         loaded = SingleBlockRegistry().load(path)  # 返回值错误仅在调用时校验，加载不调用。
         try:
