@@ -2,6 +2,8 @@
 from .contracts.errors import ValidationIssue, ErrorResponse, PlatformError
 
 REASONS = {
+    'duplicate_indices': '索引不得重复', 'index_coverage': '索引必须唯一且覆盖全部输入项',
+    'count_exceeds_total': '匹配数量不得超过总数量', 'duplicate_position': '同一位置最多匹配一次',
     'missing': '缺少必填字段', 'extra_forbidden': '不允许未知字段',
     'int_type': '期望整数', 'float_type': '期望数值', 'string_type': '期望字符串',
     'bool_type': '期望严格布尔值', 'list_type': '期望数组', 'dict_type': '期望对象',
@@ -16,8 +18,6 @@ REASONS = {
 }
 # 仅公开项目已审阅的固定原因；业务校验不得插入输入值。
 SAFE_CUSTOM_REASONS = frozenset({
-    'comparisonIndex 必须唯一且覆盖全部对照索引', '对照段落索引不得重复',
-    '匹配字符数不得超过目标字符数', '每个目标段落位置最多匹配一次',
     'nodeId 重复', '包绑定标识重复', '配置标识重复', '环境引用重复',
     '同作用域字段重复定义', '配置引用了不存在的包绑定',
     '连接标识重复', '模型连接必须指定模型标识',

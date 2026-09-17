@@ -1,6 +1,7 @@
 """查重契约权威来源；语义包中的 contracts.py 由同步脚本生成。"""
 from typing import Annotated, Literal
 from pydantic import Field, ValidationInfo, model_validator
+from pydantic_core import PydanticCustomError
 from agent_platform.contracts.base import StrictModel
 
 Index = Annotated[int, Field(ge=0)]
@@ -15,7 +16,7 @@ class SimilarityInput(StrictModel):
 def aligned(items, count):
     indices = [item.comparison_index for item in items]
     if len(indices) != count or set(indices) != set(range(count)):
-        raise ValueError('comparisonIndex 必须唯一且覆盖全部对照索引')
+        raise PydanticCustomError('index_coverage', 'comparisonIndex 必须唯一且覆盖全部对照索引')
 
 
 class ParagraphMatch(StrictModel):
@@ -25,7 +26,7 @@ class ParagraphMatch(StrictModel):
     @model_validator(mode='after')
     def unique_indices(self):
         if len(set(self.comparison_paragraph_indices)) != len(self.comparison_paragraph_indices):
-            raise ValueError('对照段落索引不得重复')
+            raise PydanticCustomError('duplicate_indices', '对照段落索引不得重复')
         return self
 
 
@@ -39,10 +40,10 @@ class QuantitativeItem(StrictModel):
     @model_validator(mode='after')
     def valid_counts(self):
         if self.matched_target_characters > self.total_target_characters:
-            raise ValueError('匹配字符数不得超过目标字符数')
+            raise PydanticCustomError('count_exceeds_total', '匹配字符数不得超过目标字符数')
         positions = [match.target_paragraph_index for match in self.matches]
         if len(set(positions)) != len(positions):
-            raise ValueError('每个目标段落位置最多匹配一次')
+            raise PydanticCustomError('duplicate_position', '每个目标段落位置最多匹配一次')
         return self
 
 

@@ -45,7 +45,7 @@ try:
     validate(snapshot.load('contracts:ParagraphMatch'),
              {'targetParagraphIndex': 0, 'comparisonParagraphIndices': [1, 1]}, 'package.output')
 except PlatformError as exc:
-    assert exc.error.message == '对照段落索引不得重复'
+    assert exc.error.message == '索引不得重复'
 else:
     raise AssertionError('重复索引未拒绝')
 try:
