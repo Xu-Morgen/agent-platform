@@ -7,7 +7,7 @@
 - 项目名称：Agent Platform。
 - 主项目是通用 Agent 服务平台；首期同时交付平台产品和 `samples/` 下包含标准模板与最小查重能力的业务包产品。
 - 最新明确的用户指令优先于本文档。已确认需求见 `docs/product-requirements.md`，项目状态见 `readme.md`。
-- 当前已完成 I1 工程与协议基础（13 张任务卡）、I2 配置与版本管理（12 张任务卡）及 I3 任务与能力执行（13 张任务卡），实际能力与验证见 docs/tasks/i1.md、docs/tasks/i2.md 和 docs/tasks/i3.md；I4 预算与终止行为已完成（12 张任务卡），证据见 docs/tasks/i4.md 与 docs/delivery/i4-platform.md，M1 合成平台演示通过；I5 已实现契约、预处理、计分、语义包、查重图、模板与接入说明，真实模型验收仍待完成，证据见 docs/tasks/i5.md。技术方案见 `docs/architecture-design.md`，开发顺序见 `docs/iteration-plan.md`。
+- 当前已完成 I1 工程与协议基础（13 张任务卡）、I2 配置与版本管理（12 张任务卡）及 I3 任务与能力执行（13 张任务卡），实际能力与验证见 docs/tasks/i1.md、docs/tasks/i2.md 和 docs/tasks/i3.md；I4 预算与终止行为已完成（12 张任务卡），证据见 docs/tasks/i4.md 与 docs/delivery/i4-platform.md，M1 合成平台演示通过；I5 已实现契约、预处理、计分、语义包、查重图、模板与接入说明，I5-T08 因缺少可用模型环境阻塞，M2 未完成，证据见 docs/tasks/i5.md 与 docs/delivery/i5-similarity.md。技术方案见 `docs/architecture-design.md`，开发顺序见 `docs/iteration-plan.md`。
 
 ## 架构原则
 

@@ -18,3 +18,5 @@
 生成副本让语义包可以独立复制和快照加载，不依赖实例源路径。模型消息通过平台上下文发送，Prompt 从包快照读取；地址和凭据由平台环境配置注入。
 
 用户提供的 artifact DOCX 仅用于本地计分测验，未将原文提交或发送至外部模型；PDF/XLSX 未作为文本查重标签或 AI 准确率评估。最终真实模型验收使用独立合成输入，证据以 [I5 任务卡](../../docs/tasks/i5.md) 为准。
+
+真实验收输入为 `examples/acceptance-1v6.json`，七篇各约 1560 字的合成文本；本地输入检查命令为 `.venv/bin/python checks/similarity_acceptance_input.py`。真实模型环境当前缺失，T08/M2 状态见 [交付记录](../../docs/delivery/i5-similarity.md)。
