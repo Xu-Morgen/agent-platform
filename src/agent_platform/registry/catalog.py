@@ -103,7 +103,8 @@ class ModuleCatalog:
                         capabilities.append(item)
                 view = CatalogResource(resource_id=resource_id, kind=request.kind, name=meta.name,
                     description=meta.description, version=meta.version, digest=artifact.content.digest,
-                    schemas=schemas, required_capabilities=capabilities, **refs)
+                    schemas=schemas, required_capabilities=capabilities,
+                    budget_defaults=meta.budget_defaults if request.kind == 'package' else None, **refs)
                 self._artifacts[resource_id] = artifact
             self._views[resource_id] = view
             return self.get(resource_id)

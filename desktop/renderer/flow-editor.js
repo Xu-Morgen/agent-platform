@@ -74,6 +74,12 @@ const flowEditor = (() => {
       const select = choices(contracts(), content[key], value => { content[key] = value; changed(); render(); });
       select.id = id; $(id).replaceWith(select);
     }
+    $('global-budget').hidden = !content.budget;
+    if (content.budget) {
+      $('global-loop').value = content.budget.loopLimit;
+      $('global-token').value = content.budget.tokenLimit;
+      $('global-strict').checked = content.budget.strictTokenLimit;
+    }
     $('flow-nodes').replaceChildren();
     content.flow.forEach((node, index) => {
       const resource = resources.find(r => r.resourceId === node.artifactRef);
@@ -84,7 +90,8 @@ const flowEditor = (() => {
       }));
       const ports = el('div'); bindings(ports,node.inputs,resource?.inputContract,content.flow.slice(0,index)); card.append(ports);
       const detail = el('details'); detail.append(el('summary','输入／输出契约'),el('pre',JSON.stringify(resource?.schemas,null,2)));card.append(detail);
-      if (node.kind === 'package') card.append(el('p', '包节点尚未配置（配置窗将在下一任务交付）'));
+      if (node.kind === 'package') card.append(button('配置 ' + node.nodeId, () => configure(node, resource)),
+        el('p', content.nodeConfigurations[node.nodeId] ? '已配置，最终状态以拼图校验为准' : '无效：尚未配置参数、预算及环境'));
       $('flow-nodes').append(card);
     });
     bindings($('flow-output-bindings'),content.output,content.outputContract,content.flow);
@@ -95,8 +102,80 @@ const flowEditor = (() => {
   }
   function add(resource) {
     let i = 1; while (content.flow.some(n => n.nodeId === 'node_' + i)) i++;
+    if (resource.kind === 'package') {
+      const defaults = resource.budgetDefaults;
+      if (!content.budget) content.budget = {...defaults, strictTokenLimit:true};
+      else { content.budget.loopLimit += defaults.loopLimit; content.budget.tokenLimit += defaults.tokenLimit; }
+    }
     content.flow.push({kind:resource.kind,nodeId:'node_' + i,artifactRef:resource.resourceId,inputs:[]});changed();render();
   }
+  for (const [id, key] of [['global-loop','loopLimit'],['global-token','tokenLimit'],['global-strict','strictTokenLimit']]) {
+    $(id).onchange = () => { content.budget[key] = key === 'strictTokenLimit' ? $(id).checked : Number($(id).value); changed(); };
+  }
+  async function configure(node, resource) {
+    const config = clone(content.nodeConfigurations[node.nodeId] || {parameters:{},budget:resource.budgetDefaults,capabilities:{}});
+    const response = await window.agentPlatform.listEnvironments();
+    if (!response.ok) { $('service-result').textContent = response.error.message; return; }
+    const fields = [], caps = [];
+    $('node-fields').replaceChildren(); $('node-capabilities').replaceChildren(); $('node-errors').replaceChildren();
+    $('node-title').textContent = resource.name + ' · ' + node.nodeId;
+    for (const [key, definition] of Object.entries(resource.schemas.configuration.properties || {})) {
+      const budget = ['loopLimit','tokenLimit'].includes(key);
+      const parent = budget ? config.budget : config.parameters;
+      const label = el('label', `${key}${resource.schemas.configuration.required?.includes(key) ? ' *' : ''} · ${definition.description || definition.title || ''}`);
+      const value = parent[key] ?? definition.default;
+      let input;
+      if (definition.enum) input = choices(definition.enum.map(v=>[JSON.stringify(v),String(v)]), value === undefined ? '' : JSON.stringify(value),()=>{});
+      else {
+        input = el(['object','array'].includes(definition.type) || definition.$ref || definition.anyOf ? 'textarea' : 'input');
+        input.type = definition.type === 'boolean' ? 'checkbox' : ['integer','number'].includes(definition.type) ? 'number' : 'text';
+        if (input.type === 'checkbox') input.checked = value ?? false;
+        else input.value = value === undefined ? '' : input.tagName === 'TEXTAREA' ? JSON.stringify(value,null,2) : value;
+      }
+      input.dataset.field = key;
+      fields.push(() => {
+        if (input.type !== 'checkbox' && input.value === '') { delete parent[key]; return; }
+        parent[key] = definition.enum || input.tagName === 'TEXTAREA' ? JSON.parse(input.value) : input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value) : input.value;
+      });
+      label.append(input); $('node-fields').append(label);
+    }
+    for (const requirement of resource.requiredCapabilities) {
+      const key = requirement.capabilityId, selected = config.capabilities[key];
+      const label = el('label', `能力 ${key} · ${requirement.kind}`);
+      const options = requirement.kind === 'block'
+        ? resources.filter(r=>r.kind==='block').map(r=>[JSON.stringify({kind:'block',artifactRef:r.resourceId}),r.name])
+        : response.data.flatMap(env=>env.connections.filter(c=>c.kind===requirement.kind).map(c=>[
+          JSON.stringify({kind:requirement.kind,environmentId:env.environmentId,connectionId:c.connectionId}),env.name+' / '+c.connectionId+' / '+(c.model || 'API')]));
+      const identity = selected ? requirement.kind === 'block' ? {kind:'block',artifactRef:selected.artifactRef} : {kind:requirement.kind,environmentId:selected.environmentId,connectionId:selected.connectionId} : null;
+      const select = choices(options,identity ? JSON.stringify(identity) : '',()=>{});select.dataset.capability = key;label.append(select);
+      let method, path;
+      if (requirement.kind === 'api') {
+        method = choices(['GET','POST','PUT','PATCH','DELETE'].map(v=>[v,v]),selected?.apiMethod || '',()=>{});
+        path = el('input');path.placeholder = '/相对路径';path.value = selected?.apiPath || '';label.append(method,path);
+      }
+      caps.push(() => { if (!select.value) delete config.capabilities[key]; else {
+        config.capabilities[key] = JSON.parse(select.value);
+        if (method) Object.assign(config.capabilities[key],{apiMethod:method.value,apiPath:path.value});
+      }}); $('node-capabilities').append(label);
+    }
+    $('node-form').onsubmit = async event => {
+      event.preventDefault();$('node-errors').replaceChildren();
+      try {
+        fields.forEach(read=>read());caps.forEach(read=>read());
+        const result = await window.agentPlatform.validateFlowNode({node,configuration:config,strictTokenLimit:content.budget?.strictTokenLimit ?? true});
+        if (!result.ok) {
+          $('node-errors').append(el('li',result.error.message + ' · ' + (result.error.fieldPath || []).join('.'))); return;
+        }
+        if (!result.data.valid) {
+          for (const issue of result.data.issues) $('node-errors').append(el('li',issue.fieldPath.join('.')+' · '+issue.reason));return;
+        }
+        content.nodeConfigurations[node.nodeId] = clone(result.data.configuration);
+        $('node-dialog').close();changed();render();
+      } catch (error) { $('node-errors').append(el('li','参数 JSON 格式无效：'+error.message)); }
+    };
+    $('node-dialog').showModal();
+  }
+  $('node-close').onclick = () => $('node-dialog').close();
   async function refresh() {
     const result = await window.agentPlatform.listResources();
     if (!result.ok) { $('load-result').textContent = result.error.message; return; }

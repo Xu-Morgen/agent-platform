@@ -35,3 +35,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
 .binding-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
 .binding-row select { width: min(100%, 260px); }
 #flow-issues { color: #a02525; overflow-wrap: anywhere; }
+dialog { width: min(700px, 85vw); max-height: 85vh; overflow: auto; border: 1px solid #93b9d5; border-radius: 12px; }
+dialog::backdrop { background: #18283888; }
+input[type="checkbox"] { width: auto; }
+#node-errors { color: #a02525; }
