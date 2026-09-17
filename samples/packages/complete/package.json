@@ -1,0 +1,23 @@
+{
+  "packageId": "sample-complete-chat",
+  "version": "1.0.0",
+  "name": "完整模型交互包",
+  "description": "通过块准备文本、可选 API 获取指导，再调用模型返回摘要和关键词。",
+  "entry": "entry:invoke",
+  "contractRefs": {
+    "input": "models:Input",
+    "output": "models:Output",
+    "configuration": "models:Config"
+  },
+  "runtimeRequirements": {
+    "python": ">=3.12",
+    "platformApi": 1,
+    "dependencies": ["pydantic>=2.10,<3"]
+  },
+  "requiredCapabilities": [
+    {"capabilityId": "normalize", "kind": "block", "inputModel": "models:Text", "outputModel": "models:Text"},
+    {"capabilityId": "guidance", "kind": "api", "inputModel": "models:GuidanceRequest", "outputModel": "models:GuidanceResponse"},
+    {"capabilityId": "chat", "kind": "model", "inputModel": "models:ModelRequest", "outputModel": "models:ModelResponse"}
+  ],
+  "budgetDefaults": {"loopLimit": 1, "tokenLimit": 32768}
+}

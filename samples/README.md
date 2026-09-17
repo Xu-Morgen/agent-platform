@@ -1,57 +1,45 @@
-# 产品接入与指导样例
+# 三类资源开发模板
 
-三类资源分别是单文件通用块、业务包、独立契约。契约用于约束端口，不是可执行节点；顺序、条件和循环是组合这些资源的控制结构。完整开发规则与逐步操作见 [指导手册](../docs/resource-guide.md)。
+这里按资源类型组织，每类各有一个最小实现和一个完整示例。先复制最小实现，再按需要引入完整示例中的配置。所有示例对应当前平台源码，完整示例仅使用已经实现的接口。
 
-## 不依赖模型的起步样例
+| 你要创建什么 | 最小实现 | 完整示例与配置说明 | 加载对象 |
+| --- | --- | --- | --- |
+| 通用块：确定性处理、转换、判断 | [blocks/minimal.py](blocks/minimal.py) | [blocks/README.md](blocks/README.md)、[complete.py](blocks/complete.py) | 一个 Python 文件 |
+| 业务包：模型交互及必要的前后处理 | [packages/minimal/](packages/minimal/README.md) | [packages/complete/](packages/complete/README.md)、[配置参考](packages/CONFIGURATION.md)、[上下文接口](packages/CONTEXT.md) | 包含 package.json 的目录 |
+| 独立契约：定义端口的数据形状 | [contracts/minimal.py](contracts/minimal.py) | [contracts/README.md](contracts/README.md)、[complete.py](contracts/complete.py) | Python 文件 + 类型 symbol |
 
-先启动后端，再在另一个终端导入顺序配方：
-
-```bash
-.venv/bin/python -m agent_platform --port 8000
+```text
+samples/
+├── README.md
+├── USAGE.md                   # 加载、接线、保存、调用及完整公共字段说明
+├── blocks/
+│   ├── README.md              # 创建步骤、所有元数据、输入选项、扩展边界
+│   ├── minimal.py             # 去掉首尾空白
+│   └── complete.py            # 嵌套输入、枚举、默认值、输出统计
+├── packages/
+│   ├── README.md              # 创建步骤与文件职责
+│   ├── CONFIGURATION.md       # 清单、节点、能力、预算、环境配置
+│   ├── CONTEXT.md             # 入口、上下文方法、校验及错误处理
+│   ├── minimal/              # 一次模型调用，仅三个运行必需文件
+│   └── complete/             # 模型/API/块能力、嵌套参数、Prompt、业务输出校验
+└── contracts/
+    ├── README.md              # 输入输出、类型约束、校验钩子与兼容性
+    ├── minimal.py             # 一个 text 字段
+    └── complete.py            # 嵌套批次、可空字段、枚举、跨字段验证
 ```
 
-```bash
-.venv/bin/python samples/flow_templates.py samples/template sequence --platform-url http://127.0.0.1:8000
-```
+## 三者的入口、出口和配置
 
-此命令加载独立契约与文本块，并创建草稿。若使用桌面后端，把 URL 换成页面顶部的实际地址；点击“检查健康状态”刷新资源与草稿，选择“纯块顺序”，检查接线并保存实例。在任务页输入 `{"text":"你好"}`，结果为相同对象。
+| 项目 | 通用块 | 业务包 | 独立契约 |
+| --- | --- | --- | --- |
+| 执行入口 | 恰好一个 `@block` 函数 | `package.json` 的 `entry` | 无执行入口 |
+| 输入、输出 | 函数参数与返回值的类型注解 | `contractRefs.input/output` | 所选 symbol 本身就是一个端口类型 |
+| 可调业务参数 | 放进输入模型，通过输入/常量接线 | Config 模型 + 节点 `parameters` | Field 默认值与约束，不是执行参数 |
+| 扩展点 | 同步/异步函数、Pydantic 校验器 | 入口、上下文能力调用、资源读取、检查点、校验器 | Pydantic 字段及模型校验器 |
+| 预算、环境 | 无节点配置 | 节点绑定能力及预算，任务另设全局预算 | 无 |
 
-## 三类指导样例
+**从 [USAGE.md](USAGE.md) 开始**：先运行不依赖模型的最小通用块，再加载最小业务包。完整业务包增加 API 和块能力，所需外部接口与输入输出均有明确说明。
 
-| 类型 | 可复制文件 | 用途 |
-| --- | --- | --- |
-| 单文件通用块 | [文本透传](template/blocks/text.py)、[字段转换](template/blocks/rename.py)、[条件](template/blocks/condition.py)、[LMS 解包](template/blocks/lms.py) | 确定性处理、显式转换、严格布尔条件 |
-| 业务包 | [标准模型交互包](template/packages/example/package.json) | Prompt、参数、模型能力声明与输出契约 |
-| 独立契约 | [Message](template/flows/contracts.py) | 加载时填写 symbol `Message`，作为服务或容器端口 |
+约定：Python 字段使用 snake_case；对外 JSON 使用 camelCase。对象继承平台 StrictModel，拒绝未知字段和宽松类型转换。路径必须是后端能读取的本地路径。
 
-[标准模板说明](template/README.md)提供顺序、分支、repeat、while、同包双节点的完整配方；[查重产品说明](assignment-similarity/README.md)展示组合成业务产品的方式。
-
-## 调用查重产品
-
-自行准备业务输入 JSON 文件，结构为 `{"targetText":"目标文本", "comparisonTexts":["对照文本"]}`。仓库不再附带验收数据集或人工模拟报告。下面的路径、地址和模型名须替换成实际值：
-
-```bash
-read -rsp 'API Key: ' MODEL_API_KEY
-export MODEL_API_KEY
-printf '\n'
-.venv/bin/python samples/invoke_similarity.py \
-  --platform-url http://127.0.0.1:8000 \
-  --adapter openai-chat \
-  --model-url https://YOUR_PROVIDER/v1 \
-  --model YOUR_MODEL_NAME \
-  --credential-env MODEL_API_KEY \
-  --non-strict \
-  --input /absolute/path/business-input.json \
-  --output /absolute/path/report.json
-unset MODEL_API_KEY
-```
-
-脚本创建环境、加载模块、保存拼图实例、提交输入、等待终态并导出结果；真实模型调用可能产生费用。`--input` 必填。也可只创建查重草稿，在服务页检查后保存：
-
-```bash
-.venv/bin/python samples/flow_templates.py samples/assignment-similarity similarity --platform-url http://127.0.0.1:8000 --environment-id 实际环境ID --non-strict
-```
-
-模型连接的 connectionId 为 `model`。当前 OpenAI 兼容及 Ollama 适配器均不保证完整输入 token 上界，须显式选择非严格模式；仍记录用量并执行超额检查，缺失有效 usage 会失败。兼容服务可指定 `--output-token-parameter max_tokens` 或 `--no-json-mode`。Ollama 使用 `--adapter ollama-chat` 和服务根地址。协议细节见 [模型说明](../docs/protocols/model.md)。
-
-所有加载路径由后端读取，推荐绝对路径。脚本和后端须共享文件系统。导出报告不包含环境地址和凭据，但报告文本可能引用原输入。重启会清空服务、凭据、任务与历史，须重新加载配置。
+2026-09-17 按新的模板要求重建了整个 samples。原 template、assignment-similarity、流程导入/查重调用脚本已删除；旧内容仅能从 Git 历史查阅。当前目录没有查重产品、自动契约生成脚本或带占位符的流程导入协议。

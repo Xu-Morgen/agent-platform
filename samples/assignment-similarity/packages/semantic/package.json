@@ -1,9 +1,0 @@
-{
-  "packageId": "text-semantic", "version": "1.0.0",
-  "name": "文本语义关系分析", "description": "一次模型交互，返回对齐索引的理由和复核建议",
-  "entry": "entry:invoke",
-  "contractRefs": {"input": "models:SimilarityInput", "output": "models:QualitativeReport", "configuration": "models:Config"},
-  "runtimeRequirements": {"python": ">=3.12", "platformApi": 1, "dependencies": ["pydantic>=2.10,<3"]},
-  "requiredCapabilities": [{"capabilityId": "chat", "kind": "model", "inputModel": "models:ModelRequest", "outputModel": "models:ModelResponse"}],
-  "budgetDefaults": {"loopLimit": 1, "tokenLimit": 32768}
-}

@@ -1,0 +1,26 @@
+{
+  "packageId": "sample-minimal-chat",
+  "version": "1.0.0",
+  "name": "最小模型交互包",
+  "description": "调用一次模型，将输入概括为 text 字段。",
+  "entry": "entry:invoke",
+  "contractRefs": {
+    "input": "models:Text",
+    "output": "models:Text",
+    "configuration": "models:Config"
+  },
+  "runtimeRequirements": {
+    "python": ">=3.12",
+    "platformApi": 1,
+    "dependencies": []
+  },
+  "requiredCapabilities": [
+    {
+      "capabilityId": "chat",
+      "kind": "model",
+      "inputModel": "models:ModelRequest",
+      "outputModel": "models:ModelResponse"
+    }
+  ],
+  "budgetDefaults": {"loopLimit": 1, "tokenLimit": 32768}
+}

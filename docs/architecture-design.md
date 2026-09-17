@@ -6,6 +6,8 @@
 - 需求依据：[产品需求 v0.6](product-requirements.md)
 - 实施计划：[迭代开发文档](iteration-plan.md)
 
+当前样例范围补充：2026-09-17 用户要求清空并重建 samples 为三类资源最小/完整模板；原查重代码已移除。下文查重设计保留为历史业务说明，平台架构与资源协议保持不变。
+
 ## 1. 设计目标与选择
 
 首期交付桌面服务中心、标准模板和最小查重示例产品。服务配置页组合通用块、业务包与控制结构，配置并校验后生成完整实例；任务调用页通过稳定 HTTP 入口执行当前实例。
@@ -415,15 +417,12 @@ src/agent_platform/
   repositories/
   blocks/
 samples/
-  template/
-    packages/example/
-    blocks/                      # 单文件通用块
-    flows/                       # 拼图样例与契约
-  assignment-similarity/
-    packages/semantic/
-    blocks/                      # 单文件通用块
-    flows/                       # 拼图样例与契约
-    source/                      # 契约、清洗与计分权威源
+  blocks/                       # 最小/完整单文件通用块及说明
+  packages/
+    minimal/                    # 一次模型交互
+    complete/                   # 三种能力与完整配置
+  contracts/                    # 最小/完整独立契约及校验钩子
+  USAGE.md                      # 接线及调用步骤
 ```
 
 上述为当前主要目录。旧测试目录和手写实例入口已移除。仓储目前是具体内存实现，后续 PostgreSQL 版本先明确仓储接口，再处理内容持久化、迁移、恢复及凭据存储策略；不提前实现数据库直连、权限、复杂重试、沙箱或无限制自由画布；本稿限定的服务拼图属于当前交付。
