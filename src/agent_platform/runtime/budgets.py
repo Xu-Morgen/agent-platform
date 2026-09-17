@@ -75,3 +75,60 @@ class TokenLedger:
         usage['tokens'] = {'global': self.summary(),
                            'bindings': {b: self.summary(b) for b in sorted(bindings)}}
         self.runs.update(self.run_id, usage=usage)
+
+
+class StrictTokenPolicy:
+    def __init__(self, run_id, snapshot, runs):
+        self.ledger = TokenLedger(run_id, runs)
+        self.global_limit = snapshot.definition.budget.token_limit
+        self.local_limits = {b: snapshot.configuration['packages.' + b]['tokenLimit'] for b in snapshot.packages}
+
+    def error(self, code, message):
+        return PlatformError(ErrorResponse(code=code, stage='budget.token', message=message,
+                                          run_id=self.ledger.run_id))
+
+    def remaining(self, binding_id):
+        global_usage, local = self.ledger.summary(), self.ledger.summary(binding_id)
+        if global_usage['totalTokens'] is None:
+            raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '模型用量未知')
+        return min(self.global_limit - global_usage['totalTokens'] - global_usage['reservedTokens'],
+                   self.local_limits[binding_id] - local['totalTokens'] - local['reservedTokens'])
+
+    async def invoke(self, binding_id, adapter, connection, request):
+        from uuid import uuid4
+        from ..contracts.models import ModelUsage
+        caps = adapter.capabilities
+        if not (caps.strict_total_limit and caps.hidden_tokens_verified and caps.output_limit
+                and caps.input_preflight in ('exact', 'upper_bound')
+                and caps.response_usage in ('exact', 'upper_bound')):
+            raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '适配器不能保证严格 token 上限')
+        preflight = await adapter.preflight(connection, request)
+        if preflight.quality not in ('exact', 'upper_bound') or preflight.output_tokens != 0:
+            raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '缺少完整输入计量或可靠上界')
+        with self.ledger.runs.lock:
+            output_limit = min(request.max_output_tokens, self.remaining(binding_id) - preflight.input_tokens)
+            if output_limit <= 0:
+                raise self.error('TOKEN_BUDGET_EXCEEDED', '剩余额度不足以发送模型请求')
+            request_id = uuid4().hex
+            self.ledger.reserve(request_id, binding_id, preflight.input_tokens, output_limit)
+        upper = ModelUsage(input_tokens=preflight.input_tokens, output_tokens=output_limit,
+                           quality='upper_bound', source='strict:reserved_upper_bound')
+        limited = request.model_copy(update={'max_output_tokens': output_limit})
+        try:
+            response = await adapter.invoke(connection, limited)
+        except Exception as exc:
+            usage = getattr(exc, 'usage', None)
+            if usage is None or usage.quality not in ('exact', 'upper_bound'):
+                usage = upper
+            self.ledger.settle(request_id, binding_id, usage)
+            # 原始超时/传输错误优先，仍把核销的上界传给步骤记录。
+            exc.usage = usage
+            raise
+        usage = response.usage
+        if usage.quality not in ('exact', 'upper_bound'):
+            self.ledger.settle(request_id, binding_id, upper)
+            raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '严格请求返回未知或不可靠用量')
+        self.ledger.settle(request_id, binding_id, usage)
+        if usage.input_tokens > preflight.input_tokens or usage.output_tokens > output_limit:
+            raise self.error('TOKEN_BUDGET_EXCEEDED', '供应商用量违反预留上界')
+        return response

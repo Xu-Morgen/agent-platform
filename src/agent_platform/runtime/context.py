@@ -21,10 +21,11 @@ def execution_error(exc, stage, run_id):
 
 
 class RunContext:
-    def __init__(self, run_id, snapshot, runs, api=None, model=None):
+    def __init__(self, run_id, snapshot, runs, api=None, model=None, token_policy=None):
         self.run_id, self.snapshot, self.runs = run_id, snapshot, runs
         self.api = api
         self.model = model
+        self.token_policy = token_policy
 
     async def run_graph(self, value):
         return await self.snapshot.graph.run(value)
@@ -131,7 +132,10 @@ class RunContext:
 
         async def execute():
             request = validate(self.snapshot.content.load(binding.input_model), value, stage + '.input')
-            result = await self.model.invoke(self.connection(binding), request)
+            if self.token_policy:
+                result = await self.token_policy.invoke(binding.package_binding_id, self.model, self.connection(binding), request)
+            else:
+                result = await self.model.invoke(self.connection(binding), request)
             return validate(self.snapshot.content.load(binding.output_model), result, stage + '.output')
 
         return await self.run_step(stage, execute, kind='model', package_binding_id=binding.package_binding_id)

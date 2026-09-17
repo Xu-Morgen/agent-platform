@@ -19,6 +19,10 @@ class OllamaAdapter:
     def __init__(self, credentials):
         self.transport = JsonTransport(credentials)
 
+    async def preflight(self, connection, request):
+        from ..contracts.models import ModelUsage
+        return ModelUsage(quality='unsupported', source='ollama:no_input_preflight')
+
     async def invoke(self, connection, request):
         request = ModelRequest.model_validate(request)
         payload = {'model': connection.model,
