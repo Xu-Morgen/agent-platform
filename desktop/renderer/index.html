@@ -52,33 +52,27 @@
       <p id="environment-result" role="status"></p>
     </section>
     <section data-page="services" aria-label="服务配置" hidden>
-      <p>先加载包及所需通用块，再加载实例定义。配置保存后立即生效；本次会话退出后清空。</p>
+      <p>加载模块后选择契约并逐个插入节点。未完成内容可保存为会话草稿。</p>
       <form id="load-form">
-        <label>本地定义类型 <select id="load-kind"><option value="package">业务包</option><option value="block">通用块</option><option value="instance">实例定义</option></select></label>
-        <label>本地目录 <input id="load-path" required placeholder="/path/to/definition"></label>
-        <button type="submit">加载定义</button>
+        <label>资源类型 <select id="load-kind"><option value="block">单文件通用块</option><option value="package">业务包目录</option><option value="contract">契约文件</option></select></label>
+        <label>本地路径 <input id="load-path" required placeholder="examples/flows/blocks/rename.py"></label>
+        <label>契约类型 symbol（仅契约文件）<input id="load-symbol"></label>
+        <button>加载资源</button>
       </form>
       <p id="load-result" role="status"></p>
-      <ul id="loaded-artifacts"></ul>
-      <label>选择服务 <select id="service-select"><option value="">新建服务</option></select></label>
-      <button id="service-refresh" type="button">刷新服务</button>
-      <p id="service-current"></p>
-      <form id="service-form">
-        <label>服务名称 <input id="service-name" required></label>
-        <label>已加载实例 <select id="definition-select" required></select></label>
-        <label>可用环境 <select id="service-environment"><option value="">无环境</option></select></label>
-        <button id="bind-environment" type="button">添加环境引用</button>
-        <label>实例配置（JSON，依下方 Schema 校验）<textarea id="service-definition" rows="18" required></textarea></label>
-        <p id="budget-defaults"></p>
-        <fieldset><legend>单任务预算</legend><div id="budget-fields"></div></fieldset>
-        <button type="submit">校验并保存版本</button>
-      </form>
+      <div id="module-library"></div>
+      <label>会话草稿 <select id="draft-select"><option value="">新建草稿</option></select></label>
+      <button id="draft-new">新建草稿</button><button id="draft-save">保存草稿</button>
+      <p id="draft-result" role="status"></p>
+      <label>服务名称 <input id="service-name"></label>
+      <label>服务输入契约 <select id="flow-input"></select></label>
+      <label>期望输出契约 <select id="flow-output"></select></label>
+      <div id="flow-nodes"></div>
+      <fieldset><legend>服务出口接线</legend><div id="flow-output-bindings"></div></fieldset>
+      <button id="flow-validate">校验拼图</button>
       <p id="service-result" role="status"></p>
-      <h3>本次会话历史</h3>
-      <p>选择历史实例后稳定入口立即切换，使用当前环境连接。退出应用后历史清空。</p>
-      <ul id="service-history"></ul>
-      <p id="history-result" role="status"></p>
-      <details><summary>输入输出及包配置 Schema</summary><pre id="service-schemas"></pre></details>
+      <ul id="flow-issues" role="alert"></ul>
+      <select id="service-select" hidden></select>
     </section>
     <section data-page="tasks" aria-label="任务调用" hidden>
       <p>选择已保存的服务提交任务。任务和结果只在本次应用运行期间保留，刷新页面后可按 runId 查询。</p>
@@ -106,6 +100,7 @@
   </main>
   <script src="router.js"></script>
   <script src="connection-tools.js"></script>
+  <script src="flow-editor.js"></script>
   <script src="index.js"></script>
 </body>
 </html>

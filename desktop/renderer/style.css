@@ -29,3 +29,9 @@ textarea { font-family: monospace; }
 [role="status"] { overflow-wrap: anywhere; }
 
 pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+#module-library { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
+#module-library article { border: 1px solid #b9cddd; border-radius: 8px; padding: 12px; max-width: 280px; }
+#flow-nodes fieldset { margin: 18px 0; border: 2px solid #93b9d5; border-radius: 10px; background: #f6faff; }
+.binding-row { display: flex; align-items: center; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.binding-row select { width: min(100%, 260px); }
+#flow-issues { color: #a02525; overflow-wrap: anywhere; }

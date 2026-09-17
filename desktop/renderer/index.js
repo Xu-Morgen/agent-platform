@@ -15,6 +15,7 @@ async function refreshHealth() {
     healthButton.disabled = false;
     await refreshEnvironments();
     await refreshServices();
+    await flowEditor.refresh();
   } catch {
     status.textContent = '桌面请求桥不可用';
   }
@@ -40,9 +41,6 @@ async function refreshEnvironments(selected = environmentSelect.value) {
   const result = await window.agentPlatform.listEnvironments();
   if (!result.ok) { environmentResult.textContent = errorText(result.error); return; }
   environments = result.data;
-  const choices = document.querySelector('#service-environment');
-  choices.replaceChildren(new Option('无环境', ''));
-  for (const item of environments) choices.add(new Option(item.name, item.environmentId));
   environmentSelect.replaceChildren(new Option('新建环境', ''));
   for (const item of environments) environmentSelect.add(new Option(item.name, item.environmentId));
   environmentSelect.value = selected;
@@ -70,65 +68,14 @@ editEnvironment();
 
 const serviceSelect = document.querySelector('#service-select');
 const taskServiceSelect = document.querySelector('#task-service-select');
-const definitionSelect = document.querySelector('#definition-select');
 const serviceResult = document.querySelector('#service-result');
-const definitionEditor = document.querySelector('#service-definition');
-const definitions = new Map();
 let services = [];
 let backendAddress = '';
-function showDefinition(value) {
-  definitionEditor.value = JSON.stringify(value.definition, null, 2);
-  showBudgetFields(value.definition);
-  document.querySelector('#service-schemas').textContent = JSON.stringify(value.schemas, null, 2);
-  document.querySelector('#budget-defaults').textContent = `全局预算默认值（各包绑定上限之和，可在下方修改）：${JSON.stringify(value.budgetDefaults || value.definition.budget)}`;
-}
-function rememberDefinition(value) {
-  if (!definitions.has(value.loadId)) definitionSelect.add(new Option(value.id || value.definition.definitionId, value.loadId));
-  definitions.set(value.loadId, value);
-  definitionSelect.value = value.loadId;
-  showDefinition(value);
-}
-definitionSelect.addEventListener('change', () => showDefinition(definitions.get(definitionSelect.value)));
-document.querySelector('#load-form').addEventListener('submit', async event => {
-  event.preventDefault();
-  const button = event.submitter;
-  if (button) button.disabled = true;
-  try {
-    const result = await window.agentPlatform.loadDefinition({ kind: document.querySelector('#load-kind').value, path: document.querySelector('#load-path').value });
-    document.querySelector('#load-result').textContent = result.ok ? `已加载 ${result.data.id}` : errorText(result.error);
-    if (result.ok) {
-      const item = document.createElement('li');
-      item.textContent = `${result.data.kind} · ${result.data.id} ${result.data.version || ''}`;
-      document.querySelector('#loaded-artifacts').append(item);
-      if (result.data.kind === 'instance') rememberDefinition(result.data);
-    }
-  } finally { if (button) button.disabled = false; }
-});
-async function editService() {
-  serviceResult.textContent = '';
-  const selected = services.find(value => value.serviceId === serviceSelect.value);
-  document.querySelector('#service-name').value = selected?.name || '';
-  document.querySelector('#service-current').textContent = selected
-    ? `稳定服务：${selected.serviceId} · Schema 地址：${backendAddress}/api/v1/services/${selected.serviceId}/schema · 当前版本 ${selected.current.version} · ${selected.activeInstanceId}` : '保存后生成稳定服务标识';
-  document.querySelector('#service-history').replaceChildren();
-  if (!selected) return;
-  const result = await window.agentPlatform.serviceSchema(selected.serviceId);
-  if (!result.ok) { serviceResult.textContent = errorText(result.error); return; }
-  const value = result.data;
-  rememberDefinition({ loadId: value.definitionLoadId, definition: value.definition,
-    schemas: { input: value.input, output: value.output, ...value.configurationSchemas },
-    budgetDefaults: value.definition.budget });
-  await refreshHistory();
-}
-async function refreshServices(selected = serviceSelect.value) {
+async function refreshServices() {
   const result = await window.agentPlatform.listServices();
   if (!result.ok) { serviceResult.textContent = errorText(result.error); return; }
   services = result.data;
-  updateTaskServices(taskServiceSelect.value || selected);
-  serviceSelect.replaceChildren(new Option('新建服务', ''));
-  for (const item of services) serviceSelect.add(new Option(item.name, item.serviceId));
-  serviceSelect.value = selected;
-  await editService();
+  updateTaskServices();
 }
 function updateTaskServices(selected = taskServiceSelect.value) {
   taskServiceSelect.replaceChildren(new Option('请选择服务', ''));
@@ -142,65 +89,6 @@ document.querySelector('#task-service-refresh').addEventListener('click', async 
   updateTaskServices();
   taskError.textContent = '';
 });
-serviceSelect.addEventListener('change', () => {
-  taskServiceSelect.value = serviceSelect.value;
-  editService();
-});
-document.querySelector('#service-refresh').addEventListener('click', () => refreshServices());
-document.querySelector('#bind-environment').addEventListener('click', () => {
-  try {
-    const value = JSON.parse(definitionEditor.value);
-    const id = document.querySelector('#service-environment').value;
-    if (id) value.environmentRefs = [...new Set([...value.environmentRefs, id])];
-    definitionEditor.value = JSON.stringify(value, null, 2);
-    serviceResult.textContent = '环境引用已加入；连接能力绑定请在 capabilityBindings 填写 environmentId 和 connectionId。';
-  } catch { serviceResult.textContent = 'definition：请先加载有效实例 JSON'; }
-});
-document.querySelector('#service-form').addEventListener('submit', async event => {
-  event.preventDefault();
-  const button = event.submitter;
-  if (button) button.disabled = true;
-  try {
-    const body = { name: document.querySelector('#service-name').value, definitionLoadId: definitionSelect.value, definition: JSON.parse(definitionEditor.value) };
-    const result = serviceSelect.value ? await window.agentPlatform.saveServiceVersion(serviceSelect.value, body) : await window.agentPlatform.createService(body);
-    if (!result.ok) { serviceResult.textContent = errorText(result.error); return; }
-    await refreshServices(result.data.serviceId);
-    serviceResult.textContent = `已保存版本 ${result.data.current.version}（${result.data.current.changeKind}），立即生效`;
-  } catch { serviceResult.textContent = 'definition：JSON 格式无效或请求无法完成'; }
-  finally { if (button) button.disabled = false; }
-});
-
-async function refreshHistory() {
-  const result = await window.agentPlatform.serviceHistory(serviceSelect.value);
-  const target = document.querySelector('#history-result');
-  if (!result.ok) { target.textContent = errorText(result.error); return; }
-  const list = document.querySelector('#service-history');
-  list.replaceChildren();
-  const current = services.find(value => value.serviceId === serviceSelect.value);
-  for (const value of result.data) {
-    const item = document.createElement('li');
-    const text = document.createElement('span');
-    text.textContent = `${value.version} · revision ${value.revision} · ${value.changeKind} · ${value.instanceId} `;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.dataset.instanceId = value.instanceId;
-    button.disabled = value.instanceId === current.activeInstanceId;
-    button.textContent = button.disabled ? '当前版本' : '选用此历史版本';
-    button.addEventListener('click', async () => {
-      button.disabled = true;
-      try {
-        const response = await window.agentPlatform.activateService(current.serviceId, value.instanceId);
-        if (!response.ok) { target.textContent = errorText(response.error); button.disabled = false; return; }
-        await refreshServices(current.serviceId);
-        target.textContent = `已选用原历史实例 ${value.instanceId}，版本 ${value.version}`;
-      } catch { target.textContent = '回退请求无法完成'; button.disabled = false; }
-    });
-    item.append(text, button);
-    list.append(item);
-  }
-}
-
-
 const taskStatus = document.querySelector('#task-status');
 const taskError = document.querySelector('#task-error');
 let taskPollTimer;
@@ -289,46 +177,6 @@ document.querySelector('#task-query-form').addEventListener('submit', event => {
 });
 window.addEventListener('beforeunload', () => { clearTimeout(taskPollTimer); taskQueryGeneration++; });
 
-function showBudgetFields(definition) {
-  const target = document.querySelector('#budget-fields');
-  target.replaceChildren();
-  const budgets = [{scope: 'global', name: '任务总量', values: definition.budget}];
-  for (const binding of definition.packageBindings) {
-    const scope = 'packages.' + binding.bindingId;
-    const values = Object.assign({}, ...definition.configRefs.filter(c => c.scope === scope).map(c => c.values));
-    budgets.push({scope, name: '包 ' + binding.bindingId, values});
-  }
-  for (const budget of budgets) {
-    for (const key of ['loopLimit', 'tokenLimit', ...(budget.scope === 'global' ? ['strictTokenLimit'] : [])]) {
-      const label = document.createElement('label');
-      label.textContent = `${budget.name} · ${{loopLimit:'loop 上限',tokenLimit:'token 上限',strictTokenLimit:'严格 token 限额'}[key]} `;
-      const input = document.createElement('input');
-      input.dataset.scope = budget.scope;
-      input.dataset.budgetKey = key;
-      input.type = key === 'strictTokenLimit' ? 'checkbox' : 'number';
-      if (input.type === 'checkbox') input.checked = budget.values[key] ?? true;
-      else { input.min = '1'; input.step = '1'; input.required = true; input.value = budget.values[key]; }
-      input.addEventListener('change', () => {
-        try {
-          const current = JSON.parse(definitionEditor.value);
-          const value = input.type === 'checkbox' ? input.checked : Number(input.value);
-          if (budget.scope === 'global') current.budget[key] = value;
-          else {
-            const configs = current.configRefs.filter(c => c.scope === budget.scope);
-            const config = configs.find(c => key in c.values) || configs[0];
-            config.values[key] = value;
-          }
-          definitionEditor.value = JSON.stringify(current, null, 2);
-        } catch { serviceResult.textContent = '请先修正实例配置 JSON'; }
-      });
-      label.append(input); target.append(label);
-    }
-  }
-}
-definitionEditor.addEventListener('change', () => {
-  try { showBudgetFields(JSON.parse(definitionEditor.value)); }
-  catch { serviceResult.textContent = '实例配置 JSON 无效'; }
-});
 function showUsage(usage) {
   const qualities = {exact: '精确', upper_bound: '上界', estimated: '估算', unsupported: '未知'};
   const lines = [];
