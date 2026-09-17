@@ -37,10 +37,13 @@ def create_app() -> FastAPI:
 
     from .registry.packages import PackageRegistry
     from .registry.blocks import BlockRegistry
+    from .registry.catalog import ModuleCatalog
+    from .contracts.catalog import CatalogLoad, CatalogResource
     from .registry.definitions import DefinitionRegistry
     from .services import ServiceManager
     app.state.packages = PackageRegistry()
     app.state.blocks = BlockRegistry()
+    app.state.catalog = ModuleCatalog(app.state.packages)
     app.state.definitions = DefinitionRegistry()
     app.state.services = ServiceManager(app.state.definitions, app.state.packages, app.state.blocks, app.state.environments)
 
@@ -69,6 +72,18 @@ def create_app() -> FastAPI:
     @app.post('/api/v1/runs', response_model=Run, status_code=202)
     async def submit_run(value: RunSubmit):
         return app.state.submission.submit(value)
+
+    @app.post('/api/v1/catalog/load', response_model=CatalogResource)
+    async def catalog_load(value: CatalogLoad):
+        return app.state.catalog.load(value)
+
+    @app.get('/api/v1/catalog', response_model=list[CatalogResource])
+    async def catalog_list():
+        return app.state.catalog.list()
+
+    @app.get('/api/v1/catalog/{resource_id}', response_model=CatalogResource)
+    async def catalog_get(resource_id: str):
+        return app.state.catalog.get(resource_id)
 
     @app.post('/api/v1/registry/load', response_model=LoadResult)
     async def registry_load(value: LoadRequest):

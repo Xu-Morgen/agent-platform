@@ -23,5 +23,7 @@ def load_symbol(content, reference, path, *, model=False):
         elif not callable(symbol):
             raise TypeError()
         return symbol
+    except ModuleNotFoundError as exc:
+        raise invalid(f'缺少代码依赖模块：{exc.name}', path, code='DEPENDENCY_ERROR') from None
     except Exception:
         raise invalid('入口或契约不可用，请检查声明和本地依赖', path, code='DEPENDENCY_ERROR') from None
