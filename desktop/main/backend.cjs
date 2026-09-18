@@ -7,9 +7,11 @@ const healthSchema = require('../contracts/health.schema.json');
 const root = path.resolve(__dirname, '../..');
 
 class Backend {
-  constructor({ python = process.env.AGENT_PLATFORM_PYTHON || path.join(root, '.venv/bin/python'), port = 0 } = {}) {
+  constructor({ python = process.env.AGENT_PLATFORM_PYTHON || path.join(root, '.venv/bin/python'), port = 0, dataDirectory = null, memory = false } = {}) {
     this.python = python;
     this.port = port;
+    this.dataDirectory = dataDirectory;
+    this.memory = memory;
     this.child = null;
     this.address = null;
     this.startPromise = null;
@@ -26,12 +28,19 @@ class Backend {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        this.child?.kill();
-        reject(error);
+        this.stop().then(() => reject(error), () => reject(error));
       };
-      const timer = setTimeout(() => fail(new Error('后端启动超时')), 15000);
-      this.child = spawn(this.python, ['-m', 'agent_platform', '--port', String(this.port), '--control-fd', '3'], {
-        cwd: root, stdio: ['pipe', 'inherit', 'inherit', 'pipe'],
+      const timer = setTimeout(() => fail(new Error('本地数据库或后端启动超时')), 90000);
+      const args = ['-m', 'agent_platform', '--port', String(this.port), '--control-fd', '3'];
+      if (this.memory) args.push('--memory');
+      else if (this.dataDirectory) args.push('--data-dir', this.dataDirectory);
+      const env = { ...process.env };
+      // 桌面固定使用自己的本地数据库，不继承外部数据库地址或主密钥。
+      delete env.AGENT_PLATFORM_DATABASE_URL;
+      delete env.AGENT_PLATFORM_CREDENTIAL_KEY;
+      delete env.AGENT_PLATFORM_DATA_DIR;
+      this.child = spawn(this.python, args, {
+        cwd: root, env, stdio: ['pipe', 'inherit', 'inherit', 'pipe'],
       });
       this.child.stdin.on('error', () => {}); // 退出竞争中的 EPIPE 由子进程 exit 收敛。
       this.child.once('error', () => fail(new Error('无法启动 Python 后端，请检查解释器路径与依赖')));
@@ -67,8 +76,13 @@ class Backend {
     this.stopPromise = new Promise((resolve) => {
       const child = this.child;
       if (!child || !child.pid || child.exitCode !== null || child.signalCode !== null) return resolve();
-      const timer = setTimeout(() => child.kill('SIGKILL'), 2000);
-      child.once('exit', () => { clearTimeout(timer); resolve(); });
+      // 先让 Python 关闭传输、写入终态，再关闭 PostgreSQL，最后才退出进程。
+      let hardTimer;
+      const timer = setTimeout(() => {
+        child.kill('SIGTERM');
+        hardTimer = setTimeout(() => child.kill('SIGKILL'), 10000);
+      }, 20000);
+      child.once('exit', () => { clearTimeout(timer); clearTimeout(hardTimer); resolve(); });
       child.stdin.end(JSON.stringify({ protocolVersion: 1, type: 'shutdown', reason: 'APPLICATION_EXIT' }) + '\n');
     });
     return this.stopPromise;

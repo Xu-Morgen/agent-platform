@@ -10,12 +10,12 @@
 
 - 包是可复用的 LLM 交互单元，仅维护输入输出契约、可选参数与 Prompt，由平台执行模型调用。实例负责完整业务流程。
 - 服务选择一个当前实例，旧实例不能直接接收新调用；回退在中心选择历史实例。
-- 脚本、流程、包内容、配置和历史版本快照仅保存在内存，退出桌面程序即丢失。后续数据库版本才保留跨重启历史。
+- 桌面自动管理本地 PostgreSQL，保存源码、配置、版本与运行记录；数据保留在应用专属目录，启动失败不降级为内存。
 - 任务失败或取消保留终态，释放运行上下文，实例恢复就绪；不重试、不回滚已发生的外部操作。
 - 引用某环境的任务尚未结束时禁止修改该环境；空闲时环境更新不改变实例版本。
 - 一次包调用尝试计一轮 loop，开始后失败仍计数，重试另计。token 按供应商返回用量累计，响应后超额则失败。
 
-技术栈由用户确定为 FastAPI + Pydantic + LangGraph + PostgreSQL，桌面端使用 Electron。标识格式与预算合并是本稿的设计选择，可依据验证结果调整；调整不得改变上述产品语义或擅自替换指定技术栈。PostgreSQL 是后续数据库版本的持久化实现，首期仍使用内存，不因技术选型扩大跨重启保存范围。
+技术栈由用户确定为 FastAPI + Pydantic + LangGraph + PostgreSQL，桌面端使用 Electron。标识格式与预算合并是本稿的设计选择，可依据验证结果调整；调整不得改变上述产品语义或擅自替换指定技术栈。桌面和独立 CLI 默认启动本地 PostgreSQL，开发用 --memory 才显式使用内存。持久化与恢复语义见 [接入说明](persistence.md)，不包含断点续跑。
 
 ## 2. 运行形态与技术方案
 
@@ -29,15 +29,15 @@
 | 契约 | Pydantic 模型及严格标量适配，禁止未知字段 | 从模型导出 JSON Schema，复用为运行时校验来源 |
 | 流程编排 | LangGraph StateGraph | 平台把已校验的服务拼图编译为实例图，包装节点校验、预算检查和取消边界 |
 | 调度 | asyncio 队列和任务注册表 | 调度 LangGraph 执行，维护任务终态和退出清理 |
-| 首期存储 | 内存仓储与不可变内容快照 | 实例、环境、任务及报告同次运行内可用 |
-| 数据库 | PostgreSQL | 后续版本实现持久化和历史恢复；首期不要求数据库运行 |
+| 默认存储 | 应用专用 PostgreSQL 与不可变快照 | 桌面启动即持久化，连接和密钥由程序管理 |
+| 开发存储 | MemoryStore | 仅显式 --memory 启用，退出清空 |
 | 模型与 API | 异步适配器 | 统一超时、响应校验和连接关闭；模型调用另受 loop/token 预算约束 |
 
 Electron 主进程管理窗口及 Python 后端子进程，渲染进程负责简单表单；通过 preload 暴露有限 IPC 方法，不向页面开放任意 Node.js 调用。首期采用原生 HTML/CSS/JavaScript，不额外引入大型前端框架。[Electron 进程模型](https://www.electronjs.org/docs/latest/tutorial/process-model)
 
 LangGraph 通过状态、节点与边表达实例流程，图编译后执行；平台仍显式校验节点输入输出，图结构检查不替代业务契约校验。[LangGraph Graph API](https://docs.langchain.com/oss/python/langgraph/graph-api)
 
-PostgreSQL 已确定为关系数据库选型，后续通过仓储适配器接入；具体表结构和迁移在数据库迭代落地。[PostgreSQL 官方文档](https://www.postgresql.org/docs/current/tutorial.html)
+PostgreSQL 通过文档仓储接口接入；使用格式版本表、JSONB 文档表、批次事务及单后端会话锁，详见 [持久化设计](persistence.md)。[PostgreSQL 官方文档](https://www.postgresql.org/docs/current/tutorial.html)
 
 Pydantic 提供严格模式，但仍需显式配置未知字段规则及嵌套约束；不能把开启严格模式当作全部边界校验已完成。[Pydantic 严格模式](https://docs.pydantic.dev/latest/concepts/strict_mode/)
 
@@ -63,9 +63,10 @@ flowchart TB
     APP --> SERVICES[服务与实例版本管理]
     APP --> ENV[环境管理与任务占用]
     APP --> RUN[任务调度与状态机]
-    SERVICES --> MEM[内存仓储与内容快照]
+    SERVICES --> STORE[DocumentStore 与不可变内容快照]
+    STORE -. 显式开发模式 .-> MEM[MemoryStore]
     RUN --> MEM
-    SERVICES -. 后续持久化 .-> PG[PostgreSQL]
+    STORE --> PG[桌面管理的本地 PostgreSQL]
     RUN --> FLOW[实例 LangGraph 流程]
     FLOW --> BLOCK[Python 通用块]
     FLOW --> PKG[业务包 A / B]
@@ -83,10 +84,10 @@ flowchart TB
 | application | 保存配置、激活版本、提交／取消任务的原子操作 | 查重业务规则 |
 | registry | 加载本地包、单文件通用块及契约资源，提供模块目录，校验代码依赖 | 自动下载安装包 |
 | contracts | 严格模型、Schema 导出、字段错误归一化 | 静默填补模型输出 |
-| versions | 内容快照、版本分类、当前实例指针 | 历史数据库持久化 |
+| versions | 内容快照、版本分类、当前实例指针 | 数据库驱动实现 |
 | runtime | 任务状态、LangGraph 节点包装、流程上下文、包调用入口、预算 | 自主生成或自动修改业务流程 |
 | adapters | 模型、API、传输中止、用量计量 | 业务最终判定 |
-| repositories | 当前内存仓储；后续在持久化前明确仓储接口 | 首期启用持久化或自动恢复任务 |
+| repositories / storage | 领域仓储、事务文档存储、记录恢复 | 自动重跑任务、业务数据库接入 |
 | samples | 包、单文件业务块、拼图样例、业务契约及样例 | 平台核心特定业务分支 |
 
 ## 4. 核心模型与标识
@@ -143,7 +144,7 @@ Prompt 不执行表达式或转换，只做命名字段替换；如何准备输�
 - 每个节点开始前及状态更新提交前检查预算与取消；进入下一条边、提交最终输出前也经过平台检查。业务包通过 invoke_package 计 loop，普通节点和图 super-step 不计业务 loop。
 - LangGraph recursion_limit 只是图执行步数保护，不能直接设为包调用 loopLimit；按流程需要单独设置，触发时报告图执行限制错误，不伪装成包预算耗尽。
 - 主动取消使用平台协作标记，等待在途 LLM 正常结束；不使用图 interrupt/resume 机制替代任务取消。退出桌面程序则中止本地传输与图执行。
-- 首期不配置持久化 checkpointer，不启用自动重试、节点结果缓存或失败恢复；任务历史由内存仓储维护。后续 PostgreSQL 保存实例历史与 LangGraph 断点恢复是两项独立设计，不自动同时开启。
+- 首期不配置持久化 checkpointer，不启用自动重试、节点结果缓存或失败恢复；任务历史按所选仓储维护。PostgreSQL 保存记录与 LangGraph 断点恢复是两项独立设计，不自动同时开启。
 - 图异常上交任务状态机，终态由平台提交。图状态丢弃不代表撤销外部操作，LangGraph 不承担外部事务回滚。
 
 ### 5.4 单一契约来源
@@ -201,7 +202,7 @@ Python 自有源码按内容摘要建立独立模块命名空间，从内存内�
 
 用户在中心选定历史实例，平台验证快照完整性和当前环境兼容性后原子切换服务指针。历史配置中的环境引用仍使用当前环境连接；API 请求路径恢复为历史节点的 api.path，不恢复历史环境的 Base URL 或凭据。验证失败明确报错且不切换。
 
-服务更新或回退可以在任务运行期间发生，既有任务仍完成旧快照；环境在占用期间禁止修改。历史数据仅在本次运行有效；退出时释放，重启后需重新挂载和配置，不出现虚假的历史恢复。
+服务更新或回退可以在任务运行期间发生，既有任务仍完成旧快照；环境在占用期间禁止修改。内存模式历史只在本次运行有效；PostgreSQL 模式从已保存源码重建历史，回退和调用仍检查当前环境。
 
 ## 7. 环境一致性
 
@@ -245,7 +246,7 @@ stateDiagram-v2
 | 非 LLM 步骤中取消 | 在步骤安全边界停止；在途 API 请求等待返回、超时或失败后处理取消，不撤销远端操作；应用退出才立即中止本地传输 |
 | 退出桌面程序 | 先停止受理，再立即中止本地传输，停止队列与执行任务，释放运行资源 |
 
-退出由桌面主生命周期触发，不能只靠 HTTP 服务的默认优雅退出等待。Electron 主进程通过独立父子进程控制管道发送退出信号；后端立即关闭模型/API 连接并中止图执行、停止受理，再退出事件循环。主进程只给本地清理短暂且有界的等待，超时终止后端子进程；控制管道断开也触发后端退出，避免父进程消失后残留服务。不等待 LLM 正常返回，不保证供应商停止计算或计费。中止原因使用 `APPLICATION_EXIT`，内存记录随后销毁，重启查询返回不存在。
+退出由桌面主生命周期触发，不能只靠 HTTP 服务的默认优雅退出等待。Electron 主进程通过独立父子进程控制管道发送退出信号；后端立即关闭模型/API 连接并中止图执行、停止受理，再退出事件循环。主进程预留 20 秒清理任务、连接及停库，超时先发 SIGTERM，再等待 10 秒后终止后端子进程；控制管道断开也触发后端退出，避免父进程消失后残留服务。不等待 LLM 正常返回，不保证供应商停止计算或计费。正常退出原因使用 `APPLICATION_EXIT`；PostgreSQL 模式保留终态，强制退出遗留的未完成记录下次启动标记 `APPLICATION_INTERRUPTED`。
 
 取消、失败均保留原任务终态和必要错误，清理临时上下文但保留需求要求的任务输入和审计记录。实例若仍为当前且无其他任务则恢复就绪；退役身份不变。平台无自动重试、任务恢复或外部事务补偿。
 
@@ -284,7 +285,7 @@ stateDiagram-v2
 | GET /services | 稳定服务列表、当前 instanceId、版本与就绪／忙碌信息 |
 | POST /services | 保存首个实例并创建服务 |
 | POST /services/{serviceId}/versions | 保存完整新实例并切换入口 |
-| GET /services/{serviceId}/versions | 当前会话内的历史列表 |
+| GET /services/{serviceId}/versions | 实例历史列表 |
 | POST /services/{serviceId}/activate | 指定历史 instanceId，校验后切换 |
 | GET /services/{serviceId}/schema | 当前实例契约、版本、样例 |
 | GET /environments、POST /environments | 环境列表与创建 |
@@ -292,7 +293,7 @@ stateDiagram-v2
 | POST /catalog/load | 加载业务包目录、通用块 .py 文件或契约资源；不要求先绑定环境 |
 | GET /catalog；GET /catalog/{resourceId} | 返回资源标识、版本、端口及配置 Schema |
 | POST /flows/validate | 校验草稿结构、接线、节点配置及期望输出，返回定位信息；不创建实例 |
-| GET/POST /drafts；GET/PUT /drafts/{draftId} | 同会话草稿读取与保存，不激活服务、不进入实例历史 |
+| GET/POST /drafts；GET/PUT /drafts/{draftId} | 草稿读取与保存，不激活服务、不进入实例历史 |
 | POST /runs | 提交 serviceId、input，可带 expectedInstanceId 以避免读取 Schema 后版本已变化 |
 | GET /runs/{runId} | 状态、取消阶段、实际版本、预算使用与错误 |
 | GET /runs/{runId}/result | 仅 completed 返回最终结果 |
@@ -331,13 +332,13 @@ POST /runs 在同一临界区解析当前版本、验证 expectedInstanceId、�
 
 ### 11.2 环境配置页
 
-分别配置模型与 API 连接：模型使用 OpenAI 兼容协议，API 连接供块绑定；两者支持地址、凭据引用及超时。凭据输入掩码显示；内存凭据仓储与普通配置分开，返回配置时不返回密钥原文。
+分别配置模型与 API 连接：模型使用 OpenAI 兼容协议，API 连接供块绑定；两者支持地址、凭据引用及超时。凭据输入掩码显示；凭据仓储与普通配置分开，持久化模式仅保存密文，返回配置时不返回密钥原文。
 
-有任务占用时显示阻塞任务列表并禁止保存；后端仍需同样校验，不能只靠禁用按钮。环境更新明确显示不产生实例新版本。程序重启后环境与凭据需重新配置，首期不实现本地密钥持久化。
+有任务占用时显示阻塞任务列表并禁止保存；后端仍需同样校验，不能只靠禁用按钮。环境更新明确显示不产生实例新版本。内存模式重启需重新配置；桌面通过用户专属 secrets.json 解密恢复凭据，主密钥不落平台数据库。
 
 ## 12. 扩展边界
 
-当前采用模块化单体：资源目录、流程、运行时、适配器与内存仓储分工。保持单 API 进程与单 worker；内存队列、环境占用锁及快照对象尚不能直接跨进程共享，不通过增加 Uvicorn workers 扩容。
+当前采用模块化单体：资源目录、流程、运行时、适配器与文档仓储分工。保持单 API 进程与单 worker；内存队列、环境占用锁及快照对象尚不能直接跨进程共享，不通过增加 Uvicorn workers 扩容。
 
 | 阶段 | 应先明确的接口与边界 |
 | --- | --- |
@@ -349,3 +350,9 @@ POST /runs 在同一临界区解析当前版本、验证 expectedInstanceId、�
 同步 Python 块可能阻塞事件循环，现有协作取消不能抢占正在执行的同步代码。确需强隔离时先考虑受控子进程；多用户/多机执行前先完成持久化、共享队列、任务租约、快照序列化和凭据引用。模型出口有独立限流或伸缩需要时再评估模型网关。
 
 详细交付目标见 [产品细化计划](product-refinement.md)；此前删除范围、评估依据与验证证据见 [归档清理评估](archive/2026-09-18/cleanup-review.md)。
+
+## 13. 本轮新增入口
+
+`GET /api/v1/platform` 返回实际存储模式；`GET /api/v1/runs` 支持 serviceId/status 与 limit/offset。部署与验收状态见 [分步计划](agent-platform-roadmap.md)。
+
+模型只产生受声明契约约束的数据；Python 通用块依据输出中的类型、枚举或字段判断严格布尔条件。流程和实例由配置者定义并由平台校验编译，运行时不将模型输出解释为新流程、脚本或实例。

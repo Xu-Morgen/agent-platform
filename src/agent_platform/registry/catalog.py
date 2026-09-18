@@ -1,4 +1,4 @@
-"""新拼图的会话资源目录；资源与环境、服务实例独立。"""
+"""拼图资源目录及源码持久化；资源与环境、服务实例独立。"""
 from dataclasses import dataclass
 from hashlib import sha256
 from pydantic import TypeAdapter
@@ -33,13 +33,27 @@ class ContractResource:
 
 
 class ModuleCatalog:
-    def __init__(self, packages):
+    def __init__(self, packages, store=None):
         self.packages = packages
         self.blocks = SingleBlockRegistry()
         self._views = {}
         self._artifacts = {}
         self._contracts = {}
         self._contents = []
+        from ..storage import MemoryStore
+        self.store = store or MemoryStore()
+        self._sources = {}
+        from ..storage.sources import decode_source
+        from ..contracts.catalog import CatalogLoad
+        for resource_id, document in self.store.read('resources').items():
+            request = CatalogLoad(kind=document['kind'], path='<stored-source>', symbol=document.get('symbol'))
+            view = self._load(request, decode_source(document))
+            if view.resource_id != resource_id:
+                raise ValueError('持久资源标识与源码不一致')
+
+    def close(self):
+        for content in self._sources.values():
+            content.close()
 
     def register_contract(self, resource_id, annotation):
         resource = ContractResource(strict_adapter(annotation), resource_id)
@@ -65,12 +79,46 @@ class ModuleCatalog:
         return [self.get(key) for key in sorted(self._views)]
 
     def load(self, request):
+        from ..storage.sources import encode_source
+        # 先在独立目录校验；持久化失败不得向当前目录发布半成功资源。
+        from .packages import PackageRegistry
+        candidate = ModuleCatalog(PackageRegistry())
+        view = candidate._load(request)
+        if view.resource_id in self._views:
+            for source in candidate._sources.values():
+                source.close()
+            return self.get(view.resource_id)
+        artifact = candidate._artifacts.get(view.resource_id)
+        if artifact:
+            registry = self.packages if view.kind == 'package' else self.blocks
+            meta = artifact.manifest if view.kind == 'package' else artifact.metadata
+            key = (meta.package_id if view.kind == 'package' else meta.id, meta.version)
+            if key in registry._items and registry._items[key].content.digest != view.digest:
+                artifact.content.close()
+                raise invalid('同一资源版本已有不同内容', ['version'], code='VERSION_CONFLICT')
+        content = candidate._sources[view.resource_id]
+        document = encode_source(content, request.kind, request.symbol)
+        try:
+            self.store.write([('resources', view.resource_id, document)])
+        except Exception:
+            content.close()
+            raise
+        self._views.update(candidate._views)
+        self._artifacts.update(candidate._artifacts)
+        self._contracts.update(candidate._contracts)
+        self._contents.extend(candidate._contents)
+        self.packages._items.update(candidate.packages._items)
+        self.blocks._items.update(candidate.blocks._items)
+        self._sources[view.resource_id] = content
+        return self.get(view.resource_id)
+
+    def _load(self, request, captured=None):
         content = None
         try:
             if request.kind == 'contract':
                 if not request.symbol:
                     raise invalid('契约文件需要指定 Python 类型 symbol', ['symbol'])
-                content = capture_file(request.path)
+                content = captured or capture_file(request.path)
                 annotation = content.load('block:' + request.symbol)
                 resource_id = f'contract:{content.digest}:{request.symbol}'
                 contract = self.register_contract(resource_id, annotation)
@@ -78,7 +126,9 @@ class ModuleCatalog:
                     version=content.digest, digest=content.digest, schemas={'value': contract.schema})
                 self._contents.append(content)
             else:
-                artifact = self.packages.load(request.path) if request.kind == 'package' else self.blocks.load(request.path)
+                registry = self.packages if request.kind == 'package' else self.blocks
+                artifact = registry.load_content(captured) if captured else registry.load(request.path)
+                content = artifact.content
                 meta = artifact.manifest if request.kind == 'package' else artifact.metadata
                 identifier = meta.package_id if request.kind == 'package' else meta.id
                 resource_id = f'{request.kind}:{identifier}:{meta.version}:{artifact.content.digest}'
@@ -99,6 +149,7 @@ class ModuleCatalog:
                     schemas=schemas, api_required=meta.uses_api if request.kind == 'block' else False,
                     budget_defaults=(meta.budget_defaults or NodeBudget()) if request.kind == 'package' else None, **refs)
                 self._artifacts[resource_id] = artifact
+            self._sources[resource_id] = content
             self._views[resource_id] = view
             return self.get(resource_id)
         except PlatformError:

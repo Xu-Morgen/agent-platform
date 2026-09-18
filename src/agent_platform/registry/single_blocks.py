@@ -63,9 +63,10 @@ class SingleBlockRegistry:
         self._items = {}
 
     def load(self, path):
-        content = None
+        return self.load_content(capture_file(path))
+
+    def load_content(self, content):
         try:
-            content = capture_file(path)
             tree = ast.parse(content.files['block.py'])
             imports = set()
             for node in ast.walk(tree):

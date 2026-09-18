@@ -39,6 +39,8 @@ module.exports = { registerHealthBridge };
 
 // 路由由主进程固定，页面不能指定任意 URL 或 HTTP 方法。
 const operations = {
+  platformInfo: () => ['GET', '/platform'],
+  listRuns: (query = {}) => ['GET', `/runs?${new URLSearchParams(query)}`],
   createDraft: (body) => ['POST', '/drafts', body],
   listDrafts: () => ['GET', '/drafts'],
   getDraft: (id) => ['GET', `/drafts/${encodeURIComponent(id)}`],

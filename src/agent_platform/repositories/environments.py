@@ -8,10 +8,14 @@ from .credentials import CredentialRepository
 
 
 class EnvironmentRepository:
-    def __init__(self, credentials: CredentialRepository):
+    def __init__(self, credentials: CredentialRepository, store=None):
         self.lock = RLock()
         self.credentials = credentials
-        self._items: dict[str, Environment] = {}
+        from ..storage import MemoryStore
+        self.store = store or MemoryStore()
+        self._items = {key: Environment.model_validate(value) for key, value in self.store.read("environments").items()}
+        for value in self._items.values():
+            value.active_run_ids = []
 
     def get(self, environment_id: str) -> Environment:
         if environment_id not in self._items:
@@ -59,5 +63,6 @@ class EnvironmentRepository:
         value = Environment(environment_id=environment_id or 'env_' + uuid4().hex,
                             revision=previous.revision + 1 if previous else 1,
                             name=request.name, connections=connections)
+        self.store.write([("environments", value.environment_id, value.model_dump(mode="json"))])
         self._items[value.environment_id] = value
         return value.model_copy(deep=True)

@@ -23,7 +23,9 @@ class PackageRegistry:
         self._items = {}
 
     def load(self, directory):
-        content = capture(directory)
+        return self.load_content(capture(directory))
+
+    def load_content(self, content):
         try:
             manifest = PackageManifest.model_validate_json(content.read_resource('package.json'))
             models = {key: load_model(content, reference, ['contractRefs', key])

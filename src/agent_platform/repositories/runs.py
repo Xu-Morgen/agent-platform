@@ -6,14 +6,39 @@ from ..contracts.errors import ErrorResponse, PlatformError
 
 
 class RunRepository:
-    def __init__(self):
+    def __init__(self, store=None):
+        from ..storage import MemoryStore
         self.lock = RLock()
-        self._items = {}
+        self.store = store or MemoryStore()
+        self._items = {key: Run.model_validate(value) for key, value in self.store.read('runs').items()}
+        interrupted = []
+        for run in self._items.values():
+            if run.status not in TERMINAL:
+                error = ErrorResponse(code='APPLICATION_INTERRUPTED', stage='runtime.recovery',
+                    message='后端在任务完成前停止；外部操作可能已发生，请核查后重新提交', run_id=run.run_id)
+                run.status, run.error, run.cancel_phase = 'failed', error, None
+                for step in run.steps:
+                    if step.status == 'running':
+                        step.status, step.error = 'failed', error.model_copy(deep=True)
+                interrupted.append(('runs', run.run_id, run.model_dump(mode='json')))
+        if interrupted:
+            self.store.write(interrupted)
+
+    def list(self, *, service_id=None, status=None, limit=50, offset=0):
+        with self.lock:
+            values = sorted(self._items.values(), key=lambda run: (run.created_at, run.run_id), reverse=True)
+            values = [run for run in values if (service_id is None or run.service_id == service_id)
+                      and (status is None or run.status == status)]
+            return [run.model_copy(deep=True) for run in values[offset:offset + limit]]
+
+    def _save(self, run):
+        self.store.write([('runs', run.run_id, run.model_dump(mode='json'))])
+        self._items[run.run_id] = run
 
     def create(self, **values):
         with self.lock:
             run = Run(run_id='run_' + uuid4().hex, **values)
-            self._items[run.run_id] = run
+            self._save(run)
             return run.model_copy(deep=True)
 
     def get(self, run_id):
@@ -31,7 +56,7 @@ class RunRepository:
             if 'status' in changes and not (run.status == 'queued' and changes['status'] == 'running'):
                 raise ValueError('非法状态流转')
             run = Run.model_validate({**run.model_dump(), **changes})
-            self._items[run_id] = run
+            self._save(run)
             return run.model_copy(deep=True)
 
     def finish(self, run_id, status, *, result=None, error=None):
@@ -47,5 +72,5 @@ class RunRepository:
                 raise ValueError('失败必须保留原因')
             run = Run.model_validate({**run.model_dump(), 'status': status,
                                       'result': result if status == 'completed' else None, 'error': error, 'cancel_phase': None})
-            self._items[run_id] = run
+            self._save(run)
             return run.model_copy(deep=True)

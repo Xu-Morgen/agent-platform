@@ -42,6 +42,16 @@ def prepare_flow_snapshot(draft, catalog, environments):
     if not result.valid:
         raise PlatformError(ErrorResponse(code='CONFIGURATION_ERROR', stage='flow.save', message='拼图预检失败', issues=result.issues))
     draft = draft.model_copy(deep=True)
+    for node, _ in walk_nodes(draft.flow):
+        if isinstance(node, ModuleNode) and node.kind == 'package':
+            draft.node_configurations[node.node_id] = validate_node(
+                NodeValidationRequest(node=node, configuration=draft.node_configurations[node.node_id]),
+                catalog, environments).configuration
+    return compile_snapshot(draft, catalog)
+
+
+def compile_snapshot(draft, catalog):
+    """从已规范化的不可变草稿重建；恢复不依赖当前环境是否仍可调用。"""
     resources = set()
     contracts = {draft.input_contract, draft.output_contract}
     packages = {}
@@ -49,8 +59,6 @@ def prepare_flow_snapshot(draft, catalog, environments):
         if isinstance(node, ModuleNode):
             resources.add(node.artifact_ref)
             if node.kind == 'package':
-                config = validate_node(NodeValidationRequest(node=node, configuration=draft.node_configurations[node.node_id]), catalog, environments).configuration
-                draft.node_configurations[node.node_id] = config
                 packages[node.node_id] = catalog.artifact(node.artifact_ref)
         elif node.kind == 'if':
             contracts.add(node.output_contract)

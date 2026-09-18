@@ -11,8 +11,11 @@ from .configuration import validate_configurations
 
 
 class DraftRepository:
-    def __init__(self):
-        self._items = {}
+    def __init__(self, store=None):
+        from ..storage import MemoryStore
+        self.store = store or MemoryStore()
+        self._items = {key: DraftDocument.model_validate(value).model_dump_json()
+                       for key, value in self.store.read("drafts").items()}
 
     def save(self, request, draft_id=None):
         if draft_id is not None and draft_id not in self._items:
@@ -20,6 +23,7 @@ class DraftRepository:
         draft_id = draft_id or 'draft_' + uuid4().hex
         content = {**request.content, 'draftId': draft_id}
         document = DraftDocument(draft_id=draft_id, content=content)
+        self.store.write([("drafts", draft_id, document.model_dump(mode="json"))])
         self._items[draft_id] = document.model_dump_json()
         return self.get(draft_id)
 

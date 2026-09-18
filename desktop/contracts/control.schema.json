@@ -113,7 +113,9 @@
             "HTTP_ERROR",
             "BACKEND_UNAVAILABLE",
             "STARTUP_ERROR",
-            "APPLICATION_EXIT"
+            "APPLICATION_EXIT",
+            "APPLICATION_INTERRUPTED",
+            "STORAGE_ERROR"
           ],
           "title": "Code",
           "type": "string"

@@ -1,4 +1,5 @@
 """预绑定监听端口，在 Uvicorn 完成启动后通过专用管道握手。"""
+from contextlib import ExitStack
 import asyncio
 import os
 import socket
@@ -9,8 +10,9 @@ from .contracts.control import Ready, StartupError, Shutdown, parse_control
 from .contracts.errors import ErrorResponse
 
 
-async def serve(host: str, port: int, control_fd: int | None = None) -> None:
+async def serve(host: str, port: int, control_fd: int | None = None, *, data_dir=None, memory=False) -> None:
     channel = os.fdopen(os.dup(control_fd), 'w', encoding='utf-8', buffering=1) if control_fd is not None else None
+    lifecycle = ExitStack()
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def send(message):
@@ -66,25 +68,40 @@ async def serve(host: str, port: int, control_fd: int | None = None) -> None:
             stop()
 
     try:
+        if memory:
+            from .storage import MemoryStore
+            store = MemoryStore()
+        else:
+            from .storage.local import LocalPostgres, default_data_directory
+            database = lifecycle.enter_context(LocalPostgres(data_dir or default_data_directory()))
+            lifecycle.enter_context(database.environment())
+            store = None
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         listener.bind((host, port))
         listener.listen(128)
         listener.setblocking(False)
-        server = Server(uvicorn.Config(create_app(), host=host, port=port, workers=1))
+        server = Server(uvicorn.Config(create_app(store), host=host, port=port, workers=1))
         if channel:
             loop.add_reader(0, control_input)
             watching = True
         await server.serve(sockets=[listener])
-    except Exception:
+    except Exception as exc:
+        from .contracts.errors import PlatformError
+        message = exc.error.message if isinstance(exc, PlatformError) else '后端监听或数据恢复失败，请检查配置及后端日志'
         send(StartupError(protocol_version=1, type='startupError', error=ErrorResponse(
-            code='STARTUP_ERROR', stage='startup.listen', message='后端监听或启动失败，请检查监听地址与端口',
+            code='STARTUP_ERROR', stage='startup', message=message,
         )))
         raise
     finally:
-        if stopping_task is not None:
-            await stopping_task
-        if watching:
-            loop.remove_reader(0)
-        listener.close()
-        if channel:
-            channel.close()
+        try:
+            if stopping_task is not None:
+                await stopping_task
+        finally:
+            if watching:
+                loop.remove_reader(0)
+            listener.close()
+            try:
+                lifecycle.close()
+            finally:
+                if channel:
+                    channel.close()

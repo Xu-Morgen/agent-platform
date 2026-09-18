@@ -16,7 +16,7 @@
       <a href="#/services">服务配置</a>
       <a href="#/tasks">任务调用</a>
     </nav>
-    <p class="session-note">配置、历史和任务仅在本次会话中保留。</p>
+    <p class="session-note">正在读取存储状态…</p>
   </aside>
   <main>
     <header class="page-header">
@@ -34,7 +34,7 @@
       </div>
     </section>
     <section data-page="environments" aria-label="环境配置" hidden>
-      <p>配置仅在本次应用运行期间保留。凭据保存后仅显示引用；留空表示保留已有凭据。</p>
+      <p>配置保留方式见左侧存储状态。凭据保存后仅显示引用；留空表示保留已有凭据。</p>
       <select id="environment-select"><option value="">新建环境</option></select>
       <button id="environment-refresh" type="button">刷新环境</button>
       <form id="environment-form">
@@ -60,7 +60,7 @@
       <p id="environment-result" role="status"></p>
     </section>
     <section data-page="services" aria-label="服务配置" hidden>
-      <p>加载模块后选择契约并逐个插入节点。未完成内容可保存为会话草稿。</p>
+      <p>加载模块后选择契约并逐个插入节点。未完成内容可保存为草稿。</p>
       <form id="load-form">
         <label>资源类型 <select id="load-kind"><option value="block">单文件通用块</option><option value="package">业务包目录</option><option value="contract">契约文件</option></select></label>
         <label>本地路径 <input id="load-path" required placeholder="samples/blocks/minimal.py"></label>
@@ -69,7 +69,7 @@
       </form>
       <p id="load-result" role="status"></p>
       <div id="module-library"></div>
-      <label>会话草稿 <select id="draft-select"><option value="">新建草稿</option></select></label>
+      <label>草稿 <select id="draft-select"><option value="">新建草稿</option></select></label>
       <button id="draft-new">新建草稿</button><button id="draft-save">保存草稿</button>
       <p id="draft-result" role="status"></p>
       <label>服务名称 <input id="service-name"></label>
@@ -95,12 +95,12 @@
       <label>稳定服务 <select id="service-select"><option value="">新建服务</option></select></label>
       <button id="service-refresh">刷新服务和历史</button>
       <p id="service-current"></p>
-      <h3>本次会话实例历史</h3><ul id="service-history"></ul>
+      <h3>实例历史</h3><ul id="service-history"></ul>
       <p id="history-result" role="status"></p>
       <div id="history-view"></div>
     </section>
     <section data-page="tasks" aria-label="任务调用" hidden>
-      <p>选择已保存的服务提交任务。任务和结果只在本次应用运行期间保留，刷新页面后可按 runId 查询。</p>
+      <p>选择已保存的服务提交任务。任务和结果的保留方式见左侧存储状态；可从历史列表打开记录。</p>
       <label>调用服务 <select id="task-service-select"><option value="">请选择服务</option></select></label>
       <p id="task-current"></p>
       <button id="task-service-refresh" type="button">刷新可调用服务</button>
@@ -111,6 +111,14 @@
         <label>任务输入（JSON）<textarea id="task-input" rows="5" required>{}</textarea></label>
         <button id="task-submit" type="submit">提交任务</button>
       </form>
+      <h3>任务历史</h3>
+      <p>按上方调用服务筛选；未选择服务时显示全部服务。</p>
+      <label>任务状态 <select id="run-history-status"><option value="">全部状态</option><option value="queued">排队</option><option value="running">运行中</option><option value="completed">完成</option><option value="failed">失败</option><option value="cancelled">取消</option></select></label>
+      <button id="run-history-refresh" type="button">刷新任务历史</button>
+      <ul id="run-history"></ul>
+      <button id="run-history-prev" type="button" disabled>上一页</button>
+      <button id="run-history-next" type="button" disabled>下一页</button>
+      <p id="run-history-result" role="status"></p>
       <form id="task-query-form">
         <label>runId <input id="task-run-id" required placeholder="run_…"></label>
         <button type="submit">查询任务</button>

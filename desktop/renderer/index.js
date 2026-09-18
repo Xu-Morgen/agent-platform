@@ -14,6 +14,8 @@ async function refreshHealth() {
     await refreshEnvironments();
     await refreshServices();
     await flowEditor.refresh();
+    await refreshPlatform();
+    await refreshRunHistory();
     status.textContent = `后端已就绪：${result.address}`;
     healthButton.disabled = false;
   } catch {
@@ -169,6 +171,7 @@ document.querySelector('#task-form').addEventListener('submit', async event => {
     const response = await window.agentPlatform.submitRun({ serviceId: selected.serviceId, expectedInstanceId: selected.activeInstanceId, input });
     if (!response.ok) { taskError.textContent = taskFailure(response.error); return; }
     await watchTask(response.data.runId);
+    await refreshRunHistory();
   } catch (error) {
     taskError.textContent = error instanceof SyntaxError ? '任务输入：JSON 格式无效' : '任务请求失败';
   } finally { button.disabled = false; }
@@ -215,3 +218,45 @@ document.querySelector('#task-cancel').addEventListener('click', async () => {
     document.querySelector('#task-cancel').disabled = false;
   }
 });
+
+
+async function refreshPlatform() {
+  const response = await window.agentPlatform.platformInfo();
+  const note = document.querySelector('.session-note');
+  note.textContent = !response.ok ? '无法读取存储状态：' + errorText(response.error)
+    : response.data.persistent
+      ? `本地 PostgreSQL：配置、源码、草稿、版本与任务跨重启保留。数据目录：${response.data.dataDirectory || '未提供'}。中断任务不会自动重跑。`
+      : '开发用内存模式：退出后数据清空。桌面正常启动应使用本地 PostgreSQL。';
+}
+let historyOffset = 0;
+let historyGeneration = 0;
+async function refreshRunHistory() {
+  const generation = ++historyGeneration;
+  const query = {limit: 20, offset: historyOffset};
+  if (taskServiceSelect.value) query.serviceId = taskServiceSelect.value;
+  const filter = document.querySelector('#run-history-status').value;
+  if (filter) query.status = filter;
+  const response = await window.agentPlatform.listRuns(query);
+  if (generation !== historyGeneration) return;
+  const message = document.querySelector('#run-history-result');
+  if (!response.ok) { message.textContent = errorText(response.error); return; }
+  const list = document.querySelector('#run-history');
+  list.replaceChildren();
+  for (const run of response.data) {
+    const item = document.createElement('li');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = `${new Date(run.createdAt).toLocaleString()} · ${run.status} · ${run.runId} · v${run.version}`;
+    button.onclick = () => watchTask(run.runId);
+    item.append(button); list.append(item);
+  }
+  message.textContent = response.data.length ? `第 ${Math.floor(historyOffset / 20) + 1} 页` : '没有匹配的任务';
+  document.querySelector('#run-history-prev').disabled = historyOffset === 0;
+  document.querySelector('#run-history-next').disabled = response.data.length < 20;
+}
+function resetRunHistory() { historyOffset = 0; refreshRunHistory(); }
+document.querySelector('#run-history-refresh').onclick = resetRunHistory;
+document.querySelector('#run-history-status').onchange = resetRunHistory;
+taskServiceSelect.addEventListener('change', resetRunHistory);
+document.querySelector('#run-history-prev').onclick = () => { historyOffset = Math.max(0, historyOffset - 20); refreshRunHistory(); };
+document.querySelector('#run-history-next').onclick = () => { historyOffset += 20; refreshRunHistory(); };

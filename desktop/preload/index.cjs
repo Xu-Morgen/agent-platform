@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
+  platformInfo: () => ipcRenderer.invoke('platform:platformInfo'),
+  listRuns: (query) => ipcRenderer.invoke('platform:listRuns', query),
   validateFlowPorts: (body) => ipcRenderer.invoke('platform:validateFlowPorts', body),
   validateFlowNode: (body) => ipcRenderer.invoke('platform:validateFlowNode', body),
   createDraft: (body) => ipcRenderer.invoke('platform:createDraft', body),

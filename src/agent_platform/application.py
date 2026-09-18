@@ -1,10 +1,10 @@
 """后端应用及就绪生命周期。"""
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from .contracts.environments import Environment, EnvironmentWrite
 from .contracts.connection_tools import ModelListRequest, ModelListResult, ConnectionTestRequest, ConnectionTestResult
 from .contracts.services import ServiceWrite, ServiceView, ServiceSchema, VersionView, ActivateRequest, FlowHistory
-from .contracts.runs import Run, RunSubmit, RunResult
+from .contracts.runs import Run, RunSubmit, RunResult, RunStatus
 from .contracts.health import HealthResponse
 from .contracts.errors import ErrorResponse, PlatformError
 from .http_errors import register_error_handlers
@@ -18,18 +18,34 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         app.state.ready = False
-        await app.state.connection_tools.close()
-        await app.state.worker.stop()
+        try:
+            await app.state.connection_tools.close()
+            await app.state.worker.stop()
+        finally:
+            app.state.credentials.clear()
+            app.state.catalog.close()
+            app.state.store.close()
 
 
-def create_app() -> FastAPI:
+def create_app(store=None) -> FastAPI:
+    from .storage import configured_store
+    store = store or configured_store()
+    try:
+        return _create_app(store)
+    except Exception:
+        store.close()
+        raise
+
+
+def _create_app(store) -> FastAPI:
     app = FastAPI(title='Agent Platform', lifespan=lifespan)
     app.state.ready = False
+    app.state.store = store
     register_error_handlers(app)
     from .repositories.credentials import CredentialRepository
     from .repositories.environments import EnvironmentRepository
-    app.state.credentials = CredentialRepository()
-    app.state.environments = EnvironmentRepository(app.state.credentials)
+    app.state.credentials = CredentialRepository(store)
+    app.state.environments = EnvironmentRepository(app.state.credentials, store)
     from .connection_tools import ConnectionTools
     app.state.connection_tools = ConnectionTools(app.state.credentials)
 
@@ -41,19 +57,33 @@ def create_app() -> FastAPI:
     from .contracts.catalog import CatalogLoad, CatalogResource
     from .services import ServiceManager
     app.state.packages = PackageRegistry()
-    app.state.catalog = ModuleCatalog(app.state.packages)
+    app.state.catalog = ModuleCatalog(app.state.packages, store)
     from .flows.drafts import DraftRepository, preflight
     from .contracts.drafts import DraftWrite, DraftDocument
-    app.state.drafts = DraftRepository()
-    app.state.services = ServiceManager(app.state.catalog, app.state.environments)
+    app.state.drafts = DraftRepository(store)
+    app.state.services = ServiceManager(app.state.catalog, app.state.environments, store)
 
     from .repositories.runs import RunRepository
     from .runtime.submission import RunSubmission
-    app.state.runs = RunRepository()
+    app.state.runs = RunRepository(store)
     app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs)
 
     from .runtime.worker import RunWorker
     app.state.worker = RunWorker(app.state.submission)
+
+    @app.get('/api/v1/platform')
+    async def platform_info():
+        import os
+        return {'product': '可控 Agent 工作流平台',
+                'storage': 'postgresql' if store.durable else 'memory',
+                'persistent': store.durable, 'automaticResume': False,
+                'dataDirectory': os.environ.get('AGENT_PLATFORM_DATA_DIR') if store.durable else None}
+
+    @app.get('/api/v1/runs', response_model=list[Run])
+    async def list_runs(service_id: str | None = Query(None, alias='serviceId'),
+                        status: RunStatus | None = None, limit: int = Query(50, ge=1, le=200),
+                        offset: int = Query(0, ge=0)):
+        return app.state.runs.list(service_id=service_id, status=status, limit=limit, offset=offset)
 
     @app.post('/api/v1/runs/{run_id}/cancel', response_model=Run)
     async def cancel(run_id: str):
@@ -180,6 +210,9 @@ def create_app() -> FastAPI:
             raise PlatformError(ErrorResponse(
                 code='BACKEND_UNAVAILABLE', stage='lifecycle', message='后端尚未就绪',
             ), 503)
+        store.check()
+        if app.state.worker.task is None or app.state.worker.task.done():
+            raise PlatformError(ErrorResponse(code='BACKEND_UNAVAILABLE', stage='runtime', message='任务执行器已停止，请重启后端'), 503)
         return HealthResponse(status='ready')
 
     return app

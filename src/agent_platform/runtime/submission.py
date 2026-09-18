@@ -20,6 +20,7 @@ class RunSubmission:
         self.stopping = False
 
     def submit(self, request):
+        self.runs.store.check()
         if self.stopping:
             raise PlatformError(ErrorResponse(code='APPLICATION_EXIT', stage='runs.submit', message='应用正在退出'), 503)
         with self.environments.lock:

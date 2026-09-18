@@ -1,4 +1,5 @@
-"""任务及步骤的公开内存记录契约。"""
+"""任务及步骤的公开记录契约。"""
+from datetime import datetime, timezone
 from typing import Literal
 from pydantic import Field, JsonValue
 from .base import StrictModel
@@ -24,6 +25,7 @@ class StepRecord(StrictModel):
 
 class Run(StrictModel):
     run_id: str
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     service_id: str
     instance_id: str
     version: str
