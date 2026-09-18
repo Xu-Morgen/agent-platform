@@ -143,37 +143,59 @@
       </details>
       <dialog id="insert-dialog" aria-labelledby="insert-title"><div class="insert-heading"><div><h3 id="insert-title">添加拼图块</h3><p id="insert-context"></p></div><button id="insert-close" type="button" aria-label="关闭添加拼图块">关闭</button></div><label>搜索模块 <input id="insert-search" type="search" placeholder="名称或用途…"></label><div id="insert-options"></div></dialog>
     </section>
-    <section data-page="tasks" aria-label="任务调用" hidden>
-      <p>选择已保存的服务提交任务。任务和结果的保留方式见左侧存储状态；可从历史列表打开记录。</p>
-      <label>调用服务 <select id="task-service-select"><option value="">请选择服务</option></select></label>
-      <p id="task-current"></p>
-      <button id="task-service-refresh" type="button">刷新可调用服务</button>
-      <p>需要新增或修改服务？<a href="#/services">前往服务配置</a></p>
-
-      <form id="task-form">
-        <button id="task-example" type="button">填入输入样例</button>
-        <label>任务输入（JSON）<textarea id="task-input" rows="5" required>{}</textarea></label>
-        <button id="task-submit" type="submit">提交任务</button>
-      </form>
-      <h3>任务历史</h3>
-      <p>按上方调用服务筛选；未选择服务时显示全部服务。</p>
-      <label>任务状态 <select id="run-history-status"><option value="">全部状态</option><option value="queued">排队</option><option value="running">运行中</option><option value="completed">完成</option><option value="failed">失败</option><option value="cancelled">取消</option></select></label>
-      <button id="run-history-refresh" type="button">刷新任务历史</button>
-      <ul id="run-history"></ul>
-      <button id="run-history-prev" type="button" disabled>上一页</button>
-      <button id="run-history-next" type="button" disabled>下一页</button>
-      <p id="run-history-result" role="status"></p>
-      <form id="task-query-form">
-        <label>runId <input id="task-run-id" required placeholder="run_…"></label>
-        <button type="submit">查询任务</button>
-      </form>
-      <p id="task-status" role="status"></p>
-      <button id="task-cancel" type="button" disabled>取消任务</button>
-      <p id="task-cancel-status" role="status"></p>
-      <p id="task-error" role="alert"></p>
-      <h3>预算用量</h3><pre id="task-usage"></pre>
-      <h3>执行步骤</h3><ol id="task-steps"></ol>
-      <h3>最终结果</h3><pre id="task-result"></pre>
+    <section data-page="tasks" class="configuration-page" aria-label="任务调用" hidden>
+      <div class="editor-heading"><div><span class="section-eyebrow">TASK RUNNER</span><h3>运行服务，查看每一步结果</h3><p>选择服务并提交输入，在这里跟踪执行过程，或重新打开历史任务。</p></div><a class="text-link" href="#/services">管理服务 ↗</a></div>
+      <div class="config-toolbar task-service-toolbar">
+        <label>调用服务 <select id="task-service-select"><option value="">请选择服务</option></select></label>
+        <button id="task-service-refresh" type="button">刷新服务</button>
+        <p id="task-current" class="field-hint"></p>
+      </div>
+      <div class="task-workspace">
+        <div class="task-launch-column">
+          <form id="task-form" class="settings-card task-composer">
+            <div class="panel-heading"><div><span class="section-eyebrow">INPUT</span><h4>提交新任务</h4></div><span class="count-badge">JSON</span></div>
+            <p class="field-hint">输入需符合所选服务的数据结构。每次提交都会创建一个新任务。</p>
+            <label for="task-input">任务输入 <span class="required-mark">*</span></label>
+            <div class="input-tools"><button id="task-example" type="button">填入服务样例</button><button id="task-format" type="button">格式化 JSON</button></div>
+            <textarea id="task-input" rows="9" required spellcheck="false" aria-describedby="task-input-notice">{}</textarea>
+            <p id="task-input-notice" class="inline-status" role="status"></p>
+            <button id="task-submit" type="submit" class="primary-button">提交并运行</button>
+          </form>
+          <div class="settings-card task-history-panel">
+            <div class="panel-heading"><div><span class="section-eyebrow">HISTORY</span><h4>历史任务</h4></div><button id="run-history-refresh" type="button">刷新</button></div>
+            <p class="field-hint">按上方服务筛选；未选择服务时显示全部任务。</p>
+            <label>任务状态 <select id="run-history-status"><option value="">全部状态</option><option value="queued">排队中</option><option value="running">运行中</option><option value="completed">已完成</option><option value="failed">失败</option><option value="cancelled">已取消</option></select></label>
+            <ul id="run-history"></ul>
+            <div class="history-pagination"><button id="run-history-prev" type="button" disabled>上一页</button><p id="run-history-result" role="status"></p><button id="run-history-next" type="button" disabled>下一页</button></div>
+            <details class="task-lookup"><summary>按任务 ID 查询</summary><form id="task-query-form"><label>任务 ID <input id="task-run-id" required placeholder="run_…" spellcheck="false"></label><button type="submit">打开任务</button></form></details>
+          </div>
+        </div>
+        <div class="task-inspection" id="task-inspection" tabindex="-1">
+          <div class="settings-card task-monitor">
+            <div class="panel-heading"><div><span class="section-eyebrow">EXECUTION</span><h4>任务详情</h4></div><span id="task-status" class="run-status" data-status="idle" role="status">尚未选择任务</span></div>
+            <p id="task-detail-hint" class="field-hint">提交新任务，或从左侧历史记录中选择一条查看。</p>
+            <dl id="task-metadata" class="task-metadata" hidden></dl>
+            <details id="task-request-details" class="task-usage-details" hidden><summary>查看本次任务的输入</summary><pre id="task-request-input" class="json-output"></pre></details>
+            <div class="task-cancel-row"><p id="task-cancel-status" class="field-hint" role="status"></p><button id="task-cancel" class="danger-button" type="button" disabled>取消任务</button></div>
+            <p id="task-error" class="task-error" role="alert"></p>
+            <div class="task-metrics" aria-label="任务用量">
+              <div><span>模型调用次数</span><strong id="task-loop-count">—</strong><small>累计调用尝试</small></div>
+              <div><span>Token 用量</span><strong id="task-token-count">—</strong><small>供应商报告用量</small></div>
+              <div><span>已完成步骤</span><strong id="task-step-count">—</strong><small>当前记录中的步骤</small></div>
+            </div>
+            <details class="task-usage-details"><summary>查看详细用量</summary><pre id="task-usage">选择任务后显示用量明细。</pre></details>
+          </div>
+          <div class="settings-card task-result-panel">
+            <div class="panel-heading"><div><span class="section-eyebrow">OUTPUT</span><h4>最终结果</h4></div><span class="count-badge">服务输出</span></div>
+            <div id="task-result-empty" class="task-empty"><span aria-hidden="true">↳</span><strong>结果将在这里显示</strong><p>任务成功完成后，展示服务返回的数据。</p></div>
+            <pre id="task-result" class="json-output" hidden></pre>
+          </div>
+          <div class="settings-card task-steps-panel">
+            <div class="panel-heading"><div><span class="section-eyebrow">TRACE</span><h4>执行步骤</h4></div><span class="field-hint">按记录顺序展示</span></div>
+            <ol id="task-steps"></ol>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
   <script src="router.js"></script>
