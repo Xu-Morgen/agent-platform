@@ -155,20 +155,20 @@ PY
 | nodeId | 整个流程内唯一，以英文字母开头，仅字母/数字/下划线/连字符 |
 | kind | block/package |
 | artifactRef | 对应加载结果 resourceId |
-| inputs | 接线列表，默认 []；按目标输入模型填充 |
+| inputs | 完整数据来源列表，必须恰好一项；空列表仅可暂存为未完成草稿 |
 
 ### 每条接线
 
 | 字段 | 作用 |
 | --- | --- |
-| target | 目标字段路径，默认 [] 表示整个输入/出口 |
+| target | 必须为空数组 []（或省略），表示接收完整数据 |
 | source.kind=input | 引用服务输入，不填 nodeId |
 | source.kind=node | 引用可见前序节点输出，必须填 nodeId |
 | source.kind=carry | 引用循环当前携带值，nodeId 填循环节点 ID |
-| source.path | 源字段路径，默认 [] 表示整个值 |
-| source.kind=constant | 直接填 value，不填 nodeId/path |
+| source.path | 必须为空数组 []（或省略），表示传递完整数据 |
+| source.kind=constant | 直接填符合接收方契约的完整 value，不填 nodeId/path |
 
-接线路径是字符串/非负整数数组，如 `["text"]`、`["items",0,"text"]`；对象路径使用对外 JSON 字段名。它与 API 节点中字符串形式的 api.path 是不同字段。可选字段或无法证明存在的数组项不能直接读取。结构不一致时使用转换块，平台不会自动改名或宽松转换。
+平台只传递完整数据，不支持字段路径引用、改名或拼装。source.path 和 target 只能为空数组，它们与 API 节点的请求路径 api.path 无关。来源完整输出与接收方契约不兼容时校验报错，例如 answer 无法直接传入要求 text 的契约；请添加通用块完成转换，再选择该通用块的完整输出。分支输出、循环初始值和更新值也遵循同一规则。历史字段映射保留供查看和修改，但不能保存、激活或调用，需添加通用块后重新保存。
 
 ### 控制容器字段
 

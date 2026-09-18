@@ -28,7 +28,7 @@ class ServiceManager:
         for instance_id, document in self.store.read('instances').items():
             if document['compilerVersion'] != COMPILER_VERSION:
                 raise ValueError('实例编译器版本不兼容')
-            snapshot = compile_snapshot(FlowDraft.model_validate(document['flow']), self.catalog)
+            snapshot = compile_snapshot(FlowDraft.model_validate(document['flow']), self.catalog, restoring=True)
             if snapshot.content_digest != document['contentDigest']:
                 raise ValueError('实例内容摘要不一致')
             self.snapshots.add(replace(snapshot, instance_id=instance_id))

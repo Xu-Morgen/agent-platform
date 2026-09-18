@@ -96,7 +96,7 @@ API 块通过注入的 BlockAPI 向节点配置的路径发起请求，凭据由
 
 ## 输入参数怎么固定
 
-块的业务选项是输入；`nodeConfigurations` 为 API 块保存连接引用和请求路径。可以让服务输入包含整个 Input，也可以用接线常量固定选项。例如完整块节点：
+块的业务选项是输入；`nodeConfigurations` 为 API 块保存连接引用和请求路径。可以直接传递符合 Input 契约的完整服务输入；需要固定选项或拼装字段时，先通过另一个通用块处理。例如完整块节点：
 
 ```json
 {
@@ -104,13 +104,12 @@ API 块通过注入的 BlockAPI 向节点配置的路径发起请求，凭据由
   "kind": "block",
   "artifactRef": "替换为加载完整块返回的 resourceId",
   "inputs": [
-    {"target": ["query"], "source": {"kind": "input", "path": ["query"]}},
-    {"target": ["options"], "source": {"kind": "constant", "value": {"letterCase": "upper"}}}
+    {"target": [], "source": {"kind": "input", "path": []}}
   ]
 }
 ```
 
-其余选项由 Options 默认值补齐；服务输入的 query 仍须满足块的长度约束，并为 normalize 节点配置下方的 API 连接和请求路径。最容易成功的接法是直接选择此块返回的 inputContract/outputContract 作为服务端口，并采用完整输入/输出接线，见 [公共用法](../USAGE.md)。
+调用数据可包含 options，例如 {"query":"内容","options":{"letterCase":"upper"}}；其余选项由 Options 默认值补齐；服务输入的 query 仍须满足块的长度约束，并为 normalize 节点配置下方的 API 连接和请求路径。最容易成功的接法是直接选择此块返回的 inputContract/outputContract 作为服务端口，并采用完整输入/输出接线，见 [公共用法](../USAGE.md)。
 
 ## 完整块的 API 配置
 
@@ -130,7 +129,7 @@ API 块通过注入的 BlockAPI 向节点配置的路径发起请求，凭据由
 ```
 
 4. 将服务输入接入该块，输入示例为 `{"query":"待查询内容"}`，也可添加 options；示例请求 `GET /lookup?query=...`，要求响应符合前述 APIResponse。更换路径只需修改节点配置；请求方法、参数生成和响应类型仍由块定义。此地址不是随项目提供的服务。
-5. 将块输出接入服务出口，或选取输出的 text 字段接入最小 Prompt 包。完整包要求非空且不超过 10000 字符，须先通过明确验证该约束的转换块，因为整理结果可能为空，添加前缀后也可能超长。只有通用块时无需模型环境或模型预算。
+5. 将块输出接入服务出口，或先通过另一个通用块提取 text、输出符合契约的完整对象，再接入最小 Prompt 包。完整包要求非空且不超过 10000 字符，须先通过明确验证该约束的转换块，因为整理结果可能为空，添加前缀后也可能超长。只有通用块时无需模型环境或模型预算。
 
 完整示例通过以下调用使用平台节点的路径：
 

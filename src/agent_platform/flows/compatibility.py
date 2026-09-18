@@ -1,5 +1,4 @@
 """保守 JSON Schema 可赋值判断；不能证明的约束拒绝，不做数据转换。"""
-from copy import deepcopy
 
 
 class Incompatible(ValueError):
@@ -74,7 +73,7 @@ def assignable(source, target, source_root=None, target_root=None, seen=None):
     if st == 'object':
         sp, tp = source.get('properties', {}), target.get('properties', {})
         if not set(target.get('required', [])).issubset(source.get('required', [])):
-            raise Incompatible('出口缺少入口必填字段')
+            raise Incompatible('输出缺少接收方必填字段：' + '、'.join(sorted(set(target.get('required', [])) - set(source.get('required', [])))))
         sa, ta = source.get('additionalProperties', True), target.get('additionalProperties', True)
         if ta is False and (sa is not False or sp.keys() - tp.keys()):
             raise Incompatible('入口禁止出口的额外字段')
@@ -93,32 +92,3 @@ def assignable(source, target, source_root=None, target_root=None, seen=None):
                 assignable(value, expected, sr, tr, seen)
     elif st == 'array':
         assignable(source.get('items', {}), target.get('items', {}), sr, tr, seen)
-
-
-def at_path(schema, path):
-    root = schema
-    for part in path:
-        schema = resolve(schema, root)
-        if schema.get('type') == 'object' and isinstance(part, str):
-            if part not in schema.get('required', []):
-                raise Incompatible('字段不存在或非必填，不能保证可读取')
-            schema = schema.get('properties', {}).get(part, {})
-        elif schema.get('type') == 'array' and type(part) is int and schema.get('minItems', 0) > part:
-            schema = schema['items']
-        else:
-            raise Incompatible('端口路径不存在或不能保证数组索引可用')
-    return {**deepcopy(schema), '$defs': root.get('$defs', {})}
-
-
-def literal_schema(value):
-    if value is None:
-        return {'type': 'null', 'const': None}
-    if type(value) is bool:
-        return {'type': 'boolean', 'const': value}
-    if type(value) in (int, float):
-        return {'type': 'integer' if type(value) is int else 'number', 'minimum': value, 'maximum': value, 'const': value}
-    if isinstance(value, str):
-        return {'type': 'string', 'minLength': len(value), 'maxLength': len(value), 'const': value}
-    if isinstance(value, list):
-        return {'type': 'array', 'minItems': len(value), 'maxItems': len(value), 'items': {'anyOf': [literal_schema(v) for v in value]}}
-    return {'type': 'object', 'properties': {k: literal_schema(v) for k, v in value.items()}, 'required': list(value), 'additionalProperties': False}

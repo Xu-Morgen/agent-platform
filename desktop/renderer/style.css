@@ -354,3 +354,5 @@ main:has(.configuration-page:not([hidden])) .page-header button { padding: 5px 1
 #load-result[data-state="error"] { color: #a02525; background: #fff0f0; }
 #load-result[data-state="success"] { color: #246b4c; background: #edf8f3; }
 #load-result:is([data-state="pending"], [data-state="loading"]) { color: #40506a; background: #edf2ff; }
+
+.binding-error { color: #a02525; background: #fff0f0; padding: 10px; border-radius: 6px; }

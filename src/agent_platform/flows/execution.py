@@ -66,22 +66,17 @@ def resolve(source, state):
         return deepcopy(source.value)
     value = (state.input if source.kind == 'input' else
              state.carry[source.node_id] if source.kind == 'carry' else state.outputs[source.node_id])
-    for key in source.path:
-        value = value[key]
+    if source.path:
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='flow.source',
+            message='平台只传递完整数据；字段选取或改名请添加通用块处理'))
     return deepcopy(value)
 
 
 def assemble(bindings, state):
-    result = {}
-    for binding in bindings:
-        value = resolve(binding.source, state)
-        if not binding.target:
-            return value
-        target = result
-        for key in binding.target[:-1]:
-            target = target.setdefault(key, {})
-        target[binding.target[-1]] = value
-    return result
+    if len(bindings) != 1 or bindings[0].target:
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='flow.source',
+            message='请选择一个完整数据来源；字段映射和转换请添加通用块处理'))
+    return resolve(bindings[0].source, state)
 
 
 class FlowState(StrictModel):
@@ -114,12 +109,24 @@ class FlowExecutor:
                 step_counter.reset(token)
 
 
-def compile_flow(draft, catalog):
+@dataclass(frozen=True)
+class InvalidFlowExecutor:
+    """旧版本仍可查看和复制修复，但不继续执行已禁用的字段映射。"""
+    error: ErrorResponse
+
+    async def run(self, value, *, recursion_limit=10000):
+        raise PlatformError(self.error.model_copy(deep=True))
+
+
+def compile_flow(draft, catalog, *, preserve_invalid=False):
     draft = draft.model_copy(deep=True)
     validation = validate_flow(draft, catalog)
     if not validation.valid:
-        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='flow.compile',
-            message='拼图端口校验失败', issues=validation.issues))
+        error = ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='flow.compile',
+            message='输入输出契约校验失败，请添加通用块完成转换并重新保存', issues=validation.issues)
+        if preserve_invalid:
+            return InvalidFlowExecutor(error)
+        raise PlatformError(error)
 
     def wrap(node):
         async def execute(state):

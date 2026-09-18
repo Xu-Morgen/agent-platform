@@ -14,10 +14,6 @@ const flowEditor = (() => {
   let insertion = null;
   function nodeName(node) { return resources.find(r=>r.resourceId===node.artifactRef)?.name || kindNames[node.kind] || node.nodeId; }
   function resolveSchema(value, root) { return value?.$ref ? root.$defs?.[value.$ref.split('/').pop()] || {} : value || {}; }
-  function fieldSchema(ref, path) {
-    const root = schema(ref);
-    return path.reduce((value, key)=>resolveSchema(value,root).properties?.[key] || {}, root);
-  }
   function typeName(value, root, depth=0) {
     if(depth>8)return '嵌套数据';
     value = resolveSchema(value, root);
@@ -25,9 +21,6 @@ const flowEditor = (() => {
     if (value.anyOf) return value.anyOf.map(v=>typeName(v,root,depth+1)).join(' | ');
     if (value.type === 'array') return typeName(value.items,root,depth+1) + '[]';
     return value.type || '未声明类型';
-  }
-  function pathLabel(ref, path, whole='完整数据') {
-    return (path.length ? path.join('.') : whole) + ' · ' + typeName(fieldSchema(ref,path),schema(ref));
   }
   function portPreview(parent, ref) {
     parent.replaceChildren(); parent.classList.add('port-preview');
@@ -102,44 +95,37 @@ const flowEditor = (() => {
       : [['input', '输入'], ['output', '输出']].map(([key, name]) => [r[key + 'Contract'], kindNames[r.kind] + ' · ' + r.name + ' · ' + name + '契约', r.schemas[key]]));
   }
   function schema(ref) { return contracts().find(([id]) => id === ref)?.[2] || {}; }
-  function paths(value, root = value, prefix = [], depth = 0) {
-    if (depth > 8) return [];
-    if (value.$ref) value = root.$defs?.[value.$ref.split('/').pop()] || {};
-    return [prefix, ...Object.entries(value.properties || {}).flatMap(([key, child]) => paths(child, root, [...prefix, key], depth + 1))];
-  }
   function sourceValue(source) {
     return JSON.stringify({kind:source.kind,...(source.nodeId ? {nodeId:source.nodeId} : {}),path:source.path || []});
   }
   function sourceOptions(nodes) {
     const ports = [[{kind:'input', path:[]}, '服务输入', content.inputContract], ...nodes.map(n => [
       {kind:n.kind === 'carry' ? 'carry' : 'node', nodeId:n.nodeId, path:[]}, n.kind === 'carry' ? n.nodeId + ' · 本轮携带值' : nodeName(n)+' ['+n.nodeId+'] 的输出', outputRef(n)])];
-    return ports.flatMap(([source, title, ref]) => paths(schema(ref)).map(path => [sourceValue({...source, path}), title + ' / ' + pathLabel(ref,path)]));
+    return ports.map(([source, title, ref]) => [sourceValue(source), title + ' · 完整数据 · ' + typeName(schema(ref),schema(ref))]);
   }
   function bindings(target, values, contract, nodes, destination='当前节点输入') {
     target.replaceChildren();
-    if(!values.length) { const hint=el('p','尚未指定数据来源。添加映射，将服务输入或前面节点的输出传入这里。');hint.className='flow-hint';target.append(hint); }
-    values.forEach((binding, i) => {
-      const row = el('div'); row.className = 'binding-row';
-      const destinations = paths(schema(contract)).map(path => [JSON.stringify(path), pathLabel(contract,path)]);
-      const dest = choices(destinations, JSON.stringify(binding.target), value => { if (value) { binding.target = JSON.parse(value); changed(); } });
-      dest.setAttribute('aria-label', destination+'字段');
-      const options = sourceOptions(nodes); options.push(['constant', '固定值（JSON）']);
-      const source = choices(options, binding.source.kind === 'constant' ? 'constant' : sourceValue(binding.source), value => {
-        if (!value) return;
-        binding.source = value === 'constant' ? {kind:'constant', value:null} : JSON.parse(value); changed(); render();
-      }); source.setAttribute('aria-label', '数据来源');
-      const from=el('label','从哪里取值');from.append(source);
-      const to=el('label','传给哪里 · '+destination);to.append(dest);
-      const arrow=el('span','→');arrow.className='binding-arrow';arrow.setAttribute('aria-hidden','true');
-      row.append(from,arrow,to);
-      if (binding.source.kind === 'constant') {
-        const label=el('div','固定值 · JSON');const input = el('input'); input.value = JSON.stringify(binding.source.value); input.setAttribute('aria-label', '常量 JSON');
-        input.onchange = () => { try { binding.source.value = JSON.parse(input.value); input.setCustomValidity(''); changed(); } catch { input.setCustomValidity('请输入合法 JSON'); input.reportValidity(); } };label.append(input);from.append(label);
-      }
-      const remove=button('×', () => { values.splice(i,1); changed(); render(); });remove.className='remove-binding';remove.setAttribute('aria-label','删除第 '+(i+1)+' 条映射');
-      row.append(remove); target.append(row);
+    const legacy = values.length > 1 || values.some(binding=>binding.target?.length || binding.source.path?.length);
+    if (legacy) {
+      const warning=el('p','此处使用了旧字段映射，无法通过校验。请添加通用块完成转换，然后重新选择完整数据来源。');
+      warning.className='binding-error';target.append(warning);
+      const detail=el('details');detail.append(el('summary','查看待替换的字段映射'),el('pre',JSON.stringify(values,null,2)));target.append(detail);
+    }
+    const binding = legacy ? null : values[0];
+    const options = sourceOptions(nodes);options.push(['constant','固定完整数据（JSON）']);
+    const selected = binding ? binding.source.kind === 'constant' ? 'constant' : sourceValue(binding.source) : '';
+    const label = el('label','数据来源 · 完整传给'+destination);
+    const select = choices(options, selected, value=>{
+      values.splice(0,values.length,...(value ? [{target:[],source:value === 'constant' ? {kind:'constant',value:null} : JSON.parse(value)}] : []));
+      changed();render();
     });
-    target.append(button('＋ 添加数据映射', () => { values.push({target:[],source:{kind:'input',path:[]}}); changed(); render(); }));
+    select.setAttribute('aria-label',destination+'数据来源');label.append(select);target.append(label);
+    const hint=el('p','完整数据必须符合接收方契约。字段名称、类型或结构不兼容时会报错，请添加通用块完成转换。');hint.className='flow-hint';target.append(hint);
+    if (binding?.source.kind === 'constant') {
+      const label=el('label','完整数据 · JSON');const input=el('textarea');input.value=JSON.stringify(binding.source.value,null,2);
+      input.onchange=()=>{try {binding.source.value=JSON.parse(input.value);input.setCustomValidity('');changed();} catch {input.setCustomValidity('请输入合法 JSON');input.reportValidity();}};
+      label.append(input);target.append(label);
+    }
   }
   function issues(result) {
     $('flow-issues').replaceChildren();
@@ -236,7 +222,7 @@ const flowEditor = (() => {
       summary.append(el('span','输入 · '+inputText),el('span','输出 · '+(contracts().find(([id])=>id===outputRef(node))?.[1] || '待选择契约')));card.append(summary);
       const detail=el('details');detail.className='node-details';detail.append(el('summary','配置输入、输出与参数'));card.append(detail);
       if(node.kind==='block'||node.kind==='package') {
-        bindingSection(detail,'输入 · 按输入契约指定数据来源',node.inputs,resource?.inputContract,scope);
+        bindingSection(detail,'输入 · 按输入契约选择完整数据来源',node.inputs,resource?.inputContract,scope);
         const inputPreview=el('div');portPreview(inputPreview,resource?.inputContract);detail.append(inputPreview);
         detail.append(el('h5','输出契约 · 执行后可供后续步骤使用'));const outputPreview=el('div');portPreview(outputPreview,resource?.outputContract);detail.append(outputPreview);
         const raw=el('details');raw.className='raw-schema';raw.append(el('summary','查看完整契约 JSON'),el('pre',JSON.stringify(resource?.schemas,null,2)));detail.append(raw);

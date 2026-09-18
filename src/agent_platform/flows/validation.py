@@ -4,7 +4,7 @@ from ..contracts.base import StrictModel
 from ..contracts.flows import ModuleNode, IfNode, RepeatNode, WhileNode, ConstantValue
 from ..contracts.errors import PlatformError, ValidationIssue
 from pydantic import Field, ValidationError
-from .compatibility import assignable, at_path, literal_schema, Incompatible
+from .compatibility import assignable, Incompatible
 
 
 class ValidationResult(StrictModel):
@@ -27,8 +27,8 @@ def validate_flow(draft, catalog):
     def contract(ref):
         return Port(catalog.contract(ref).schema, ref)
     def source_port(source, scope, carry):
-        if isinstance(source, ConstantValue):
-            return Port(literal_schema(source.value))
+        if source.path:
+            raise Incompatible('平台只传递完整数据；字段选取或改名请添加通用块处理')
         if source.kind == 'input':
             port = contract(draft.input_contract)
         else:
@@ -36,51 +36,27 @@ def validate_flow(draft, catalog):
             if source.node_id not in mapping:
                 raise Incompatible('引用未执行、前向或作用域外的节点/携带值')
             port = mapping[source.node_id]
-        return Port(at_path(port.schema, source.path), port.contract if not source.path else None, port.kind)
+        return port
     def bind(bindings, expected, scope, carry, path, node):
-        assembled = {'type': 'object', 'properties': {}, 'required': [], 'additionalProperties': False}
-        targets = []
-        for index, binding in enumerate(bindings):
-            loc = (*path, index)
-            try:
-                target = binding.target
-                if any(target[:len(old)] == old or old[:len(target)] == target for old in targets):
-                    raise Incompatible('同一入口或父子入口存在重复来源')
-                targets.append(target)
-                if isinstance(binding.source, ConstantValue) and not target:
-                    try:
-                        catalog.contract(expected.contract).adapter.validate_python(binding.source.value, strict=True)
-                    except ValidationError as exc:
-                        from ..validation_issues import validation_exception
-                        raise validation_exception(exc, stage='flow.constant') from None
-                    port = expected
-                else:
-                    port = source_port(binding.source, scope, carry)
-                if not target:
-                    assembled = port.schema
-                else:
-                    current = assembled
-                    for i, key in enumerate(target):
-                        if not isinstance(key, str):
-                            raise Incompatible('数组输入请连接完整数组，不逐索引装配')
-                        if key not in current['required']:
-                            current['required'].append(key)
-                        if i == len(target) - 1:
-                            current['properties'][key] = port.schema
-                        else:
-                            current = current['properties'].setdefault(key, {'type': 'object', 'properties': {}, 'required': [], 'additionalProperties': False})
-                # 单条接线错误保留两端；整体装配另检查必填和多余字段。
-                target_schema = expected.schema
-                for key in target:
-                    from .compatibility import resolve
-                    target_schema = resolve(target_schema, expected.schema).get('properties', {}).get(key, {})
-                assignable(port.schema, target_schema, target_root=expected.schema)
-            except (Incompatible, PlatformError) as exc:
-                report(str(exc), loc, node, binding.source, binding.target)
+        if len(bindings) != 1:
+            report('请选择一个完整数据来源；字段合并或转换请添加通用块处理', path, node)
+            return
+        binding = bindings[0]
         try:
-            assignable(assembled, expected.schema)
-        except Incompatible as exc:
-            report(str(exc), path, node)
+            if binding.target:
+                raise Incompatible('平台不支持目标字段映射；请添加通用块输出符合接收方契约的完整数据')
+            if isinstance(binding.source, ConstantValue):
+                try:
+                    catalog.contract(expected.contract).adapter.validate_python(binding.source.value, strict=True)
+                except ValidationError as exc:
+                    from ..validation_issues import validation_exception
+                    raise validation_exception(exc, stage='flow.constant') from None
+            else:
+                port = source_port(binding.source, scope, carry)
+                assignable(port.schema, expected.schema)
+        except (Incompatible, PlatformError) as exc:
+            report(str(exc) + '；输入输出契约必须兼容，需要转换时请添加通用块。',
+                   (*path, 0), node, binding.source, binding.target)
     def condition(reference, scope, carry, path, node):
         port = source_port(reference, scope, carry)
         if reference.kind != 'node' or reference.path or port.kind != 'block':
