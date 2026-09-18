@@ -165,6 +165,7 @@ const flowEditor = (() => {
     }
     $('flow-nodes').replaceChildren();
     sequence($('flow-nodes'), content.flow, []);
+    $('flow-node-count').textContent = allNodes().length + ' 个节点';
     bindings($('flow-output-bindings'),content.output,content.outputContract,content.flow,'服务返回结果');
     portPreview($('flow-input-preview'),content.inputContract);portPreview($('flow-output-preview'),content.outputContract);
     for(const detail of document.querySelectorAll('#flow-nodes details')) {
@@ -389,19 +390,26 @@ const flowEditor = (() => {
   async function refreshSaved(selected = $('service-select').value) {
     const result = await window.agentPlatform.listServices();
     if (!result.ok) { $('service-result').textContent=result.error.message;return; }
-    savedServices=result.data;$('service-select').replaceChildren(new Option('新建服务',''));
+    savedServices=result.data;$('service-select').replaceChildren(new Option('保存为新服务',''));
     for(const service of savedServices)$('service-select').add(new Option(service.name+' · '+service.current.version,service.serviceId));
     $('service-select').value=selected;
     const current=savedServices.find(s=>s.serviceId===selected);
-    $('service-current').textContent=current ? `${current.serviceId} · ${current.activeInstanceId} · 当前版本 ${current.current.version}` : '保存后生成稳定服务入口';
+    $('service-current').textContent=current ? `当前版本 ${current.current.version} · 保存将为此服务生成新版本 · ${current.serviceId}` : '当前流程将保存为新服务，成功后生成稳定调用入口。';
     $('service-history').replaceChildren();
-    if(!current)return;
+    $('history-view').replaceChildren();$('history-result').textContent='';
+    if(!current){const hint=el('li','选择已保存的服务后，在这里查看版本记录。');hint.className='field-hint';$('service-history').append(hint);return;}
     const history=await window.agentPlatform.serviceHistory(selected);
     if(!history.ok){$('history-result').textContent=history.error.message;return;}
     for(const version of history.data){
-      const row=el('li',`${version.version} · ${version.changeKind} · ${version.instanceId} `);
-      row.dataset.instanceId=version.instanceId;
-      row.append(button('查看只读拼图',()=>viewHistory(selected,version.instanceId)),button('复制为编辑草稿',async()=>{
+      const row=el('li');row.className='version-card';
+      const isActive=version.instanceId===current.activeInstanceId;
+      row.dataset.instanceId=version.instanceId;row.dataset.active=String(isActive);
+      const changeNames={initial:'首次创建',minor:'次版本更新',major:'主版本更新',breaking:'整体更新'};
+      const heading=el('div');heading.className='version-heading';heading.append(el('strong','版本 '+version.version),el('span',changeNames[version.changeKind] || version.changeKind));
+      if(isActive){const badge=el('span','当前使用');badge.className='current-version';heading.append(badge);}
+      row.append(heading,el('code',version.instanceId));
+      const actions=el('div');actions.className='version-actions';
+      actions.append(button('查看快照',()=>viewHistory(selected,version.instanceId)),button('复制为草稿',async()=>{
         const copied=await window.agentPlatform.copyServiceVersion(selected,version.instanceId);
         if(!copied.ok){$('history-result').textContent=copied.error.message;return;}
         draftId=copied.data.draftId;content={...empty(),...clone(copied.data.content)};
@@ -411,7 +419,7 @@ const flowEditor = (() => {
         const result=await window.agentPlatform.activateService(selected,version.instanceId);
         if(!result.ok){$('history-result').textContent=result.error.message;return;}
         await refreshSaved(selected);await refreshServices();$('history-result').textContent='已回退 '+version.version+' · '+version.instanceId;
-      });activate.disabled=version.instanceId===current.activeInstanceId;row.append(activate);$('service-history').append(row);
+      });activate.disabled=isActive;actions.append(activate);row.append(actions);$('service-history').append(row);
     }
   }
   async function viewHistory(serviceId,instanceId){

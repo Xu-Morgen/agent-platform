@@ -37,7 +37,7 @@ function editEnvironment() {
   connectionEditor.load(value?.connections);
   const occupied = value?.activeRunIds || [];
   document.querySelector('#environment-form button[type=submit]').disabled = occupied.length > 0;
-  environmentResult.textContent = occupied.length ? `环境被任务占用：${occupied.join('、')}` : value ? `环境 ${value.environmentId} · revision ${value.revision}；凭据 ********（仅显示引用）` : '';
+  environmentResult.textContent = occupied.length ? `环境被任务占用：${occupied.join('、')}` : value ? `已加载「${value.name}」 · ${value.connections.length} 个连接 · 修订 ${value.revision}` : '';
 }
 async function refreshEnvironments(selected = environmentSelect.value) {
   const result = await window.agentPlatform.listEnvironments();
@@ -62,6 +62,7 @@ document.querySelector('#environment-form').addEventListener('submit', async eve
       : await window.agentPlatform.createEnvironment(body);
     if (!result.ok) { environmentResult.textContent = errorText(result.error); return; }
     await refreshEnvironments(result.data.environmentId);
+    environmentResult.textContent = `环境已保存 · ${result.data.name} · ${result.data.connections.length} 个连接`;
   } catch (error) {
     environmentResult.textContent = error instanceof SyntaxError ? 'connections：JSON 格式无效' : error.message;
   } finally { if (button) button.disabled = false; }

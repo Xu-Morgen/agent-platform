@@ -8,6 +8,24 @@ const connectionEditor = (() => {
   let drafts = [], generation = 0, busy = false;
   const current = () => drafts[Number(target.value)];
   const modelConnection = () => current()?.kind === 'model';
+  function renderConnections() {
+    const list = $('connection-list');
+    list.replaceChildren();
+    $('connection-count').textContent = drafts.length;
+    drafts.forEach((connection, index) => {
+      const item = document.createElement('button');
+      item.type = 'button'; item.className = 'connection-item'; item.dataset.kind = connection.kind;
+      item.setAttribute('aria-pressed', String(index === Number(target.value)));
+      const icon = document.createElement('span'); icon.className = 'connection-icon';
+      icon.textContent = connection.kind === 'model' ? '✦' : '↗'; icon.setAttribute('aria-hidden', 'true');
+      const title = document.createElement('strong'); title.textContent = connection.connectionId;
+      const detail = document.createElement('small');
+      detail.textContent = (connection.kind === 'model' ? '模型 · ' : 'API · ') + (connection.baseUrl || '待填写地址');
+      item.append(icon, title, detail);
+      item.onclick = () => { target.value = String(index); show(); $('connection-list').children[index].focus({preventScroll:true}); };
+      list.append(item);
+    });
+  }
   function buttons() {
     getButton.disabled = busy || !modelConnection() || !base.value.trim();
     testButton.disabled = busy || !modelConnection() || !models.value;
@@ -22,6 +40,15 @@ const connectionEditor = (() => {
   function show() {
     invalidate();
     const value = current();
+    renderConnections();
+    $('connection-detail-title').textContent = value.connectionId;
+    $('connection-detail-kind').textContent = modelConnection() ? '模型连接 · 供业务包使用' : 'API 连接 · 供通用块使用';
+    $('base-url-hint').textContent = modelConnection() ? '填写模型服务的 Base URL，然后获取可用模型。' : '填写外部服务的 Base URL；具体请求路径在通用块节点中配置。';
+    base.placeholder = modelConnection() ? 'https://api.deepseek.com' : 'https://api.example.com';
+    credential.type = 'password';
+    $('credential-toggle').textContent = '显示';
+    $('credential-toggle').setAttribute('aria-label', '显示 API Key');
+    $('credential-toggle').setAttribute('aria-pressed', 'false');
     kind.value = value.kind;
     base.value = value.baseUrl;
     timeout.value = value.timeoutSeconds;
@@ -84,6 +111,7 @@ const connectionEditor = (() => {
       catch { /* 表单负责提示尚未完成的 URL。 */ }
     }
     invalidate();
+    renderConnections();
   });
   timeout.addEventListener('input', () => { current().timeoutSeconds = Number(timeout.value); generation++; result.textContent = ''; });
   credential.addEventListener('input', () => {
@@ -92,6 +120,13 @@ const connectionEditor = (() => {
     invalidate();
   });
   target.addEventListener('change', show);
+  $('credential-toggle').onclick = () => {
+    const visible = credential.type === 'password';
+    credential.type = visible ? 'text' : 'password';
+    $('credential-toggle').textContent = visible ? '隐藏' : '显示';
+    $('credential-toggle').setAttribute('aria-label', visible ? '隐藏 API Key' : '显示 API Key');
+    $('credential-toggle').setAttribute('aria-pressed', String(visible));
+  };
   models.addEventListener('change', () => {
     generation++; current().model = models.value; result.textContent = ''; buttons();
   });
