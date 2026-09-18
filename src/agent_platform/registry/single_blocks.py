@@ -124,6 +124,9 @@ class SingleBlockRegistry:
             if content:
                 content.close()
             raise
+        except SyntaxError as exc:
+            content.close()
+            raise invalid(f'已读取通用块文件，但 Python 语法错误（第 {exc.lineno or "未知"} 行）', ['path']) from None
         except (ImportError, FileNotFoundError) as exc:
             if content:
                 content.close()

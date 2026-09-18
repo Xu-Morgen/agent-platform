@@ -23,5 +23,7 @@ def load_model(content, reference, path):
         return symbol
     except ModuleNotFoundError as exc:
         raise invalid(f'缺少代码依赖模块：{exc.name}', path, code='DEPENDENCY_ERROR') from None
+    except SyntaxError as exc:
+        raise invalid(f'已读取契约文件，但 Python 语法错误（第 {exc.lineno or "未知"} 行）', path) from None
     except Exception:
         raise invalid('契约不可用，请检查模型声明', path, code='DEPENDENCY_ERROR') from None

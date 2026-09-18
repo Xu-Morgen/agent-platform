@@ -1,6 +1,7 @@
 """拼图资源目录及源码持久化；资源与环境、服务实例独立。"""
 from dataclasses import dataclass
 from hashlib import sha256
+from pathlib import Path
 from pydantic import TypeAdapter
 from .single_blocks import SingleBlockRegistry, capture_file
 from .validation import invalid
@@ -115,11 +116,24 @@ class ModuleCatalog:
     def _load(self, request, captured=None):
         content = None
         try:
+            if captured is None:
+                path = Path(request.path)
+                path.stat()
+                if request.kind == 'package':
+                    if not path.is_dir():
+                        raise invalid('业务包需要选择目录，而不是文件', ['path'])
+                    if not (path / 'package.json').is_file():
+                        raise invalid('已找到业务包目录，但其中缺少 package.json 文件', ['path', 'package.json'])
+                elif not path.is_file() or path.suffix != '.py':
+                    raise invalid('通用块和契约需要选择 .py 文件，而不是目录或其他格式', ['path'])
             if request.kind == 'contract':
                 if not request.symbol:
-                    raise invalid('契约文件需要指定 Python 类型 symbol', ['symbol'])
+                    raise invalid('请填写契约文件中声明的契约类名，例如 Text', ['symbol'])
                 content = captured or capture_file(request.path)
-                annotation = content.load('block:' + request.symbol)
+                module = __import__(content.namespace + '.block', fromlist=['*'])
+                if not hasattr(module, request.symbol):
+                    raise invalid(f'已读取契约文件，但未找到契约类名：{request.symbol}', ['symbol'])
+                annotation = getattr(module, request.symbol)
                 resource_id = f'contract:{content.digest}:{request.symbol}'
                 contract = self.register_contract(resource_id, annotation)
                 view = CatalogResource(resource_id=resource_id, kind='contract', name=request.symbol,
@@ -156,7 +170,23 @@ class ModuleCatalog:
             if content:
                 content.close()
             raise
-        except (ImportError, FileNotFoundError) as exc:
+        except FileNotFoundError:
+            if content:
+                content.close()
+            raise invalid('未找到所选路径或加载所需文件，请检查路径是否存在', ['path']) from None
+        except PermissionError:
+            if content:
+                content.close()
+            raise invalid('无法读取所选文件或目录：没有访问权限', ['path']) from None
+        except OSError:
+            if content:
+                content.close()
+            raise invalid('无法读取所选文件或目录，请检查路径及文件访问状态', ['path']) from None
+        except SyntaxError as exc:
+            if content:
+                content.close()
+            raise invalid(f'已读取文件，但 Python 语法错误（第 {exc.lineno or "未知"} 行）', ['path']) from None
+        except ImportError as exc:
             if content:
                 content.close()
             module = getattr(exc, 'name', None)
@@ -164,4 +194,4 @@ class ModuleCatalog:
         except Exception:
             if content:
                 content.close()
-            raise invalid('资源声明或严格契约无效，请检查所选文件与 symbol', ['path']) from None
+            raise invalid('已读取文件，但资源声明或严格契约无效，请检查所选类别及契约定义', ['path']) from None

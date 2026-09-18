@@ -5,7 +5,7 @@ const flowEditor = (() => {
   let resources = [], draftId = '', revision = 0;
   const empty = () => ({name: '', inputContract: '', outputContract: '', flow: [], output: [], nodeConfigurations: {}, examples: []});
   let content = empty();
-  const kindNames = {block:'通用块', package:'模型交互', if:'条件分支', repeat:'固定循环', while:'条件循环'};
+  const kindNames = {block:'通用块', package:'业务包', contract:'契约', if:'条件分支', repeat:'固定循环', while:'条件循环'};
   const controls = [
     {kind:'if', name:'条件分支', description:'根据布尔条件，选择「成立」或「否则」路径。'},
     {kind:'repeat', name:'固定循环', description:'按指定次数重复执行，携带每轮的处理结果。'},
@@ -31,9 +31,9 @@ const flowEditor = (() => {
   }
   function portPreview(parent, ref) {
     parent.replaceChildren(); parent.classList.add('port-preview');
-    if (!ref) { parent.append(el('p','选择数据结构后显示字段及类型。')); return; }
+    if (!ref) { parent.append(el('p','请选择契约；加载业务包、通用块或契约文件后，这里会列出可选契约。')); return; }
     const root=schema(ref), value=resolveSchema(root,root);
-    if (!Object.keys(root).length) { parent.append(el('p','数据结构不可用，请重新加载对应资源。')); return; }
+    if (!Object.keys(root).length) { parent.append(el('p','契约不可用，请重新加载对应业务包、通用块或契约文件。')); return; }
     const fields=Object.entries(value.properties || {});
     if (!fields.length) { parent.append(el('code',typeName(value,root))); return; }
     for (const [key,definition] of fields) {
@@ -46,7 +46,7 @@ const flowEditor = (() => {
   }
   function renderLibrary(target, query, choose) {
     target.replaceChildren();
-    const groups=[['处理模块',resources.filter(r=>r.kind!=='contract')],['流程控制',controls]];
+    const groups=[['业务包',resources.filter(r=>r.kind==='package')],['通用块',resources.filter(r=>r.kind==='block')],['流程控制',controls]];
     let count=0;
     for(const [title,items] of groups) {
       const matches=items.filter(r=>(r.name+' '+(r.description||'')+' '+kindNames[r.kind]).toLowerCase().includes(query.toLowerCase().trim()));
@@ -58,8 +58,20 @@ const flowEditor = (() => {
         target.append(item);count++;
       }
     }
-    if(!count)target.append(el('p','没有匹配的拼图块。请换个关键词或加载本地资源。'));
-    if(!query && !resources.some(r=>r.kind!=='contract'))target.append(el('p','还没有处理模块，请在下方加载本地通用块或业务包。'));
+    if(target.id === 'module-library') {
+      const section=el('details');section.className='resource-import';
+      section.append(el('summary','契约'));
+      section.append(el('p','业务包和通用块自带输入、输出契约，也可以单独加载契约文件。在流程的输入、输出处选择，契约无需添加为处理步骤。'));
+      const available=contracts();
+      if(!available.length)section.append(el('p','暂无契约，请先加载业务包、通用块或契约文件。'));
+      for(const [ref,name] of available) {
+        const item=el('details');item.append(el('summary',name));
+        const preview=el('div');portPreview(preview,ref);item.append(preview);section.append(item);
+      }
+      target.append(section);
+    }
+    if(!count)target.append(el('p','没有匹配项。请换个关键词或加载业务包、通用块。'));
+    if(!query && !resources.some(r=>r.kind!=='contract'))target.append(el('p','还没有业务包或通用块，请在下方加载。'));
   }
   function openInsert(nodes,index,label) {
     insertion={nodes,index};$('insert-context').textContent=label;
@@ -72,7 +84,7 @@ const flowEditor = (() => {
   }
   function insertPoint(parent,nodes,index) {
     const row=el('div');row.className='flow-connector';
-    const label=index===0?'在此路径的开头添加拼图块':'在 '+nodeName(nodes[index-1])+' 之后添加拼图块';
+    const label=index===0?'在此路径的开头添加业务包或通用块':'在 '+nodeName(nodes[index-1])+' 之后添加业务包或通用块';
     const control=button('＋',()=>openInsert(nodes,index,label));control.title=label;control.setAttribute('aria-label',label);
     row.append(control);parent.append(row);
   }
@@ -86,8 +98,8 @@ const flowEditor = (() => {
     select.value = value || ''; select.onchange = () => change(select.value); return select;
   }
   function contracts() {
-    return resources.flatMap(r => r.kind === 'contract' ? [[r.resourceId, r.name, r.schemas.value]]
-      : [['input', '输入'], ['output', '输出']].map(([key, name]) => [r[key + 'Contract'], r.name + ' · ' + name, r.schemas[key]]));
+    return resources.flatMap(r => r.kind === 'contract' ? [[r.resourceId, '契约 · ' + r.name, r.schemas.value]]
+      : [['input', '输入'], ['output', '输出']].map(([key, name]) => [r[key + 'Contract'], kindNames[r.kind] + ' · ' + r.name + ' · ' + name + '契约', r.schemas[key]]));
   }
   function schema(ref) { return contracts().find(([id]) => id === ref)?.[2] || {}; }
   function paths(value, root = value, prefix = [], depth = 0) {
@@ -221,21 +233,21 @@ const flowEditor = (() => {
       }).join('、'):'待指定来源';
       if(node.kind==='if')inputText='条件 → 成立 / 否则';
       if(node.body)inputText='初始值 → 每轮处理 → 更新携带值';
-      summary.append(el('span','输入 · '+inputText),el('span','输出 · '+(contracts().find(([id])=>id===outputRef(node))?.[1] || '待选择数据结构')));card.append(summary);
+      summary.append(el('span','输入 · '+inputText),el('span','输出 · '+(contracts().find(([id])=>id===outputRef(node))?.[1] || '待选择契约')));card.append(summary);
       const detail=el('details');detail.className='node-details';detail.append(el('summary','配置输入、输出与参数'));card.append(detail);
       if(node.kind==='block'||node.kind==='package') {
-        bindingSection(detail,'输入 · 这个节点需要什么',node.inputs,resource?.inputContract,scope);
+        bindingSection(detail,'输入 · 按输入契约指定数据来源',node.inputs,resource?.inputContract,scope);
         const inputPreview=el('div');portPreview(inputPreview,resource?.inputContract);detail.append(inputPreview);
-        detail.append(el('h5','输出 · 执行后可供后续节点使用'));const outputPreview=el('div');portPreview(outputPreview,resource?.outputContract);detail.append(outputPreview);
+        detail.append(el('h5','输出契约 · 执行后可供后续步骤使用'));const outputPreview=el('div');portPreview(outputPreview,resource?.outputContract);detail.append(outputPreview);
         const raw=el('details');raw.className='raw-schema';raw.append(el('summary','查看完整契约 JSON'),el('pre',JSON.stringify(resource?.schemas,null,2)));detail.append(raw);
         if(node.kind==='package'||resource?.apiRequired){
           const configured=!!content.nodeConfigurations[node.nodeId];const status=el('p',configured?'参数已配置 · 兼容性以校验结果为准':'待配置 · '+(node.kind==='package'?'模型连接、参数与预算':'API 连接与请求路径'));status.className='configuration-status';card.append(status);
           const configButton=button('配置'+(node.kind==='package'?'模型与参数':' API 连接'),()=>configure(node,resource));configButton.disabled=!resource;detail.append(configButton);
         }
       } else if(node.kind==='if') {
-        const condition=el('label','判断依据 · 选择前面条件块输出的布尔值（true / false）');
+        const condition=el('label','判断依据 · 选择前面通用块输出的布尔值（true / false）');
         condition.append(choices(sourceOptions(scope),sourceValue(node.condition),v=>{if(v){node.condition=JSON.parse(v);changed();render();}}));detail.append(condition);
-        contractChoice(detail,'两条分支汇合后的输出结构',node.outputContract,v=>node.outputContract=v);
+        contractChoice(detail,'契约 · 分支输出契约',node.outputContract,v=>node.outputContract=v);
         const branches=el('div');branches.className='flow-branches';
         for(const [key,title] of [['thenBranch','成立 · true'],['elseBranch','否则 · false']]){
           const branch=el('div');branch.className='flow-branch';branch.dataset.branch=key;branch.append(el('h5',title));
@@ -248,15 +260,15 @@ const flowEditor = (() => {
         const key=node.kind==='repeat'?'count':'maxIterations';const label=el('label',node.kind==='repeat'?'重复次数 · 0 表示跳过':'最大执行次数 · 防止无限循环');
         const input=el('input');input.type='number';input.min=node.kind==='repeat'?'0':'1';input.step='1';input.value=node[key]??'';input.dataset.count=key;
         input.onchange=()=>{if(input.value==='')delete node[key];else node[key]=Number(input.value);changed();render();};label.append(input);detail.append(label);
-        contractChoice(detail,'轮次之间传递的数据结构',node.carry.contract,v=>node.carry.contract=v);
+        contractChoice(detail,'契约 · 循环传递契约',node.carry.contract,v=>node.carry.contract=v);
         detail.append(el('p','初始值用于第一轮；循环体读取「本轮携带值」，每轮结束用「下轮携带值」更新。循环结束后输出最后的携带值。'));
         bindingSection(detail,'循环初始值',node.carry.initial,node.carry.contract,scope);
         const inner=[...scope,{kind:'carry',nodeId:node.nodeId,contract:node.carry.contract}];
         if(node.kind==='while'){
           const condition=el('label','每轮执行前判断 · 输出必须为布尔值');condition.append(choices(resources.filter(r=>r.kind==='block').map(r=>[r.resourceId,r.name]),node.condition.artifactRef,v=>{node.condition.artifactRef=v;delete content.nodeConfigurations[node.condition.nodeId];changed();render();}));detail.append(condition);
           const conditionResource=resources.find(r=>r.resourceId===node.condition.artifactRef);
-          if(conditionResource?.apiRequired)detail.append(button('配置条件块 API',()=>configure(node.condition,conditionResource)));
-          bindingSection(detail,'条件块输入',node.condition.inputs,conditionResource?.inputContract,inner);
+          if(conditionResource?.apiRequired)detail.append(button('配置通用块 API',()=>configure(node.condition,conditionResource)));
+          bindingSection(detail,'通用块输入',node.condition.inputs,conditionResource?.inputContract,inner);
         }
         const body=el('div');body.className='loop-body';body.dataset.branch='body';body.append(el('h5','↻ 循环体 · '+(node.kind==='repeat'?'执行 '+(node.count??'—')+' 次':'条件成立时执行，最多 '+node.maxIterations+' 次')));
         const bodyNodes=el('div');sequence(bodyNodes,node.body,inner);body.append(bodyNodes);card.append(body);
@@ -294,7 +306,7 @@ const flowEditor = (() => {
     if (!response.ok) { $('service-result').textContent = response.error.message; return; }
     const fields = [];
     $('node-fields').replaceChildren(); $('node-capabilities').replaceChildren(); $('node-errors').replaceChildren();
-    $('node-title').textContent = resource.name + ' · ' + node.nodeId;
+    $('node-title').textContent = kindNames[node.kind] + ' · ' + resource.name + ' · ' + node.nodeId;
     if (isPackage) config.budget ||= clone(resource.budgetDefaults);
     const parameterSchema = resource.schemas.configuration;
     const groups = isPackage ? [
@@ -460,13 +472,91 @@ const flowEditor = (() => {
       $('service-result').textContent=`已保存版本 ${result.data.current.version}（${result.data.current.changeKind}），立即生效`;
     }finally{control.disabled=false;}
   };
-  $('load-form').onsubmit = async event => {
-    event.preventDefault(); const body = {kind:$('load-kind').value,path:$('load-path').value};
-    if (body.kind === 'contract') body.symbol = $('load-symbol').value;
-    const response = await window.agentPlatform.loadResource(body);
-    $('load-result').textContent = response.ok ? '已加载 ' + response.data.name : response.error.message;
-    if (response.ok) await refresh();
+  function renderLoadKind() {
+    const kind = $('load-kind').value;
+    const hints = {
+      block: ['samples/blocks/minimal.py', '通用块：选择一个 Python 文件。加载后可添加处理步骤，并选择它的输入、输出契约。'],
+      package: ['samples/packages/minimal', '业务包：选择包含 package.json 的目录。加载后配置模型连接和参数，并选择它的输入、输出契约。'],
+      contract: ['samples/contracts/minimal.py', '契约：选择 Python 文件，并填写其中的契约类名。例如 minimal.py 中的 Text，规定输入为 {"text":"内容"}。契约不执行处理步骤。'],
+    };
+    $('load-path').placeholder = hints[kind][0];
+    $('load-hint').textContent = hints[kind][1];
+    $('load-symbol-label').hidden = kind !== 'contract';
+    $('load-symbol').required = kind === 'contract';
+    $('load-symbol').disabled = kind !== 'contract';
+  }
+  $('load-kind').onchange = renderLoadKind;
+  renderLoadKind();
+  function loadStatus(state, message) {
+    $('load-result').dataset.state = state;
+    $('load-result').textContent = message;
+  }
+  function loadError(error) {
+    const fields = {path:'本地路径',symbol:'契约类名',entry:'通用块函数',imports:'代码依赖',contractRefs:'契约',prompt:'Prompt',version:'版本'};
+    const location = path => (path || []).map(key=>fields[key] || key).join(' → ');
+    const details = (error.issues || []).map(issue=>location(issue.fieldPath)+'：'+issue.reason);
+    if (!details.length && error.fieldPath?.length) details.push('检查位置：'+location(error.fieldPath));
+    return [error.message, ...details].join('\n');
+  }
+  let loadingResource = false;
+  async function loadLocalResource() {
+    if (loadingResource) return;
+    const body = {kind:$('load-kind').value,path:$('load-path').value.trim()};
+    if (!body.path) { loadStatus('pending','尚未选择路径，请选择或填写本地路径。'); return; }
+    if (body.kind === 'contract') {
+      body.symbol = $('load-symbol').value.trim();
+      if (!body.symbol) {
+        loadStatus('pending','已选择契约文件，尚未加载。请填写文件中的契约类名（例如 Text），再点击“加载资源”。\n路径：'+body.path);
+        $('load-symbol').focus();return;
+      }
+    }
+    loadingResource = true;
+    const controls = ['load-kind','load-path','load-symbol','load-browse','load-submit'].map($);
+    const disabled = controls.map(control=>control.disabled);
+    controls.forEach(control=>control.disabled=true);
+    loadStatus('loading','正在读取并校验'+kindNames[body.kind]+'…\n路径：'+body.path);
+    try {
+      const response = await window.agentPlatform.loadResource(body);
+      if (!response.ok) {
+        loadStatus('error','加载失败：'+loadError(response.error)+'\n路径：'+body.path);return;
+      }
+      const listed = await window.agentPlatform.listResources();
+      if (!listed.ok) {
+        loadStatus('error','已录入 '+response.data.name+'，但列表刷新失败：'+loadError(listed.error));return;
+      }
+      resources = listed.data;
+      $('module-search').value = '';
+      renderLibrary($('module-library'),'',resource=>add(resource));render();
+      loadStatus('success','已录入'+kindNames[body.kind]+'：'+response.data.name+'\n路径：'+body.path+'\n'+
+        (body.kind === 'contract' ? '现在可在输入契约、输出契约中选择。' : '现在可在左侧点击添加到流程。'));
+    } catch {
+      loadStatus('error','未能确认加载结果：桌面与后端通信失败，请重试加载（相同资源不会重复录入）。\n路径：'+body.path);
+    } finally {
+      controls.forEach((control,index)=>control.disabled=disabled[index]);
+      loadingResource = false;
+    }
+  }
+  $('load-browse').onclick = async () => {
+    const button = $('load-browse'), kind = $('load-kind').value;
+    button.disabled = true;
+    $('load-kind').disabled = true;
+    try {
+      const response = await window.agentPlatform.selectResourcePath(kind);
+      if (!response.ok) { loadStatus('error',loadError(response.error)); return; }
+      if (!response.data.path) {
+        loadStatus('pending','已取消选择，保留原路径，未发起加载。');return;
+      }
+      $('load-path').value = response.data.path;
+      await loadLocalResource();
+    } catch {
+      loadStatus('error','无法打开路径选择窗口，请重启桌面应用后重试，或手动填写路径。');
+    } finally { button.disabled = false; $('load-kind').disabled = false; }
   };
+  $('load-form').onsubmit = async event => {
+    event.preventDefault();await loadLocalResource();
+  };
+  for (const id of ['load-path','load-symbol']) $(id).oninput = () => loadStatus('pending','内容已修改，尚未加载。填写完成后点击“加载资源”。');
+  $('load-kind').onchange = () => { renderLoadKind();loadStatus('pending','已切换为'+kindNames[$('load-kind').value]+'，请选择对应路径后加载。'); };
   $('service-name').oninput = () => { content.name = $('service-name').value; changed(); };
   $('flow-example').onchange = () => {
     try {

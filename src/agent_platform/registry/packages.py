@@ -59,7 +59,7 @@ class PackageRegistry:
             return artifact
         except ValidationError as exc:
             content.close()
-            raise validation_error(exc) from None
+            raise validation_error(exc, prefix=('package.json',)) from None
         except Exception:
             content.close()
             raise
