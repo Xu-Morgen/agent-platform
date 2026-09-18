@@ -49,7 +49,7 @@ def validate_node(request, catalog, environments):
                     connection(config.api, 'api')
                     normalized = config.model_copy(deep=True)
             elif config is not None:
-                issue('普通通用块无需节点连接配置，业务选项通过输入接线提供')
+                issue('普通通用块无需节点连接配置，业务选项由上一层完整输出提供')
         elif not isinstance(config, NodeConfiguration):
             issue('业务包须配置模型连接、参数和预算，不接受 API 配置')
         else:

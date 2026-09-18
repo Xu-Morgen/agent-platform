@@ -8,7 +8,7 @@
 | 参数 | instruction：非空附加指令，有默认值 |
 | 嵌套参数 | style.language：zh/en，默认 zh |
 | 输出 | text：非空摘要；keywords：1 到 3 个非空关键词 |
-| 预算建议 | loopLimit=1/tokenLimit=32768，作为节点默认值 |
+| 预算建议 | loopLimit=4/tokenLimit=32768，作为节点默认值 |
 
 Prompt 使用 {{parameters.instruction}}、{{parameters.style.language}} 和 {{input.text}}。关键词数量由 Output 的 Field 约束验证；需要不同结构时修改输出契约与 Prompt。跨步骤的动态业务规则用独立校验块处理。
 

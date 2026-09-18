@@ -61,9 +61,7 @@ with httpx.Client(base_url='http://127.0.0.1:8000', timeout=10) as client:
         'outputContract': contract['resourceId'],
         'flow': [{
             'nodeId': 'trim', 'kind': 'block', 'artifactRef': block['resourceId'],
-            'inputs': [{'source': {'kind': 'input'}}],
         }],
-        'output': [{'source': {'kind': 'node', 'nodeId': 'trim'}}],
     }
     validation = post('flows/validate', {'content': flow})
     if not validation['valid']:
@@ -100,12 +98,12 @@ PY
   "nodeConfigurations": {
     "summarize": {
       "parameters": {},
-      "budget": {"loopLimit": 1, "tokenLimit": 32768},
+      "budget": {"loopLimit": 4, "tokenLimit": 32768},
       "model": {"environmentId": "replace-environment-id", "connectionId": "replace-model-connection-id"},
       "maxOutputTokens": 512
     }
   },
-  "budget": {"loopLimit": 1, "tokenLimit": 32768}
+  "budget": {"loopLimit": 4, "tokenLimit": 32768}
 }
 ```
 
@@ -113,7 +111,7 @@ PY
 
 ### 最完整通用块的节点配置
 
-加载 `samples/blocks/complete.py`，使用其 inputContract/outputContract 作为服务端口，将块节点命名为 normalize，并将服务输入和节点输出分别整值接线。在同一 FlowDraft 顶层加入：
+加载 `samples/blocks/complete.py`，使用其 inputContract/outputContract 作为服务端口，将块节点命名为 normalize，并将服务完整输入传给块节点，平台自动返回该节点的完整输出。在同一 FlowDraft 顶层加入：
 
 ```json
 {
@@ -143,7 +141,7 @@ PY
 | name | 必填，非空 | 流程名称 |
 | inputContract / outputContract | 必填 | 已加载的服务端口契约引用 |
 | flow | 必填列表 | 顺序执行的节点及控制容器 |
-| output | 必填接线列表 | 将可见数据绑定到服务出口 |
+| retryLimit | 默认 3，整数 0～1000 | 运行时输出不符合契约时的最大额外重试次数；0 表示不重试，声明类型不兼容直接拒绝保存 |
 | nodeConfigurations | 默认 {} | 按 nodeId 保存包的模型配置或 API 通用块的连接与请求路径配置；普通计算块和控制容器无需配置 |
 | budget | 默认 null；含包必填 | 全局 loop/token 累计限额 |
 | examples | 默认 [] | 每项 `{name, input}`，示例输入供界面使用，不是自动测试或自动执行 |
@@ -155,9 +153,8 @@ PY
 | nodeId | 整个流程内唯一，以英文字母开头，仅字母/数字/下划线/连字符 |
 | kind | block/package |
 | artifactRef | 对应加载结果 resourceId |
-| inputs | 完整数据来源列表，必须恰好一项；空列表仅可暂存为未完成草稿 |
 
-### 每条接线
+### 分支与循环的数据来源
 
 | 字段 | 作用 |
 | --- | --- |
@@ -166,7 +163,7 @@ PY
 | source.kind=carry | 引用循环当前携带值，nodeId 填循环节点 ID |
 | source.kind=constant | 直接填符合接收方契约的完整 value，不填 nodeId/path |
 
-平台只传递完整数据，不支持字段路径引用、改名或拼装。每条来源只声明 source；API 节点的请求路径 api.path 保持不变。来源完整输出与接收方契约不兼容时校验报错，例如 answer 无法直接传入要求 text 的契约；请添加通用块完成转换，再选择该通用块的完整输出。分支输出、循环初始值和更新值也遵循同一规则。不提供旧字段映射的兼容或迁移。
+业务包和通用块不声明 inputs，也不选择数据来源；输入输出契约由其代码或清单固定声明。第一步接收服务完整输入，之后只接收上一层完整输出；分支内第一步接收进入分支前的完整数据，循环体和循环条件通用块的第一步接收本轮完整携带值。平台只传递完整数据，不支持字段路径引用、改名或拼装。分支与循环配置中的每条来源只声明 source；API 节点的请求路径 api.path 保持不变。来源完整输出与接收方契约不兼容时校验报错，例如 answer 无法直接传入要求 text 的契约；请在两步之间添加通用块完成转换。分支输出、循环初始值和更新值也遵循同一规则。服务返回只配置 outputContract，自动使用顶层流程最后一步的完整输出，不声明 output 或手动选择返回来源；空流程不能保存为服务。不提供旧字段映射的兼容或迁移。
 
 ### 控制容器字段
 

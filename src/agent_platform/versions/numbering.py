@@ -5,11 +5,11 @@ import json
 
 def signatures(snapshot):
     draft = snapshot.draft.model_dump(mode='json', by_alias=True)
-    structural = {key: draft[key] for key in ('inputContract', 'outputContract', 'flow', 'output')}
+    structural = {key: draft[key] for key in ('inputContract', 'outputContract', 'flow')}
     structural['compiler'] = snapshot.compiler_version
     structural['modules'] = {ref: value.content.digest for ref, value in snapshot.catalog._artifacts.items()}
     structural['contracts'] = {ref: value.schema for ref, value in snapshot.catalog._contracts.items()}
-    configuration = {'nodes': draft['nodeConfigurations'], 'budget': draft['budget']}
+    configuration = {'nodes': draft['nodeConfigurations'], 'budget': draft['budget'], 'retryLimit': draft['retryLimit']}
     return json.dumps(structural, sort_keys=True), json.dumps(configuration, sort_keys=True)
 
 

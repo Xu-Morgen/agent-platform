@@ -37,9 +37,7 @@ def pure_service(app, path):
     flow = FlowDraft.model_validate({
         'name': 'pure', 'inputContract': resource.input_contract,
         'outputContract': resource.output_contract,
-        'flow': [{'nodeId': 'calculate', 'kind': 'block', 'artifactRef': resource.resource_id,
-                  'inputs': [{'source': {'kind': 'input'}}]}],
-        'output': [{'source': {'kind': 'node', 'nodeId': 'calculate'}}],
+        'flow': [{'nodeId': 'calculate', 'kind': 'block', 'artifactRef': resource.resource_id}],
     })
     return app.state.services.save(ServiceWrite(name='pure', flow=flow))
 

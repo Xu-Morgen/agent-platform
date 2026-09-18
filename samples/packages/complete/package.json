@@ -10,7 +10,7 @@
   "description": "输入输出契约、嵌套业务参数与 Prompt 模板；由平台调用模型。",
   "prompt": "prompt.txt",
   "budgetDefaults": {
-    "loopLimit": 1,
+    "loopLimit": 4,
     "tokenLimit": 32768
   }
 }

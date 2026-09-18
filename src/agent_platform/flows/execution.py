@@ -9,13 +9,13 @@ from pydantic import BaseModel, Field, ValidationError
 from langgraph.graph import START, END, StateGraph
 from langgraph.errors import GraphRecursionError
 from ..contracts.base import StrictModel
-from ..contracts.flows import FlowDraft, ModuleNode, ConstantValue, IfNode, RepeatNode, WhileNode
+from ..contracts.flows import FlowDraft, ModuleNode, ConstantValue, IfNode, RepeatNode, WhileNode, PortReference
 from ..contracts.errors import PlatformError, ErrorResponse
 from ..runtime.context import current_context
 from ..runtime.boundary import checkpoint
 from .validation import validate_flow
 
-COMPILER_VERSION = 'flow-2'
+COMPILER_VERSION = 'flow-4'
 execution_path = ContextVar('flow_path', default=())
 step_counter = ContextVar('flow_steps', default=None)
 
@@ -114,12 +114,12 @@ def compile_flow(draft, catalog):
             message='输入输出契约校验失败，请添加通用块完成转换并重新保存', issues=validation.issues)
         raise PlatformError(error)
 
-    def wrap(node):
+    def wrap(node, source, next_contract=None, next_node=None):
         async def execute(state):
             stage = 'nodes.' + node.node_id
             try:
                 view = catalog.get(node.artifact_ref)
-                value = checked(catalog.contract(view.input_contract), bound_value(node.inputs, state), stage + '.input')
+                value = checked(catalog.contract(view.input_contract), resolve(source, state), stage + '.input')
                 context = current_context.get()
                 if node.kind == 'block':
                     operation = lambda: catalog.artifact(node.artifact_ref).invoke(plain(value))
@@ -129,24 +129,48 @@ def compile_flow(draft, catalog):
                         raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage=stage, message='包执行需要任务上下文'))
                     result = await context.invoke_package(node.node_id, plain(value))
                 result = checked(catalog.contract(view.output_contract), result, stage + '.output')
+                if next_contract:
+                    try:
+                        checked(catalog.contract(next_contract), result, stage + '.output')
+                    except PlatformError as exc:
+                        exc.error.source_node_id = node.node_id
+                        exc.error.message = ('输出不符合下一步输入契约' if next_node else '输出不符合服务输出契约') + '：' + exc.error.message
+                        raise
                 return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(result)}}
             except PlatformError as exc:
                 exc.error.node_id = node.node_id
                 raise
-        return execute
+        attempt = guarded(node.node_id, execute)
+        async def run(state):
+            for retry in range(draft.retry_limit + 1):
+                try:
+                    return await attempt(state)
+                except PlatformError as exc:
+                    if exc.error.code != 'OUTPUT_VALIDATION_ERROR' or not exc.error.stage.endswith('.output'):
+                        raise
+                    if retry == draft.retry_limit:
+                        error = exc.error.model_copy(deep=True)
+                        error.message = f'输出契约校验失败，已额外重试 {draft.retry_limit} 次：' + error.message
+                        error.details.attempt = retry + 1
+                        raise PlatformError(error) from None
+        return run
 
-    def sequence(nodes):
+    def sequence(nodes, incoming, final_contract=None):
         graph = StateGraph(FlowState)
         previous = START
         for index, node in enumerate(nodes):
             name = f'node_{index}'
+            source = PortReference(kind='node', node_id=nodes[index - 1].node_id) if index else incoming
             if isinstance(node, ModuleNode):
-                graph.add_node(name, guarded(node.node_id, wrap(node)), retry_policy=None)
+                following = nodes[index + 1] if index + 1 < len(nodes) else None
+                expected = (catalog.get(following.artifact_ref).input_contract if isinstance(following, ModuleNode)
+                            else final_contract if following is None else None)
+                graph.add_node(name, wrap(node, source, expected, following), retry_policy=None)
                 graph.add_edge(previous, name)
                 previous = name
             elif isinstance(node, IfNode):
-                branches = {True: (sequence(node.then_branch.nodes), node.then_branch.output),
-                            False: (sequence(node.else_branch.nodes), node.else_branch.output)}
+                branches = {True: (sequence(node.then_branch.nodes, source), node.then_branch.output),
+                            False: (sequence(node.else_branch.nodes, source), node.else_branch.output)}
                 def chooser(node):
                     def choose(state):
                         value = resolve(node.condition, state)
@@ -172,8 +196,8 @@ def compile_flow(draft, catalog):
                 graph.add_edge(name + '_false', name + '_join')
                 previous = name + '_join'
             else:
-                child = sequence(node.body)
-                condition_graph = sequence([node.condition]) if isinstance(node, WhileNode) else None
+                child = sequence(node.body, PortReference(kind='carry', node_id=node.node_id))
+                condition_graph = sequence([node.condition], PortReference(kind='carry', node_id=node.node_id)) if isinstance(node, WhileNode) else None
                 def loop_run(node, child, condition_graph):
                     async def run(state):
                         contract = catalog.contract(node.carry.contract)
@@ -219,13 +243,13 @@ def compile_flow(draft, catalog):
         return graph.compile(checkpointer=None)
 
     graph = StateGraph(FlowState)
-    compiled = sequence(draft.flow)
+    compiled = sequence(draft.flow, PortReference(kind='input'), draft.output_contract)
     async def body(state):
         return await compiled.ainvoke(state.model_dump())
     graph.add_node('body', body)
     graph.add_edge(START, 'body')
     async def output(state):
-        result = checked(catalog.contract(draft.output_contract), bound_value(draft.output, state), 'flow.output')
+        result = checked(catalog.contract(draft.output_contract), state.outputs[draft.flow[-1].node_id], 'flow.output')
         return {'result': plain(result)}
 
     graph.add_node('output', guarded('output', output))

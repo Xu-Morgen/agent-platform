@@ -101,7 +101,7 @@ const connectionEditor = (() => {
       ...(kind.value === 'model' ? {outputTokenParameter:'max_completion_tokens', jsonMode:true} : {})};
     refreshTarget(Number(target.value));
   };
-  base.addEventListener('input', () => {
+  inputEvents.onInput(base, () => {
     const value = current();
     value.baseUrl = base.value.trim();
     delete value.model;
@@ -114,7 +114,7 @@ const connectionEditor = (() => {
     renderConnections();
   });
   timeout.addEventListener('input', () => { current().timeoutSeconds = Number(timeout.value); generation++; result.textContent = ''; });
-  credential.addEventListener('input', () => {
+  inputEvents.onInput(credential, () => {
     current().credential = credential.value;
     delete current().model;
     invalidate();

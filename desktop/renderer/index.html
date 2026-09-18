@@ -82,7 +82,7 @@
       <p id="environment-result" class="inline-status" role="status"></p>
     </section>
     <section data-page="services" class="configuration-page" aria-label="服务配置" hidden>
-      <div class="editor-heading"><div><span class="section-eyebrow">WORKFLOW STUDIO</span><h3>编排服务流程</h3><p>先加载业务包、通用块或契约，再选择输入契约，添加处理步骤，最后选择输出契约和返回来源。</p></div><span class="editor-badge">可视化编排</span></div>
+      <div class="editor-heading"><div><span class="section-eyebrow">WORKFLOW STUDIO</span><h3>编排服务流程</h3><p>先加载业务包、通用块或契约，再选择输入契约，添加处理步骤，最后选择输出契约。</p></div><span class="editor-badge">可视化编排</span></div>
       <div class="service-context settings-card">
         <div class="panel-heading"><div><span class="section-eyebrow">服务与版本</span><h4>选择编辑的服务</h4></div><button id="service-refresh">刷新列表</button></div>
         <label>当前服务 <select id="service-select"><option value="">保存为新服务</option></select></label>
@@ -112,13 +112,15 @@
         </details>
       </aside>
       <div class="flow-canvas">
-        <div class="canvas-heading"><div><strong>执行流程</strong> <span id="flow-node-count" class="count-badge">0 个节点</span></div><span>↓ 按顺序执行 · 数据来源在节点内指定</span></div>
+        <div class="canvas-heading"><div><strong>执行流程</strong> <span id="flow-node-count" class="count-badge">0 个节点</span></div><span>↓ 按顺序执行 · 自动传递上一层完整输出</span></div>
         <article class="flow-terminal start-terminal"><span class="terminal-tag">开始</span><h3>服务输入</h3><p>选择契约来规定调用者要提交哪些字段。可选用业务包或通用块已有的输入契约，也可加载契约文件；实际数据在任务调用时填写。</p><label>输入契约 <select id="flow-input"></select></label><div id="flow-input-preview"></div></article>
         <div id="flow-nodes"></div>
-        <article class="flow-terminal end-terminal"><span class="terminal-tag">结束</span><h3>返回结果</h3><p>选择输出契约和完整数据来源。来源与输出契约不兼容时会校验报错，请添加通用块完成字段改名、选取或结构转换。</p><label>输出契约 <select id="flow-output"></select></label><div id="flow-output-preview"></div><div id="flow-output-bindings"></div></article>
+        <article class="flow-terminal end-terminal"><span class="terminal-tag">结束</span><h3>返回结果</h3><p>自动返回流程最后一步的完整输出。这里只需选择输出契约；不兼容时会校验报错，请添加通用块完成转换。</p><label>输出契约 <select id="flow-output"></select></label><div id="flow-output-preview"></div></article>
       </div>
       </div>
-      <details class="flow-advanced"><summary>运行设置 <span class="summary-hint">全局预算 · 输入样例</span></summary>
+      <details class="flow-advanced"><summary>运行设置 <span class="summary-hint">重试次数 · 全局预算 · 输入样例</span></summary>
+      <label>最大额外重试次数 <input id="flow-retry-limit" type="number" min="0" max="1000" step="1" value="3" required aria-describedby="flow-retry-hint"></label>
+      <p id="flow-retry-hint" class="field-hint">0～1000 次，0 表示不重试。运行时输出不符合契约时，重新调用产生该输出的上一步，通过校验后才执行下一步；预算不足或取消会提前停止。声明的输入输出类型不兼容时不能保存。</p>
       <fieldset id="global-budget" hidden><legend>单任务全局预算</legend>
         <label>loop 上限 <input id="global-loop" type="number" min="1"></label>
         <label>token 上限 <input id="global-token" type="number" min="1"></label>
@@ -200,6 +202,7 @@
       </div>
     </section>
   </main>
+  <script src="input-events.js"></script>
   <script src="router.js"></script>
   <script src="connection-tools.js"></script>
   <script src="flow-editor.js"></script>

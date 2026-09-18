@@ -4,10 +4,11 @@ from pydantic import Field
 from .base import StrictModel
 
 PositiveInt = Annotated[int, Field(gt=0)]
+DEFAULT_CONTRACT_RETRY_LIMIT = 3
 
 
 class NodeBudget(StrictModel):
-    loop_limit: PositiveInt = 1
+    loop_limit: PositiveInt = DEFAULT_CONTRACT_RETRY_LIMIT + 1
     token_limit: PositiveInt = 32768
 
 

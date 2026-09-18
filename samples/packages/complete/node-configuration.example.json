@@ -11,7 +11,7 @@
   },
   "maxOutputTokens": 512,
   "budget": {
-    "loopLimit": 1,
+    "loopLimit": 4,
     "tokenLimit": 32768
   }
 }

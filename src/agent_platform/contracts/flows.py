@@ -4,7 +4,7 @@ from urllib.parse import unquote, urlsplit
 from pydantic import Field, JsonValue, ValidationError, field_validator, model_validator
 from .base import StrictModel
 from .packages import Identifier
-from .budgets import InstanceBudget, NodeBudget, PositiveInt
+from .budgets import InstanceBudget, NodeBudget, PositiveInt, DEFAULT_CONTRACT_RETRY_LIMIT
 
 ResourceId = Annotated[str, Field(min_length=1)]
 
@@ -69,7 +69,6 @@ class ModuleNode(StrictModel):
     node_id: Identifier
     kind: Literal['block', 'package']
     artifact_ref: ResourceId
-    inputs: list[PortBinding] = Field(default_factory=list)
 
 
 class Branch(StrictModel):
@@ -144,9 +143,9 @@ class FlowDraft(StrictModel):
     input_contract: ResourceId
     output_contract: ResourceId
     flow: list[FlowNode]
-    output: list[PortBinding]
     node_configurations: dict[Identifier, NodeConfiguration | BlockConfiguration] = Field(default_factory=dict)
     budget: InstanceBudget | None = None
+    retry_limit: Annotated[int, Field(ge=0, le=1000)] = DEFAULT_CONTRACT_RETRY_LIMIT
     examples: list[FlowExample] = Field(default_factory=list)
 
     @model_validator(mode='after')

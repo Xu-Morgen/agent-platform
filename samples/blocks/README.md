@@ -96,16 +96,13 @@ API 块通过注入的 BlockAPI 向节点配置的路径发起请求，凭据由
 
 ## 输入参数怎么固定
 
-块的业务选项是输入；`nodeConfigurations` 为 API 块保存连接引用和请求路径。可以直接传递符合 Input 契约的完整服务输入；需要固定选项或拼装字段时，先通过另一个通用块处理。例如完整块节点：
+块的业务选项包含在输入契约中；`nodeConfigurations` 为 API 块保存连接引用和请求路径。第一步自动接收服务完整输入，后续步骤自动接收上一层完整输出，均须符合 Input 契约；需要固定选项或拼装字段时，先通过另一个通用块处理。例如完整块节点：
 
 ```json
 {
   "nodeId": "normalize",
   "kind": "block",
-  "artifactRef": "替换为加载完整块返回的 resourceId",
-  "inputs": [
-    {"source": {"kind": "input"}}
-  ]
+  "artifactRef": "替换为加载完整块返回的 resourceId"
 }
 ```
 
@@ -141,4 +138,4 @@ response = await api.request('GET', {'query': value.query}, response_type=APIRes
 
 例如 Base URL 为 `https://example.com/api`、节点 path 为 `/lookup`，请求地址为 `https://example.com/api/lookup`。另一个节点可复用同一完整块，把 path 配成 `/search`；接口须接受相同参数并返回符合 APIResponse 的数据。路径随实例快照保存，修改并保存后生成新实例版本，不改变已提交任务或历史版本。旧节点配置需补充 api.path；旧块调用需去掉 request 的路径参数。
 
-平台固定任务使用的 API 环境，任务排队至结束期间禁止修改所引用环境。请求失败、超时、非法 JSON 或响应不满足契约时，任务失败，错误不回显凭据和原始响应。取消在执行边界生效，应用退出关闭在途本地传输。不自动重试，也不撤销已发生的外部操作。
+平台固定任务使用的 API 环境，任务排队至结束期间禁止修改所引用环境。请求失败或超时直接报错；输出不满足契约时按服务 retryLimit 重试，次数耗尽后任务失败，错误不回显凭据和原始响应。取消在执行边界生效，应用退出关闭在途本地传输。重试会重新调用该通用块及其外部 API，不撤销已发生的外部操作。

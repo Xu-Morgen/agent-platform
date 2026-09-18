@@ -15,7 +15,7 @@
 | contractRefs.configuration | 可省略/null | 业务参数模型，例如 models:Config；省略时只接受空 parameters |
 | prompt | 默认 prompt.txt | UTF-8 Prompt 文件的包内规范相对路径 |
 | budgetDefaults | 可省略/null | 新节点的默认最大调用次数和累计 token；未指定时使用平台默认值 |
-| budgetDefaults.loopLimit | 默认 1 | 节点在单任务中累计进入包的次数上限 |
+| budgetDefaults.loopLimit | 默认 4 | 节点在单任务中累计进入包的次数上限 |
 | budgetDefaults.tokenLimit | 默认 32768 | 节点在单任务中累计输入与输出 token 上限 |
 
 输入、输出和 Config 都继承 StrictModel。Config 不继承预算类型。只有实际引用的业务参数影响 Prompt，不存在隐式执行逻辑。依赖平台提供的契约工具，无需维护代码依赖、执行入口或模型协议声明。旧 entry/runtimeRequirements/requiredCapabilities 字段不再接受。
@@ -28,7 +28,7 @@ FlowDraft.nodeConfigurations[nodeId]：
 {
   "parameters": {},
   "model": {"environmentId": "replace_environment_id", "connectionId": "chat"},
-  "budget": {"loopLimit": 1, "tokenLimit": 32768},
+  "budget": {"loopLimit": 4, "tokenLimit": 32768},
   "maxOutputTokens": 512
 }
 ```
@@ -38,7 +38,7 @@ FlowDraft.nodeConfigurations[nodeId]：
 | parameters | 默认 {} | 仅业务参数；根据可选 Config 验证并补默认值 |
 | model | 必填 | environmentId、connectionId 指向已保存的 model 连接 |
 | budget | 可省略/null | 省略时取包 budgetDefaults，再取平台默认值；保存后成为固定节点配置 |
-| budget.loopLimit | 默认 1，正整数 | 单任务内此节点最大调用次数 |
+| budget.loopLimit | 默认 4，正整数 | 单任务内此节点最大调用次数 |
 | budget.tokenLimit | 默认 32768，正整数 | 单任务内此节点最大累计 token |
 | maxOutputTokens | 默认 512，正整数 | 单次请求输出上限，平台可能按剩余额度收紧 |
 
@@ -46,7 +46,7 @@ FlowDraft.nodeConfigurations[nodeId]：
 
 ### 最小包节点配置示例
 
-以下配置用于平台节点，不是业务包文件。替换实际环境 ID 后，在节点配置中使用；省略 budget 时最小包采用平台默认限额 loopLimit=1/tokenLimit=32768，此处将单次输出上限设为 256。
+以下配置用于平台节点，不是业务包文件。替换实际环境 ID 后，在节点配置中使用；省略 budget 时最小包采用平台默认限额 loopLimit=4/tokenLimit=32768，此处将单次输出上限设为 256。
 
 ```json
 {
@@ -64,10 +64,10 @@ FlowDraft.nodeConfigurations[nodeId]：
 含包的 FlowDraft.budget 必填：
 
 ```json
-{"loopLimit": 1, "tokenLimit": 32768}
+{"loopLimit": 4, "tokenLimit": 32768}
 ```
 
-全局 loopLimit 是所有包节点的累计调用次数上限；tokenLimit 是所有节点模型输入与输出累计 token 上限。两者均为正整数。单次调用开始后即计一轮，后来失败也不返还；包一次执行只发一个模型请求，无自动重试。任务和节点上限同时生效。图步数、通用块调用和循环次数不等同于包 loop。
+全局 loopLimit 是所有包节点的累计调用次数上限；tokenLimit 是所有节点模型输入与输出累计 token 上限。两者均为正整数。单次调用开始后即计一轮，后来失败也不返还；包一次尝试只发一个模型请求；不符合输出契约时按服务 retryLimit 重试，每次尝试仍计入预算。预算小于首次调用加重试次数时会提前停止。任务和节点上限同时生效。图步数、通用块调用和循环次数不等同于包 loop。
 
 token 按供应商返回的输入和输出用量累计，请求前检查剩余额度并收紧输出上限；单次请求仍可能超额，响应后立即失败且不发布成功结果。缺少 usage 时明确报计量错误，不估算或记零。
 

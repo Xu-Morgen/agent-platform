@@ -3,7 +3,7 @@ const flowEditor = (() => {
   const $ = id => document.getElementById(id);
   const clone = value => structuredClone(value);
   let resources = [], draftId = '', revision = 0;
-  const empty = () => ({name: '', inputContract: '', outputContract: '', flow: [], output: [], nodeConfigurations: {}, examples: []});
+  const empty = () => ({name: '', inputContract: '', outputContract: '', flow: [], nodeConfigurations: {}, examples: [], retryLimit: 3});
   let content = empty();
   const kindNames = {block:'通用块', package:'业务包', contract:'契约', if:'条件分支', repeat:'固定循环', while:'条件循环'};
   const controls = [
@@ -143,22 +143,23 @@ const flowEditor = (() => {
   let timer;
   function changed() { revision++; $('service-result').textContent = '草稿已修改，等待校验'; clearTimeout(timer); timer = setTimeout(validate, 250); }
   function render(focusNode) {
+    if (inputEvents.defer('flow-render',()=>render(focusNode),$('flow-nodes'))) return;
     const openDetails=new Set(Array.from(document.querySelectorAll('#flow-nodes details[open]')).map(item=>item.dataset.detailKey));
-    $('service-name').value = content.name;
-    $('flow-example').value = content.examples.length ? JSON.stringify(content.examples[0].input,null,2) : '';
+    inputEvents.setValue($('service-name'), content.name);
+    inputEvents.setValue($('flow-retry-limit'), content.retryLimit);
+    inputEvents.setValue($('flow-example'), content.examples.length ? JSON.stringify(content.examples[0].input,null,2) : '');
     for (const [id,key] of [['flow-input','inputContract'],['flow-output','outputContract']]) {
       const select = choices(contracts(), content[key], value => { content[key] = value; changed(); render(); });
       select.id = id; $(id).replaceWith(select);
     }
     $('global-budget').hidden = !content.budget;
     if (content.budget) {
-      $('global-loop').value = content.budget.loopLimit;
-      $('global-token').value = content.budget.tokenLimit;
+      inputEvents.setValue($('global-loop'), content.budget.loopLimit);
+      inputEvents.setValue($('global-token'), content.budget.tokenLimit);
     }
     $('flow-nodes').replaceChildren();
     sequence($('flow-nodes'), content.flow, []);
     $('flow-node-count').textContent = allNodes().length + ' 个节点';
-    bindings($('flow-output-bindings'),content.output,content.outputContract,content.flow,'服务返回结果');
     portPreview($('flow-input-preview'),content.inputContract);portPreview($('flow-output-preview'),content.outputContract);
     for(const detail of document.querySelectorAll('#flow-nodes details')) {
       detail.dataset.detailKey ||= detail.closest('.flow-node').dataset.nodeId+':'+detail.firstElementChild.textContent;
@@ -183,7 +184,7 @@ const flowEditor = (() => {
     const section=el('fieldset');section.append(el('legend',label));const body=el('div');body.dataset.bindingSection=label;
     bindings(body,values,contract,scope,label.startsWith('输入 ·')?'当前节点输入':label);section.append(body);parent.append(section);
   }
-  function sequence(parent, nodes, inherited) {
+  function sequence(parent, nodes, inherited, incoming='服务完整输入') {
     parent.classList.add('flow-sequence');
     if(!nodes.length){const hint=el('p','点击 ＋ 添加这条路径的第一步');hint.className='empty-sequence';parent.append(hint);}
     nodes.forEach((node,index)=>{
@@ -206,18 +207,16 @@ const flowEditor = (() => {
       });remove.setAttribute('aria-label','删除 '+nodeName(node));actions.append(remove);header.append(icon,title,actions);card.append(header);
       const description=el('p',resource ? resource.description || '按输入数据执行处理，将结果提供给后续节点。' : controls.find(r=>r.kind===node.kind)?.description || '资源不可用，请重新加载。');description.className='node-description';card.append(description);
       const summary=el('div');summary.className='node-port-summary';
-      let inputText=node.inputs?.length ? node.inputs.map(({source})=>{
-        const origin=scope.find(n=>n.nodeId===source.nodeId);
-        const name=source.kind==='input'?'服务输入':source.kind==='constant'?'固定值':source.kind==='carry'?'本轮携带值':origin?nodeName(origin)+' ['+source.nodeId+']':source.nodeId+'（不可用）';
-        return name;
-      }).join('、'):'待指定来源';
+      const previousInput=index ? nodeName(nodes[index-1])+' 的完整输出' : incoming;
+      let inputText=previousInput;
       if(node.kind==='if')inputText='条件 → 成立 / 否则';
       if(node.body)inputText='初始值 → 每轮处理 → 更新携带值';
       summary.append(el('span','输入 · '+inputText),el('span','输出 · '+(contracts().find(([id])=>id===outputRef(node))?.[1] || '待选择契约')));card.append(summary);
-      const detail=el('details');detail.className='node-details';detail.append(el('summary','配置输入、输出与参数'));card.append(detail);
+      const detail=el('details');detail.className='node-details';detail.append(el('summary',node.kind==='block'||node.kind==='package'?'查看固定契约与配置参数':'配置条件或循环'));card.append(detail);
       if(node.kind==='block'||node.kind==='package') {
-        bindingSection(detail,'输入 · 按输入契约选择完整数据来源',node.inputs,resource?.inputContract,scope);
+        detail.append(el('h5','输入契约 · 自动接收'+previousInput));
         const inputPreview=el('div');portPreview(inputPreview,resource?.inputContract);detail.append(inputPreview);
+        detail.append(el('p','输入输出类型由'+kindNames[node.kind]+'固定声明。运行时输出不符合契约时，按服务设置重新调用本步骤；下一步不会执行。预算不足或取消时立即停止。'));
         detail.append(el('h5','输出契约 · 执行后可供后续步骤使用'));const outputPreview=el('div');portPreview(outputPreview,resource?.outputContract);detail.append(outputPreview);
         const raw=el('details');raw.className='raw-schema';raw.append(el('summary','查看完整契约 JSON'),el('pre',JSON.stringify(resource?.schemas,null,2)));detail.append(raw);
         if(node.kind==='package'||resource?.apiRequired){
@@ -231,7 +230,7 @@ const flowEditor = (() => {
         const branches=el('div');branches.className='flow-branches';
         for(const [key,title] of [['thenBranch','成立 · true'],['elseBranch','否则 · false']]){
           const branch=el('div');branch.className='flow-branch';branch.dataset.branch=key;branch.append(el('h5',title));
-          const branchNodes=el('div');sequence(branchNodes,node[key].nodes,scope);branch.append(branchNodes);
+          const branchNodes=el('div');sequence(branchNodes,node[key].nodes,scope,previousInput);branch.append(branchNodes);
           const output=el('details');output.className='branch-output';output.dataset.detailKey=node.nodeId+':'+key;output.append(el('summary','本分支返回什么'));
           bindingSection(output,'分支出口',node[key].output,node.outputContract,[...scope,...node[key].nodes]);branch.append(output);branches.append(branch);
         }
@@ -248,10 +247,11 @@ const flowEditor = (() => {
           const condition=el('label','每轮执行前判断 · 输出必须为布尔值');condition.append(choices(resources.filter(r=>r.kind==='block').map(r=>[r.resourceId,r.name]),node.condition.artifactRef,v=>{node.condition.artifactRef=v;delete content.nodeConfigurations[node.condition.nodeId];changed();render();}));detail.append(condition);
           const conditionResource=resources.find(r=>r.resourceId===node.condition.artifactRef);
           if(conditionResource?.apiRequired)detail.append(button('配置通用块 API',()=>configure(node.condition,conditionResource)));
-          bindingSection(detail,'通用块输入',node.condition.inputs,conditionResource?.inputContract,inner);
+          detail.append(el('p','条件通用块自动接收本轮完整携带值。'));
+          const preview=el('div');portPreview(preview,conditionResource?.inputContract);detail.append(preview);
         }
         const body=el('div');body.className='loop-body';body.dataset.branch='body';body.append(el('h5','↻ 循环体 · '+(node.kind==='repeat'?'执行 '+(node.count??'—')+' 次':'条件成立时执行，最多 '+node.maxIterations+' 次')));
-        const bodyNodes=el('div');sequence(bodyNodes,node.body,inner);body.append(bodyNodes);card.append(body);
+        const bodyNodes=el('div');sequence(bodyNodes,node.body,inner,'本轮完整携带值');body.append(bodyNodes);card.append(body);
         const update=el('details');update.className='loop-update';update.append(el('summary','↻ 设置下轮携带值'));
         bindingSection(update,'下轮携带值',node.carry.update,node.carry.contract,[...inner,...node.body]);card.append(update);
       }
@@ -266,12 +266,12 @@ const flowEditor = (() => {
       if(!content.budget)content.budget={...defaults};
       else {content.budget.loopLimit+=defaults.loopLimit;content.budget.tokenLimit+=defaults.tokenLimit;}
     }
-    let node={kind,nodeId,artifactRef:resource.resourceId,inputs:[]};
+    let node={kind,nodeId,artifactRef:resource.resourceId};
     if(kind==='if')node={kind,nodeId,condition:{kind:'input'},outputContract:'',thenBranch:{nodes:[],output:[]},elseBranch:{nodes:[],output:[]}};
     if(kind==='repeat'||kind==='while') {
       node={kind,nodeId,carry:{contract:'',initial:[],update:[]},body:[]};
       if(kind==='repeat')node.count=0;
-      else {node.maxIterations=1;node.condition={kind:'block',nodeId:nodeId+'_condition',artifactRef:'',inputs:[]};}
+      else {node.maxIterations=1;node.condition={kind:'block',nodeId:nodeId+'_condition',artifactRef:''};}
     }
     nodes.splice(index,0,node);changed();render(nodeId);
   }
@@ -362,8 +362,8 @@ const flowEditor = (() => {
     };
     $('node-dialog').showModal();
   }
-  $('module-search').oninput=()=>renderLibrary($('module-library'),$('module-search').value,resource=>add(resource));
-  $('insert-search').oninput=renderInsertOptions;
+  inputEvents.onInput($('module-search'),()=>renderLibrary($('module-library'),$('module-search').value,resource=>add(resource)));
+  inputEvents.onInput($('insert-search'),renderInsertOptions);
   $('insert-close').onclick=()=>$('insert-dialog').close();
   $('node-close').onclick = () => $('node-dialog').close();
   async function refresh() {
@@ -438,7 +438,7 @@ const flowEditor = (() => {
     await refreshSaved(id);
   };
   $('instance-save').onclick=async()=>{
-    if(!$('flow-example').reportValidity())return;
+    if(!$('flow-example').reportValidity() || !$('flow-retry-limit').reportValidity())return;
     const control=$('instance-save');control.disabled=true;
     try{
       const snapshot=clone(content), id=$('service-select').value;
@@ -537,13 +537,14 @@ const flowEditor = (() => {
   };
   for (const id of ['load-path','load-symbol']) $(id).oninput = () => loadStatus('pending','内容已修改，尚未加载。填写完成后点击“加载资源”。');
   $('load-kind').onchange = () => { renderLoadKind();loadStatus('pending','已切换为'+kindNames[$('load-kind').value]+'，请选择对应路径后加载。'); };
-  $('service-name').oninput = () => { content.name = $('service-name').value; changed(); };
-  $('flow-example').onchange = () => {
+  $('flow-retry-limit').onchange = () => { content.retryLimit = Number($('flow-retry-limit').value); changed(); };
+  inputEvents.onInput($('service-name'), () => { content.name = $('service-name').value; changed(); });
+  inputEvents.onInput($('flow-example'), () => {
     try {
       content.examples = $('flow-example').value.trim() ? [{name:'页面输入样例',input:JSON.parse($('flow-example').value)}] : [];
       $('flow-example').setCustomValidity('');changed();
-    } catch { $('flow-example').setCustomValidity('输入样例 JSON 格式无效');$('flow-example').reportValidity(); }
-  };
+    } catch { $('flow-example').setCustomValidity('输入样例 JSON 格式无效'); }
+  });
   $('flow-validate').onclick = validate;
   $('draft-save').onclick = async () => {
     const body = {content:clone(content)};
