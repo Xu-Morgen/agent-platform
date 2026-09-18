@@ -2,11 +2,11 @@
 from typing import Literal
 from pydantic import Field, model_validator
 from .base import StrictModel
-from .environments import ConnectionWrite
+from .environments import ModelConnectionWrite
 from .models import ModelUsage
 
 
-class DiscoveryConnection(ConnectionWrite):
+class DiscoveryConnection(ModelConnectionWrite):
     kind: Literal['model'] = 'model'
 
     @model_validator(mode='after')
@@ -19,14 +19,8 @@ class ModelListRequest(StrictModel):
 
 
 class ConnectionTestRequest(StrictModel):
-    connection: ConnectionWrite
+    connection: ModelConnectionWrite
     max_output_tokens: int = Field(default=256, ge=16, le=8192)
-
-    @model_validator(mode='after')
-    def model_only(self):
-        if self.connection.kind != 'model':
-            raise ValueError('连接测试仅支持模型连接')
-        return self
 
 
 class ModelListResult(StrictModel):

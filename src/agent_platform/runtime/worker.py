@@ -1,9 +1,10 @@
 """单 worker 消费固定快照，生命周期独立于提交连接。"""
 import asyncio
-from ..adapters.models import ModelAdapters
+from ..adapters.openai_chat import OpenAIChatAdapter
+from ..adapters.http import JsonTransport
 from .boundary import Boundary, current_boundary
 from .cancellation import CancellationPolicy, terminal_for_error
-from .budgets import LoopPolicy, StrictTokenPolicy, NonStrictTokenPolicy
+from .budgets import LoopPolicy, TokenPolicy
 from .context import current_context, execution_error
 from ..flows.context import FlowRunContext
 from ..contracts.errors import ErrorResponse
@@ -51,15 +52,15 @@ class RunWorker:
         if runs.get(run_id).status in TERMINAL:
             return
         boundary = self.boundary_factory()
-        model = ModelAdapters(envs.credentials)
+        model = OpenAIChatAdapter(envs.credentials)
+        api_transport = JsonTransport(envs.credentials)
         token_policy = None
         policies = (CancellationPolicy(runs, run_id),) + boundary.policies
         if snapshot.packages:
-            policy_type = StrictTokenPolicy if snapshot.draft.budget.strict_token_limit else NonStrictTokenPolicy
-            token_policy = policy_type(run_id, snapshot, runs)
+            token_policy = TokenPolicy(run_id, snapshot, runs)
             policies += (token_policy, LoopPolicy(run_id, snapshot, runs))
         boundary.policies = policies
-        context = FlowRunContext(run_id, snapshot, runs, model, token_policy)
+        context = FlowRunContext(run_id, snapshot, runs, model, token_policy, api_transport)
         bt, ct = current_boundary.set(boundary), current_context.set(context)
         try:
             await boundary.check('run_start', run_id)
@@ -85,7 +86,7 @@ class RunWorker:
             try:
                 await boundary.check('cleanup', run_id)
             finally:
-                await model.close()
+                await asyncio.gather(model.close(), api_transport.close())
                 envs.release(run_id)
                 current_context.reset(ct)
                 current_boundary.reset(bt)

@@ -6,13 +6,6 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 from .contracts.errors import ErrorResponse, ErrorDetails, PlatformError
 
-_REASONS = {
-    'missing': '缺少必填字段', 'extra_forbidden': '不允许未知字段',
-    'int_type': '必须为整数', 'float_type': '必须为数值',
-    'string_type': '必须为字符串', 'bool_type': '必须为布尔值',
-    'list_type': '必须为数组', 'model_type': '必须为对象',
-    'json_invalid': 'JSON 格式无效',
-}
 
 
 def response(error: ErrorResponse, status: int) -> JSONResponse:

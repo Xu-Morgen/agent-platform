@@ -1,7 +1,8 @@
 """环境统一更新入口；任务提交与环境写入共享临界区。"""
 from uuid import uuid4
 from threading import RLock
-from ..contracts.environments import Connection, Environment, EnvironmentWrite
+from pydantic import TypeAdapter
+from ..contracts.environments import ConnectionValue, Environment, EnvironmentWrite
 from ..contracts.errors import ErrorResponse, PlatformError
 from .credentials import CredentialRepository
 
@@ -54,7 +55,7 @@ class EnvironmentRepository:
             data = connection.model_dump(exclude={'credential'})
             if connection.credential is not None:
                 data['credential_ref'] = self.credentials.put(connection.credential).credential_ref
-            connections.append(Connection.model_validate(data))
+            connections.append(TypeAdapter(ConnectionValue).validate_python(data))
         value = Environment(environment_id=environment_id or 'env_' + uuid4().hex,
                             revision=previous.revision + 1 if previous else 1,
                             name=request.name, connections=connections)

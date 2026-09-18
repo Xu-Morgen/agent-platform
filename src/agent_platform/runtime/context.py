@@ -25,8 +25,9 @@ def execution_error(exc, stage, run_id):
 
 
 class RunContext:
-    def __init__(self, run_id, snapshot, runs, model=None, token_policy=None):
+    def __init__(self, run_id, snapshot, runs, model=None, token_policy=None, api_transport=None):
         self.run_id, self.snapshot, self.runs = run_id, snapshot, runs
+        self.api_transport = api_transport
         self.model = model
         self.token_policy = token_policy
 

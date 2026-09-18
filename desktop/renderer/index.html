@@ -39,13 +39,21 @@
       <button id="environment-refresh" type="button">刷新环境</button>
       <form id="environment-form">
         <label>环境名称 <input id="environment-name" required></label>
-        <label id="connection-target-label" hidden>模型连接 <select id="connection-tool-select"></select></label>
+        <label id="connection-target-label">连接 <select id="connection-tool-select"></select></label>
+        <button id="connection-add-model" type="button">添加模型连接</button>
+        <button id="connection-add-api" type="button">添加 API 连接</button>
+        <button id="connection-remove" type="button">移除当前连接</button>
+        <label>连接用途 <select id="connection-kind"><option value="model">业务包：模型交互</option><option value="api">通用块：外部 API</option></select></label>
         <label>Base URL <input id="connection-base-url" type="url" required placeholder="https://api.deepseek.com"></label>
         <label>凭据（API Key） <input id="environment-credential" type="password" autocomplete="new-password" placeholder="填写 API Key；已保存时留空保留"></label>
+        <label>请求超时（秒） <input id="connection-timeout" type="number" min="1" step="1" required></label>
+        <div id="model-connection-fields">
         <button id="connection-models" type="button">获取模型</button>
         <label>模型 <select id="connection-model-select" required disabled><option value="">请先获取模型</option></select></label>
         <button id="connection-test" type="button" disabled>测试连接</button>
         <p>测试连接会发送一次小型请求，可能产生模型费用。</p>
+        </div>
+        <p id="api-connection-hint" hidden>API 连接供通用块节点选择；请求路径在节点中配置，请求方法、参数和响应契约由块定义。凭据按 Bearer Token 发送。</p>
         <p id="connection-tool-result" role="status"></p>
         <button type="submit">保存环境</button>
       </form>
@@ -70,8 +78,7 @@
       <fieldset id="global-budget" hidden><legend>单任务全局预算</legend>
         <label>loop 上限 <input id="global-loop" type="number" min="1"></label>
         <label>token 上限 <input id="global-token" type="number" min="1"></label>
-        <label><input id="global-strict" type="checkbox">严格 token 限额</label>
-        <p>当前模型适配器不保证严格总 token 上限；选择非严格模式后仍记录实际用量。</p>
+        <p>按模型返回的实际用量累计，超额停止后续步骤；单次请求可能超过剩余额度。</p>
       </fieldset>
       <div id="flow-nodes"></div>
       <dialog id="node-dialog"><form id="node-form">

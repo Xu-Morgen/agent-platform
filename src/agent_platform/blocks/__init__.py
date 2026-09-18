@@ -1,4 +1,5 @@
-"""固定协议通用块及单文件注册入口。"""
+"""单文件块注册与受控 API 调用入口。"""
 from .single import block
+from .api import BlockAPI
 
-__all__ = ['block']
+__all__ = ['block', 'BlockAPI']

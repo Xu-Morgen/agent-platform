@@ -1,9 +1,15 @@
 """OpenAI 兼容 Chat Completions；一次非流式 JSON 交互，无重试。"""
 import json
 from .http import JsonTransport
-from .ollama import ModelCallError
-from ..contracts.models import ModelCapabilities, ModelRequest, ModelResponse, ModelUsage
-from ..contracts.errors import ErrorResponse
+from ..contracts.models import ModelRequest, ModelResponse, ModelUsage
+from ..contracts.errors import ErrorResponse, PlatformError
+
+
+class ModelCallError(PlatformError):
+    """失败响应仍保留供应商用量。"""
+    def __init__(self, error, usage=None):
+        super().__init__(error, 502)
+        self.usage = usage
 
 
 def response_usage(response):
@@ -24,15 +30,8 @@ def response_usage(response):
 
 
 class OpenAIChatAdapter:
-    capabilities = ModelCapabilities(protocol='openai-chat', input_preflight='unsupported',
-        response_usage='exact', missing_usage='unsupported', output_limit=True,
-        hidden_tokens_verified=False, strict_total_limit=False, closes_local_transport=True)
-
     def __init__(self, credentials):
         self.transport = JsonTransport(credentials)
-
-    async def preflight(self, connection, request):
-        return ModelUsage(quality='unsupported', source='openai-chat:no_input_preflight')
 
     async def invoke(self, connection, request):
         request = ModelRequest.model_validate(request)

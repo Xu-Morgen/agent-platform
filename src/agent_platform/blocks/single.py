@@ -13,10 +13,12 @@ class BlockMetadata(StrictModel):
     name: str = Field(min_length=1)
     description: str = ''
     dependencies: list[str] = Field(default_factory=list)
+    uses_api: bool = False
 
 
-def block(*, id, version, name, description='', dependencies=()):
-    metadata = BlockMetadata(id=id, version=version, name=name, description=description, dependencies=list(dependencies))
+def block(*, id, version, name, description='', dependencies=(), api=False):
+    metadata = BlockMetadata(id=id, version=version, name=name, description=description,
+                             dependencies=list(dependencies), uses_api=api)
     def register(function):
         function.__block_metadata__ = metadata
         return function

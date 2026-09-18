@@ -22,3 +22,4 @@ class CatalogResource(StrictModel):
     configuration_contract: str | None = None
     schemas: dict[str, JsonValue] = Field(default_factory=dict)
     budget_defaults: NodeBudget | None = None
+    api_required: bool = False

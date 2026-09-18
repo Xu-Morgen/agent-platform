@@ -4,7 +4,7 @@ from pydantic import Field
 from .base import StrictModel
 
 ErrorCode = Literal[
-    'LOOP_ITERATION_LIMIT', 'RUN_CANCELLED', 'GRAPH_EXECUTION_LIMIT', 'RESULT_NOT_READY', 'UPSTREAM_BUSINESS_ERROR', 'CONFIGURATION_ERROR', 'CONTRACT_VALIDATION_ERROR', 'DEPENDENCY_ERROR',
+    'LOOP_ITERATION_LIMIT', 'RUN_CANCELLED', 'GRAPH_EXECUTION_LIMIT', 'RESULT_NOT_READY', 'CONFIGURATION_ERROR', 'CONTRACT_VALIDATION_ERROR', 'DEPENDENCY_ERROR',
     'ENVIRONMENT_IN_USE', 'LOOP_BUDGET_EXCEEDED', 'TOKEN_BUDGET_EXCEEDED',
     'TOKEN_ACCOUNTING_UNSUPPORTED', 'MODEL_TIMEOUT', 'MODEL_TRANSPORT_ERROR',
     'API_TIMEOUT', 'API_TRANSPORT_ERROR', 'OUTPUT_VALIDATION_ERROR',
@@ -31,10 +31,6 @@ class ErrorDetails(StrictModel):
     run_status: Literal['queued', 'running', 'completed', 'failed', 'cancelled'] | None = None
     package_binding_id: str | None = None
     attempt: int | None = Field(default=None, ge=1)
-    upstream_code: str | None = None
-    upstream_msg: str | None = None
-    upstream_sub_code: str | None = None
-    upstream_sub_msg: str | None = None
     active_run_ids: list[str] = Field(default_factory=list)
     timeout_seconds: float | None = Field(default=None, gt=0)
     http_status: int | None = Field(default=None, ge=100, le=599)

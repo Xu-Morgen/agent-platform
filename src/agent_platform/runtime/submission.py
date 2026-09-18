@@ -1,6 +1,7 @@
 """原子受理：固定实际实例与环境后入队，不在 HTTP 中执行。"""
 from asyncio import Queue
 from dataclasses import dataclass
+from ..contracts.flows import NodeConfiguration
 from ..flows.execution import checked, plain
 from ..flows.configuration import validate_configurations
 from ..contracts.errors import ErrorResponse, PlatformError
@@ -32,7 +33,8 @@ class RunSubmission:
             if not validation.valid:
                 raise PlatformError(ErrorResponse(code='CONFIGURATION_ERROR', stage='runs.submit',
                     message='当前环境或节点配置校验失败', issues=validation.issues))
-            ids = {config.model.environment_id for config in draft.node_configurations.values()}
+            ids = {(config.model if isinstance(config, NodeConfiguration) else config.api).environment_id
+                   for config in draft.node_configurations.values()}
             environments = {key: self.environments.get(key) for key in sorted(ids)}
             run = self.runs.create(service_id=service.service_id, instance_id=snapshot.instance_id,
                 version=service.current.version, revision=service.current.revision,

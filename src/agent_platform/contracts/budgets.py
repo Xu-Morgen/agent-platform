@@ -12,4 +12,4 @@ class NodeBudget(StrictModel):
 
 
 class InstanceBudget(NodeBudget):
-    strict_token_limit: bool = True
+    pass

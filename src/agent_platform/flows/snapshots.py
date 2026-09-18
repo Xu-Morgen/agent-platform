@@ -4,7 +4,7 @@ from hashlib import sha256
 import json
 from types import MappingProxyType
 from uuid import uuid4
-from ..contracts.flows import FlowDraft, ModuleNode, walk_nodes
+from ..contracts.flows import FlowDraft, ModuleNode, NodeConfiguration, walk_nodes
 from ..contracts.errors import ErrorResponse, PlatformError
 from ..registry.catalog import ModuleCatalog
 from .configuration import NodeValidationRequest, validate_node
@@ -49,8 +49,7 @@ def prepare_flow_snapshot(draft, catalog, environments):
         if isinstance(node, ModuleNode):
             resources.add(node.artifact_ref)
             if node.kind == 'package':
-                config = validate_node(NodeValidationRequest(node=node, configuration=draft.node_configurations[node.node_id],
-                    strict_token_limit=draft.budget.strict_token_limit), catalog, environments).configuration
+                config = validate_node(NodeValidationRequest(node=node, configuration=draft.node_configurations[node.node_id]), catalog, environments).configuration
                 draft.node_configurations[node.node_id] = config
                 packages[node.node_id] = catalog.artifact(node.artifact_ref)
         elif node.kind == 'if':
@@ -66,7 +65,7 @@ def prepare_flow_snapshot(draft, catalog, environments):
     frozen._contracts = MappingProxyType({r: catalog.contract(r) for r in contracts})
     # 契约类型保留其内存模块来源；模块内容均由 ContentSnapshot 固定。
     frozen._contents = tuple(catalog._contents)
-    configuration = {'packages.' + key: c.parameters for key, c in draft.node_configurations.items()}
+    configuration = {'packages.' + key: c.parameters for key, c in draft.node_configurations.items() if isinstance(c, NodeConfiguration)}
     graph = compile_flow(draft, frozen)
     schema = {'input': frozen.contract(draft.input_contract).schema,
               'output': frozen.contract(draft.output_contract).schema,

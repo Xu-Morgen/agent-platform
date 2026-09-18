@@ -64,12 +64,12 @@ FlowDraft.nodeConfigurations[nodeId]：
 含包的 FlowDraft.budget 必填：
 
 ```json
-{"loopLimit": 1, "tokenLimit": 32768, "strictTokenLimit": false}
+{"loopLimit": 1, "tokenLimit": 32768}
 ```
 
 全局 loopLimit 是所有包节点的累计调用次数上限；tokenLimit 是所有节点模型输入与输出累计 token 上限。两者均为正整数。单次调用开始后即计一轮，后来失败也不返还；包一次执行只发一个模型请求，无自动重试。任务和节点上限同时生效。图步数、通用块调用和循环次数不等同于包 loop。
 
-strictTokenLimit 默认 true。当前 ollama-chat/openai-chat 均不能保证严格总 token 上限，必须显式选择 false 才能通过模型节点配置预检。非严格模式仍检查累计额度和计量可用性，超额或无法计量会失败。
+token 按供应商返回的输入和输出用量累计，请求前检查剩余额度并收紧输出上限；单次请求仍可能超额，响应后立即失败且不发布成功结果。缺少 usage 时明确报计量错误，不估算或记零。
 
 ## 模型环境
 
@@ -82,7 +82,6 @@ strictTokenLimit 默认 true。当前 ollama-chat/openai-chat 均不能保证严
     "connectionId": "chat",
     "kind": "model",
     "baseUrl": "http://127.0.0.1:1234/v1",
-    "modelAdapter": "openai-chat",
     "outputTokenParameter": "max_completion_tokens",
     "jsonMode": true,
     "model": "replace-with-real-model",
@@ -93,6 +92,8 @@ strictTokenLimit 默认 true。当前 ollama-chat/openai-chat 均不能保证严
 
 地址和模型名需替换为实际部署。连接支持 credential（写入新凭据）或 credentialRef（引用会话内凭据），二选一；两者也可省略。凭据不进入包或 Prompt。Base URL 不能包含认证信息、query 或 fragment。
 
-modelAdapter 默认 ollama-chat；outputTokenParameter 默认 max_completion_tokens，也支持 max_tokens；jsonMode 默认 true；timeoutSeconds 默认 60。OpenAI Chat 在 Base URL 后追加 /chat/completions，Ollama 追加 /api/chat。关闭 JSON 模式也不免除输出 JSON 与业务结构校验，详见 [模型协议](../../docs/protocols/model.md)。
+模型统一使用 OpenAI 兼容 Chat Completions，无协议选择字段。outputTokenParameter 默认 max_completion_tokens，也支持 max_tokens；jsonMode 默认 true；timeoutSeconds 默认 60。平台在 Base URL 后追加 /chat/completions。关闭 JSON 模式也不免除输出 JSON 与业务结构校验，详见 [模型协议](../../docs/protocols/model.md)。
 
-环境和运行数据仅保存在会话内存；已提交任务固定实际环境。包不再绑定 API 或通用块能力，相关业务处理通过独立通用块节点组织。
+环境和运行数据仅保存在会话内存；已提交任务固定实际环境。业务包只能选择 kind=model 的连接；外部 API 的连接引用与请求路径由 [API 通用块节点](../blocks/README.md#完整块的-api-配置) 单独配置，查询结果通过接线传入包。
+
+旧配置迁移：移除环境中的 `modelAdapter` 和预算中的 `strictTokenLimit` 字段；它们不再属于当前契约。外部 API 连接配置见通用块手册，不能加入包节点。

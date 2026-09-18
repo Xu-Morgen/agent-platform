@@ -1,5 +1,5 @@
 """环境写入与公开响应分离，凭据原值仅允许进入写请求。"""
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import urlsplit
 from pydantic import Field, SecretStr, field_validator, model_validator
 from .base import StrictModel
@@ -9,12 +9,7 @@ from .budgets import PositiveInt
 
 class Connection(StrictModel):
     connection_id: Identifier
-    kind: Literal['model', 'api']
     base_url: str
-    model_adapter: Literal['ollama-chat', 'openai-chat'] = 'ollama-chat'
-    output_token_parameter: Literal['max_completion_tokens', 'max_tokens'] = 'max_completion_tokens'
-    json_mode: bool = True
-    model: str | None = Field(default=None, min_length=1)
     timeout_seconds: float = Field(default=60, gt=0, allow_inf_nan=False)
     credential_ref: str | None = None
 
@@ -32,14 +27,8 @@ class Connection(StrictModel):
             raise ValueError('连接地址须为无认证信息和查询参数的 HTTP(S) URL') from None
         return value
 
-    @model_validator(mode='after')
-    def require_model(self):
-        if self.kind == 'model' and not self.model:
-            raise ValueError('模型连接必须指定模型标识')
-        return self
 
-
-class ConnectionWrite(Connection):
+class CredentialWrite(Connection):
     credential: SecretStr | None = None
 
     @model_validator(mode='after')
@@ -48,6 +37,35 @@ class ConnectionWrite(Connection):
             if self.credential_ref is not None or not self.credential.get_secret_value().strip():
                 raise ValueError('填写凭据或引用其中一种，凭据不得为空')
         return self
+
+
+class ModelConnection(Connection):
+    kind: Literal['model'] = 'model'
+    output_token_parameter: Literal['max_completion_tokens', 'max_tokens'] = 'max_completion_tokens'
+    json_mode: bool = True
+    model: str | None = Field(default=None, min_length=1)
+
+    @model_validator(mode='after')
+    def require_model(self):
+        if not self.model:
+            raise ValueError('模型连接必须指定模型标识')
+        return self
+
+
+class APIConnection(Connection):
+    kind: Literal['api'] = 'api'
+
+
+class ModelConnectionWrite(ModelConnection, CredentialWrite):
+    pass
+
+
+class APIConnectionWrite(APIConnection, CredentialWrite):
+    pass
+
+
+ConnectionValue = Annotated[ModelConnection | APIConnection, Field(discriminator='kind')]
+ConnectionWrite = Annotated[ModelConnectionWrite | APIConnectionWrite, Field(discriminator='kind')]
 
 
 class EnvironmentWrite(StrictModel):
@@ -66,5 +84,5 @@ class Environment(StrictModel):
     environment_id: Identifier
     revision: PositiveInt
     name: str
-    connections: list[Connection]
+    connections: list[ConnectionValue]
     active_run_ids: list[str] = Field(default_factory=list)

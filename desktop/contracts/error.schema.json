@@ -48,54 +48,6 @@
           "default": null,
           "title": "Attempt"
         },
-        "upstreamCode": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Upstreamcode"
-        },
-        "upstreamMsg": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Upstreammsg"
-        },
-        "upstreamSubCode": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Upstreamsubcode"
-        },
-        "upstreamSubMsg": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Upstreamsubmsg"
-        },
         "activeRunIds": {
           "items": {
             "type": "string"
@@ -266,7 +218,6 @@
         "RUN_CANCELLED",
         "GRAPH_EXECUTION_LIMIT",
         "RESULT_NOT_READY",
-        "UPSTREAM_BUSINESS_ERROR",
         "CONFIGURATION_ERROR",
         "CONTRACT_VALIDATION_ERROR",
         "DEPENDENCY_ERROR",

@@ -2,8 +2,6 @@
 from .contracts.errors import ValidationIssue, ErrorResponse, PlatformError
 
 REASONS = {
-    'duplicate_indices': '索引不得重复', 'index_coverage': '索引必须唯一且覆盖全部输入项',
-    'count_exceeds_total': '匹配数量不得超过总数量', 'duplicate_position': '同一位置最多匹配一次',
     'missing': '缺少必填字段', 'extra_forbidden': '不允许未知字段',
     'int_type': '期望整数', 'float_type': '期望数值', 'string_type': '期望字符串',
     'bool_type': '期望严格布尔值', 'list_type': '期望数组', 'dict_type': '期望对象',
@@ -18,13 +16,13 @@ REASONS = {
 }
 # 仅公开项目已审阅的固定原因；业务校验不得插入输入值。
 SAFE_CUSTOM_REASONS = frozenset({
-    'nodeId 重复', '包绑定标识重复', '配置标识重复', '环境引用重复',
-    '同作用域字段重复定义', '配置引用了不存在的包绑定',
+    'nodeId 重复',
     '连接标识重复', '模型连接必须指定模型标识',
     '连接地址须为无认证信息和查询参数的 HTTP(S) URL',
-    '填写凭据或引用其中一种，凭据不得为空', '能力绑定目标不完整或混合了不同类型',
+    'API 路径须为连接下的相对路径，不包含查询字符串、片段或目录回退',
+    '填写凭据或引用其中一种，凭据不得为空',
     'node/carry 引用必须声明 nodeId；input 不声明 nodeId', 'while 条件必须是通用块',
-    '可用计量必须提供输入和输出计数', '连接测试仅支持模型连接',
+    '可用计量必须提供输入和输出计数',
 })
 LIMIT_KEYS = {
     'greater_than': 'gt', 'greater_than_equal': 'ge', 'less_than': 'lt', 'less_than_equal': 'le',

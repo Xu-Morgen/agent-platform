@@ -1,6 +1,7 @@
 """拼图协议权威来源；只描述结构，执行与资源解析由后续层负责。"""
 from typing import Annotated, Literal
-from pydantic import Field, JsonValue, ValidationError, model_validator
+from urllib.parse import unquote, urlsplit
+from pydantic import Field, JsonValue, ValidationError, field_validator, model_validator
 from .base import StrictModel
 from .packages import Identifier
 from .budgets import InstanceBudget, NodeBudget, PositiveInt
@@ -31,16 +32,40 @@ class PortBinding(StrictModel):
     source: Annotated[PortReference | ConstantValue, Field(discriminator='kind')]
 
 
-class ModelSelection(StrictModel):
+class ConnectionSelection(StrictModel):
     environment_id: Identifier
     connection_id: Identifier
+
+
+class APISelection(ConnectionSelection):
+    path: str = Field(min_length=1, description='API Base URL 下的相对请求路径')
+
+    @field_validator('path')
+    @classmethod
+    def relative_path(cls, value):
+        reason = 'API 路径须为连接下的相对路径，不包含查询字符串、片段或目录回退'
+        try:
+            parsed = urlsplit(value)
+            decoded = unquote(value)
+            if (parsed.scheme or parsed.netloc or '?' in value or '#' in value
+                    or decoded.startswith('//') or '\\' in decoded
+                    or any(char.isspace() or ord(char) < 32 for char in value)
+                    or any(part in ('.', '..') for part in decoded.split('/'))):
+                raise ValueError(reason)
+        except ValueError:
+            raise ValueError(reason) from None
+        return value
 
 
 class NodeConfiguration(StrictModel):
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
     budget: NodeBudget | None = None
-    model: ModelSelection
+    model: ConnectionSelection
     max_output_tokens: PositiveInt = 512
+
+
+class BlockConfiguration(StrictModel):
+    api: APISelection
 
 
 class ModuleNode(StrictModel):
@@ -123,7 +148,7 @@ class FlowDraft(StrictModel):
     output_contract: ResourceId
     flow: list[FlowNode]
     output: list[PortBinding]
-    node_configurations: dict[Identifier, NodeConfiguration] = Field(default_factory=dict)
+    node_configurations: dict[Identifier, NodeConfiguration | BlockConfiguration] = Field(default_factory=dict)
     budget: InstanceBudget | None = None
     examples: list[FlowExample] = Field(default_factory=list)
 

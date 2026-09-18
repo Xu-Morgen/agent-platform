@@ -15,3 +15,5 @@ Prompt 使用 {{parameters.instruction}}、{{parameters.style.language}} 和 {{i
 加载目录、选择模型连接、配置参数后保存服务。节点示例见 [node-configuration.example.json](node-configuration.example.json)，模型环境和任务预算见 [配置参考](../CONFIGURATION.md)。Config 未填写的字段由契约补默认值；Config 不包含 token/loop 预算。
 
 需要规范空白、查询资料或输出字符数时，在包前后放置通用块。该模板不再要求绑定 normalize/guidance，也不调用 API 或块。最终输出错误由平台拒绝，无固定成功内容或自动重试。
+
+独立运行时，服务端口直接选择本包加载结果中的 inputContract/outputContract。与现有块组合时需注意：minimal.py 和 complete.py 的输出 text 均未保证 1～10000 字符，不能直接接入本包；完整块的输出还包含 characterCount/changed。应通过转换块选取 text、验证长度，并在输出契约中声明相同约束。不能仅凭本次文本长度合适跳过静态接线检查。

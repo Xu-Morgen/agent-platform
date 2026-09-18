@@ -2,7 +2,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from time import monotonic
-from .adapters.models import ModelAdapters
+from .adapters.openai_chat import OpenAIChatAdapter
 from .contracts.connection_tools import ModelListResult, ConnectionTestResult
 from .contracts.models import ModelRequest
 from .contracts.errors import ErrorResponse, PlatformError, upstream_error
@@ -29,23 +29,22 @@ class ConnectionTools:
             connection.credential_ref = None
             connection.credential = None
             connection.credential_ref = credentials.put(secret).credential_ref
-        adapters = ModelAdapters(credentials)
-        self._active.add(adapters)
+        adapter = OpenAIChatAdapter(credentials)
+        self._active.add(adapter)
         try:
-            yield connection, adapters.for_connection(connection)
+            yield connection, adapter
         finally:
-            await adapters.close()
+            await adapter.close()
             credentials.clear()
-            self._active.discard(adapters)
+            self._active.discard(adapter)
 
     async def models(self, value):
         start = monotonic()
         async with self.session(value.connection) as (connection, adapter):
-            openai = connection.model_adapter == 'openai-chat'
             response = await adapter.transport.request(connection, 'GET',
-                connection.base_url.rstrip('/') + ('/models' if openai else '/api/tags'), {}, kind='model')
-            entries = response.get('data' if openai else 'models') if isinstance(response, dict) else None
-            key = 'id' if openai else 'name'
+                connection.base_url.rstrip('/') + '/models', {}, kind='model')
+            entries = response.get('data') if isinstance(response, dict) else None
+            key = 'id'
             if not isinstance(entries, list) or any(not isinstance(item, dict)
                     or not isinstance(item.get(key), str) or not item[key].strip() for item in entries):
                 raise PlatformError(ErrorResponse(code='OUTPUT_VALIDATION_ERROR', stage='model.discovery',
@@ -66,4 +65,4 @@ class ConnectionTools:
 
     async def close(self):
         self._closed = True
-        await asyncio.gather(*(adapters.close() for adapters in list(self._active)))
+        await asyncio.gather(*(adapter.close() for adapter in list(self._active)))

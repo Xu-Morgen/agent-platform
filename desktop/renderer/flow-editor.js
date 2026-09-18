@@ -82,7 +82,6 @@ const flowEditor = (() => {
     if (content.budget) {
       $('global-loop').value = content.budget.loopLimit;
       $('global-token').value = content.budget.tokenLimit;
-      $('global-strict').checked = content.budget.strictTokenLimit;
     }
     $('flow-nodes').replaceChildren();
     sequence($('flow-nodes'), content.flow, []);
@@ -119,7 +118,7 @@ const flowEditor = (() => {
       if(node.kind==='block'||node.kind==='package') {
         card.append(el('p',resource?.description));const ports=el('div');bindings(ports,node.inputs,resource?.inputContract,scope);card.append(ports);
         const detail=el('details');detail.append(el('summary','输入／输出契约'),el('pre',JSON.stringify(resource?.schemas,null,2)));card.append(detail);
-        if(node.kind==='package')card.append(button('配置 '+node.nodeId,()=>configure(node,resource)),el('p',content.nodeConfigurations[node.nodeId]?'已配置，最终状态以拼图校验为准':'无效：尚未配置参数、预算及环境'));
+        if(node.kind==='package'||resource?.apiRequired)card.append(button('配置 '+node.nodeId,()=>configure(node,resource)),el('p',content.nodeConfigurations[node.nodeId]?'已配置，最终状态以拼图校验为准':node.kind==='package'?'无效：尚未配置参数、预算及模型':'无效：尚未配置 API 连接及请求路径'));
       } else if(node.kind==='if') {
         const condition=el('label','条件块输出（严格 bool）');
         condition.append(choices(sourceOptions(scope),sourceValue(node.condition),v=>{if(v){node.condition=JSON.parse(v);changed()}}));card.append(condition);
@@ -137,7 +136,9 @@ const flowEditor = (() => {
         bindingSection(card,'循环初始值',node.carry.initial,node.carry.contract,scope);
         const inner=[...scope,{kind:'carry',nodeId:node.nodeId,contract:node.carry.contract}];
         if(node.kind==='while'){
-          const condition=el('label','前置条件块');condition.append(choices(resources.filter(r=>r.kind==='block').map(r=>[r.resourceId,r.name]),node.condition.artifactRef,v=>{node.condition.artifactRef=v;changed();render()}));card.append(condition);
+          const condition=el('label','前置条件块');condition.append(choices(resources.filter(r=>r.kind==='block').map(r=>[r.resourceId,r.name]),node.condition.artifactRef,v=>{node.condition.artifactRef=v;delete content.nodeConfigurations[node.condition.nodeId];changed();render()}));card.append(condition);
+          const conditionResource=resources.find(r=>r.resourceId===node.condition.artifactRef);
+          if(conditionResource?.apiRequired)card.append(button('配置 '+node.condition.nodeId,()=>configure(node.condition,conditionResource)));
           bindingSection(card,'条件块输入',node.condition.inputs,resources.find(r=>r.resourceId===node.condition.artifactRef)?.inputContract,inner);
         }
         const body=el('fieldset');body.dataset.branch='body';body.append(el('legend','循环体'));sequence(body,node.body,inner);card.append(body);
@@ -153,7 +154,7 @@ const flowEditor = (() => {
     const nodeId=newId(),kind=resource.kind;
     if(kind==='package') {
       const defaults=resource.budgetDefaults;
-      if(!content.budget)content.budget={...defaults,strictTokenLimit:true};
+      if(!content.budget)content.budget={...defaults};
       else {content.budget.loopLimit+=defaults.loopLimit;content.budget.tokenLimit+=defaults.tokenLimit;}
     }
     let node={kind,nodeId,artifactRef:resource.resourceId,inputs:[]};
@@ -165,19 +166,21 @@ const flowEditor = (() => {
     }
     nodes.push(node);changed();render();
   }
-  for (const [id, key] of [['global-loop','loopLimit'],['global-token','tokenLimit'],['global-strict','strictTokenLimit']]) {
-    $(id).onchange = () => { content.budget[key] = key === 'strictTokenLimit' ? $(id).checked : Number($(id).value); changed(); };
+  for (const [id, key] of [['global-loop','loopLimit'],['global-token','tokenLimit']]) {
+    $(id).onchange = () => { content.budget[key] = Number($(id).value); changed(); };
   }
   async function configure(node, resource) {
-    const config = clone(content.nodeConfigurations[node.nodeId] || {parameters:{},budget:resource.budgetDefaults,model:null,maxOutputTokens:512});
+    const isPackage = node.kind === 'package';
+    const connectionKind = isPackage ? 'model' : 'api';
+    const config = clone(content.nodeConfigurations[node.nodeId] || (isPackage ? {parameters:{},budget:resource.budgetDefaults,model:null,maxOutputTokens:512} : {api:null}));
     const response = await window.agentPlatform.listEnvironments();
     if (!response.ok) { $('service-result').textContent = response.error.message; return; }
     const fields = [];
     $('node-fields').replaceChildren(); $('node-capabilities').replaceChildren(); $('node-errors').replaceChildren();
     $('node-title').textContent = resource.name + ' · ' + node.nodeId;
-    config.budget ||= clone(resource.budgetDefaults);
+    if (isPackage) config.budget ||= clone(resource.budgetDefaults);
     const parameterSchema = resource.schemas.configuration;
-    const groups = [
+    const groups = isPackage ? [
       {title:'业务参数', parent:config.parameters, schema:parameterSchema},
       {title:'节点累计预算', parent:config.budget, schema:{properties:{
         loopLimit:{type:'integer',minimum:1,title:'最大调用次数'},
@@ -186,7 +189,7 @@ const flowEditor = (() => {
       {title:'模型调用', parent:config, schema:{properties:{
         maxOutputTokens:{type:'integer',minimum:1,default:512,title:'单次输出 token 上限'},
       }}},
-    ];
+    ] : [];
     for (const {title,parent,schema} of groups) {
       $('node-fields').append(el('strong',title));
       for (const [key, definition] of Object.entries(schema.properties || {})) {
@@ -209,18 +212,36 @@ const flowEditor = (() => {
         label.append(input); $('node-fields').append(label);
       }
     }
-    const label = el('label', '模型连接');
-    const options = response.data.flatMap(env=>env.connections.filter(c=>c.kind==='model').map(c=>[
-      JSON.stringify({environmentId:env.environmentId,connectionId:c.connectionId}),env.name+' / '+c.connectionId+' / '+c.model]));
-    const select = choices(options, config.model ? JSON.stringify(config.model) : '',()=>{});
-    select.dataset.field = 'model';label.append(select);$('node-capabilities').append(label);
+    const label = el('label', isPackage ? '模型连接' : 'API 连接');
+    const options = response.data.flatMap(env=>env.connections.filter(c=>c.kind===connectionKind).map(c=>[
+      JSON.stringify({environmentId:env.environmentId,connectionId:c.connectionId}),env.name+' / '+c.connectionId+' / '+(isPackage ? c.model : c.baseUrl)]));
+    const binding = config[connectionKind];
+    const select = choices(options, binding ? JSON.stringify({environmentId:binding.environmentId,connectionId:binding.connectionId}) : '',()=>{});
+    select.dataset.field = connectionKind;label.append(select);$('node-capabilities').append(label);
+    let apiPath;
+    if (!isPackage) {
+      const pathLabel = el('label', '请求路径 *');
+      apiPath = el('input');apiPath.type = 'text';apiPath.required = true;
+      apiPath.dataset.field = 'apiPath';apiPath.placeholder = '例如 /lookup';
+      apiPath.value = binding?.path || '';
+      pathLabel.append(apiPath);$('node-capabilities').append(pathLabel,
+        el('p', '相对于所选连接的 Base URL；查询参数由块输入生成，不填入路径。'));
+    }
     $('node-form').onsubmit = async event => {
       event.preventDefault();$('node-errors').replaceChildren();
       try {
         fields.forEach(read=>read());
-        config.model = select.value ? JSON.parse(select.value) : null;
-        const result = await window.agentPlatform.validateFlowNode({node,configuration:config,strictTokenLimit:content.budget?.strictTokenLimit ?? true});
+        config[connectionKind] = select.value ? JSON.parse(select.value) : null;
+        if (!isPackage && config.api) config.api.path = apiPath.value;
+        const result = await window.agentPlatform.validateFlowNode({node,configuration:config});
         if (!result.ok) {
+          const branch = isPackage ? 'NodeConfiguration' : 'BlockConfiguration';
+          const issues = (result.error.issues || []).filter(issue => issue.fieldPath.includes(branch));
+          if (issues.length) {
+            for (const issue of issues) $('node-errors').append(el('li',
+              issue.fieldPath.slice(issue.fieldPath.indexOf(branch) + 1).join('.') + ' · ' + issue.reason));
+            return;
+          }
           $('node-errors').append(el('li',result.error.message + ' · ' + (result.error.fieldPath || []).join('.'))); return;
         }
         if (!result.data.valid) {

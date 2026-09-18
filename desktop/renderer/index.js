@@ -180,14 +180,14 @@ document.querySelector('#task-query-form').addEventListener('submit', event => {
 window.addEventListener('beforeunload', () => { clearTimeout(taskPollTimer); taskQueryGeneration++; });
 
 function showUsage(usage) {
-  const qualities = {exact: '精确', upper_bound: '上界', estimated: '估算', unsupported: '未知'};
+  const qualities = {exact: '供应商报告', unsupported: '未知'};
   const lines = [];
   const bindings = new Set([...Object.keys(usage.loops?.bindings || {}), ...Object.keys(usage.tokens?.bindings || {})]);
   for (const binding of [null, ...bindings]) {
     const loop = binding === null ? usage.loops?.global : usage.loops?.bindings[binding];
     const token = binding === null ? usage.tokens?.global : usage.tokens?.bindings[binding];
     lines.push(`${binding === null ? '任务总量' : '包 ' + binding}：loop ${loop ?? 0}` + (token
-      ? `；token ${token.totalTokens ?? '未知'}（输入 ${token.inputTokens ?? '未知'}，输出 ${token.outputTokens ?? '未知'}；${qualities[token.quality]}；预留 ${token.reservedTokens}；来源 ${token.sources.join('、')}）`
+      ? `；token ${token.totalTokens ?? '未知'}（输入 ${token.inputTokens ?? '未知'}，输出 ${token.outputTokens ?? '未知'}；${qualities[token.quality]}；来源 ${token.sources.join('、')}）`
       : '；尚无模型用量'));
   }
   document.querySelector('#task-usage').textContent = lines.join('\n');

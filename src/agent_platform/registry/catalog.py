@@ -96,7 +96,7 @@ class ModuleCatalog:
                     refs[direction + '_contract'] = ref
                 view = CatalogResource(resource_id=resource_id, kind=request.kind, name=meta.name,
                     description=meta.description, version=meta.version, digest=artifact.content.digest,
-                    schemas=schemas,
+                    schemas=schemas, api_required=meta.uses_api if request.kind == 'block' else False,
                     budget_defaults=(meta.budget_defaults or NodeBudget()) if request.kind == 'package' else None, **refs)
                 self._artifacts[resource_id] = artifact
             self._views[resource_id] = view

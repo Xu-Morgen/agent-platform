@@ -29,14 +29,16 @@ class SingleBlockArtifact:
         from ..blocks.single import BlockMetadata
         return BlockMetadata.model_validate_json(self.metadata_json)
 
-    async def invoke(self, value):
+    async def invoke(self, value, *, api=None):
         from pydantic import ValidationError
         from ..validation_issues import validation_exception
         try:
             parsed = self.input_adapter.validate_python(value, strict=True)
         except ValidationError as exc:
             raise validation_exception(exc, stage='block.input') from None
-        result = self.entry(parsed)
+        if self.metadata.uses_api and api is None:
+            raise invalid('API 通用块需要节点连接配置及任务上下文', ['api'])
+        result = self.entry(parsed, api=api) if self.metadata.uses_api else self.entry(parsed)
         if inspect.isawaitable(result):
             result = await result
         try:
@@ -96,8 +98,16 @@ class SingleBlockRegistry:
                     raise invalid(f'请声明第三方依赖：{module_name}', ['dependencies'], code='DEPENDENCY_ERROR')
             parameters = list(inspect.signature(fn).parameters.values())
             hints = get_type_hints(fn, include_extras=True)
-            if len(parameters) != 1 or parameters[0].kind not in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD) or parameters[0].default is not inspect.Parameter.empty or set(hints) != {parameters[0].name, 'return'}:
-                raise invalid('业务函数必须有一个无默认值参数及明确输入输出注解', ['entry'])
+            from ..blocks.api import BlockAPI
+            expected = 2 if metadata.uses_api else 1
+            if (len(parameters) != expected or parameters[0].kind not in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+                    or parameters[0].default is not inspect.Parameter.empty
+                    or set(hints) != {parameters[0].name, 'return', *(['api'] if metadata.uses_api else [])}):
+                raise invalid('块须有一个无默认值的输入参数及返回注解；API 块另声明关键字参数 api: BlockAPI', ['entry'])
+            if metadata.uses_api and (parameters[1].name != 'api' or parameters[1].kind != inspect.Parameter.KEYWORD_ONLY
+                    or parameters[1].default is not inspect.Parameter.empty or hints['api'] is not BlockAPI
+                    or not inspect.iscoroutinefunction(fn)):
+                raise invalid('API 块须为 async 函数并声明无默认值的关键字参数 api: BlockAPI', ['entry'])
             artifact = SingleBlockArtifact(metadata.model_dump_json(), content, fn,
                 strict_adapter(hints[parameters[0].name]), strict_adapter(hints['return']))
             key = (metadata.id, metadata.version)

@@ -30,7 +30,7 @@ API 文档在 `http://127.0.0.1:8000/docs`。桌面显示的后端地址可能�
 | path | 后端可读路径；块/契约选文件，包选目录；推荐绝对路径 |
 | symbol | 契约必填，为文件中导出的类型名称；块/包省略 |
 
-块/包返回 resourceId、inputContract、outputContract 和 schemas；包另有 configurationContract、budgetDefaults。独立契约直接用 resourceId 作为端口引用，schemas.value 展示类型。
+块/包返回 resourceId、inputContract、outputContract 和 schemas；包另有 configurationContract、budgetDefaults。API 块另有 apiRequired=true，需要在节点上配置 API 连接和请求路径 api.path。独立契约直接用 resourceId 作为端口引用，schemas.value 展示类型。
 
 ## 2. 可直接执行的最小闭环
 
@@ -89,7 +89,7 @@ PY
 
 这里独立契约 Text 与块的 Text 都是无自定义校验的相同结构，因此可以直接接线。若不需要独立契约，也可把服务 inputContract/outputContract 分别设为块返回的对应引用。
 
-## 3. 包节点如何组成服务
+## 3. 包与 API 通用块如何组成服务
 
 把上述 flow 中的 block 节点换为已加载的 package，nodeId 设为 summarize；服务端口选该包的 inputContract/outputContract，出口 source.nodeId 同步改为 summarize。
 
@@ -105,11 +105,35 @@ PY
       "maxOutputTokens": 512
     }
   },
-  "budget": {"loopLimit": 1, "tokenLimit": 32768, "strictTokenLimit": false}
+  "budget": {"loopLimit": 1, "tokenLimit": 32768}
 }
 ```
 
 这是待合并的配置片段，替换实际 ID 后再发送；不是完整保存服务请求。完整包则使用其 [节点配置示例](packages/complete/node-configuration.example.json)。包的创建步骤见 [packages/README.md](packages/README.md)。
+
+### 最完整通用块的节点配置
+
+加载 `samples/blocks/complete.py`，使用其 inputContract/outputContract 作为服务端口，将块节点命名为 normalize，并将服务输入和节点输出分别整值接线。在同一 FlowDraft 顶层加入：
+
+```json
+{
+  "nodeConfigurations": {
+    "normalize": {
+      "api": {
+        "environmentId": "replace-environment-id",
+        "connectionId": "lookup",
+        "path": "/lookup"
+      }
+    }
+  }
+}
+```
+
+替换为实际 API 环境和连接 ID；path 必填，为该连接 Base URL 下的请求路径。环境保存 Base URL、凭据和超时，节点保存路径；方法、请求参数和响应契约由块定义。该片段不是完整的服务保存请求。只有通用块时不需要模型连接或任务预算。
+
+输入示例为 `{"query":"greeting"}`，可另带 options。块使用 `api.request('GET', {'query': value.query}, response_type=APIResponse)`，请求节点配置的路径。若 Base URL 是 `https://example.com/api`，实际请求为 `https://example.com/api/lookup?query=greeting`；这是配置示意，项目不提供此远端服务。响应要求及选项见 [完整块说明](blocks/README.md#最完整实现)。
+
+修改路径后保存实例版本即可生效，无需修改块源码；已提交任务继续使用原路径，历史回退恢复历史节点路径。旧 API 节点配置需补充 api.path，旧块的 api.request 调用需移除路径参数。
 
 ## 4. FlowDraft 的公共配置
 
@@ -120,8 +144,8 @@ PY
 | inputContract / outputContract | 必填 | 已加载的服务端口契约引用 |
 | flow | 必填列表 | 顺序执行的节点及控制容器 |
 | output | 必填接线列表 | 将可见数据绑定到服务出口 |
-| nodeConfigurations | 默认 {} | 按 nodeId 保存包配置；块和控制容器不在这里配置 |
-| budget | 默认 null；含包必填 | 全局 loop/token 预算及严格模式 |
+| nodeConfigurations | 默认 {} | 按 nodeId 保存包的模型配置或 API 通用块的连接与请求路径配置；普通计算块和控制容器无需配置 |
+| budget | 默认 null；含包必填 | 全局 loop/token 累计限额 |
 | examples | 默认 [] | 每项 `{name, input}`，示例输入供界面使用，不是自动测试或自动执行 |
 
 ### 块/包节点
@@ -144,7 +168,7 @@ PY
 | source.path | 源字段路径，默认 [] 表示整个值 |
 | source.kind=constant | 直接填 value，不填 nodeId/path |
 
-路径是字符串/非负整数数组，如 `["text"]`、`["items",0,"text"]`；对象路径使用对外 JSON 字段名。可选字段或无法证明存在的数组项不能直接读取。结构不一致时使用转换块，平台不会自动改名或宽松转换。
+接线路径是字符串/非负整数数组，如 `["text"]`、`["items",0,"text"]`；对象路径使用对外 JSON 字段名。它与 API 节点中字符串形式的 api.path 是不同字段。可选字段或无法证明存在的数组项不能直接读取。结构不一致时使用转换块，平台不会自动改名或宽松转换。
 
 ### 控制容器字段
 
