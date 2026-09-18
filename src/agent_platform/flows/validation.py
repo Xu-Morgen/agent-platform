@@ -21,14 +21,12 @@ class Port:
 
 def validate_flow(draft, catalog):
     issues = []
-    def report(reason, path, node=None, source=None, target=None):
+    def report(reason, path, node=None, source=None):
         issues.append(ValidationIssue(reason=reason, field_path=list(path), node_id=node,
-            source_node_id=getattr(source, 'node_id', None), source_port=getattr(source, 'path', None), target_port=target))
+            source_node_id=getattr(source, 'node_id', None)))
     def contract(ref):
         return Port(catalog.contract(ref).schema, ref)
     def source_port(source, scope, carry):
-        if source.path:
-            raise Incompatible('平台只传递完整数据；字段选取或改名请添加通用块处理')
         if source.kind == 'input':
             port = contract(draft.input_contract)
         else:
@@ -43,8 +41,6 @@ def validate_flow(draft, catalog):
             return
         binding = bindings[0]
         try:
-            if binding.target:
-                raise Incompatible('平台不支持目标字段映射；请添加通用块输出符合接收方契约的完整数据')
             if isinstance(binding.source, ConstantValue):
                 try:
                     catalog.contract(expected.contract).adapter.validate_python(binding.source.value, strict=True)
@@ -56,10 +52,10 @@ def validate_flow(draft, catalog):
                 assignable(port.schema, expected.schema)
         except (Incompatible, PlatformError) as exc:
             report(str(exc) + '；输入输出契约必须兼容，需要转换时请添加通用块。',
-                   (*path, 0), node, binding.source, binding.target)
+                   (*path, 0), node, binding.source)
     def condition(reference, scope, carry, path, node):
         port = source_port(reference, scope, carry)
-        if reference.kind != 'node' or reference.path or port.kind != 'block':
+        if reference.kind != 'node' or port.kind != 'block':
             raise Incompatible('条件必须引用严格 bool 通用块的完整输出')
         assignable(port.schema, {'type': 'boolean'})
     def sequence(nodes, scope, carry, prefix):

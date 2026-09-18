@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from ..contracts.flows import NodeConfiguration
 from ..flows.execution import checked, plain
 from ..flows.configuration import validate_configurations
-from ..flows.validation import validate_flow
 from ..contracts.errors import ErrorResponse, PlatformError
 
 
@@ -30,10 +29,6 @@ class RunSubmission:
                 raise PlatformError(ErrorResponse(code='VERSION_CONFLICT', stage='runs.submit', message='当前实例已变化'), 409)
             snapshot = self.services.resolve_current(request.service_id)
             draft = snapshot.draft
-            ports = validate_flow(draft, snapshot.catalog)
-            if not ports.valid:
-                raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='runs.submit',
-                    message='输入输出契约校验失败，请添加通用块完成转换并重新保存', issues=ports.issues))
             value = checked(snapshot.catalog.contract(draft.input_contract), request.input, 'runs.input')
             validation = validate_configurations(draft, snapshot.catalog, self.environments)
             if not validation.valid:

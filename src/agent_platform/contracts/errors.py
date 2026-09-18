@@ -22,8 +22,6 @@ class ValidationIssue(StrictModel):
     field_path: list[str | int] = Field(default_factory=list)
     node_id: str | None = None
     source_node_id: str | None = None
-    source_port: list[str | int] | None = None
-    target_port: list[str | int] | None = None
 
 
 class ErrorDetails(StrictModel):
@@ -44,8 +42,6 @@ class ErrorResponse(StrictModel):
     field_path: list[str | int] | None = None
     node_id: str | None = None
     source_node_id: str | None = None
-    source_port: list[str | int] | None = None
-    target_port: list[str | int] | None = None
     issues: list[ValidationIssue] = Field(default_factory=list)
     details: ErrorDetails = Field(default_factory=ErrorDetails)
 

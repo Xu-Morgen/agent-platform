@@ -50,7 +50,7 @@ def prepare_flow_snapshot(draft, catalog, environments):
     return compile_snapshot(draft, catalog)
 
 
-def compile_snapshot(draft, catalog, *, restoring=False):
+def compile_snapshot(draft, catalog):
     """从已规范化的不可变草稿重建；恢复不依赖当前环境是否仍可调用。"""
     resources = set()
     contracts = {draft.input_contract, draft.output_contract}
@@ -74,7 +74,7 @@ def compile_snapshot(draft, catalog, *, restoring=False):
     # 契约类型保留其内存模块来源；模块内容均由 ContentSnapshot 固定。
     frozen._contents = tuple(catalog._contents)
     configuration = {'packages.' + key: c.parameters for key, c in draft.node_configurations.items() if isinstance(c, NodeConfiguration)}
-    graph = compile_flow(draft, frozen, preserve_invalid=restoring)
+    graph = compile_flow(draft, frozen)
     schema = {'input': frozen.contract(draft.input_contract).schema,
               'output': frozen.contract(draft.output_contract).schema,
               'examples': [e.model_dump(mode='json', by_alias=True) for e in draft.examples]}

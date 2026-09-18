@@ -157,50 +157,6 @@
           ],
           "default": null,
           "title": "Sourcenodeid"
-        },
-        "sourcePort": {
-          "anyOf": [
-            {
-              "items": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "integer"
-                  }
-                ]
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Sourceport"
-        },
-        "targetPort": {
-          "anyOf": [
-            {
-              "items": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "integer"
-                  }
-                ]
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Targetport"
         }
       },
       "required": [
@@ -308,50 +264,6 @@
       ],
       "default": null,
       "title": "Sourcenodeid"
-    },
-    "sourcePort": {
-      "anyOf": [
-        {
-          "items": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "integer"
-              }
-            ]
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Sourceport"
-    },
-    "targetPort": {
-      "anyOf": [
-        {
-          "items": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "integer"
-              }
-            ]
-          },
-          "type": "array"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Targetport"
     },
     "issues": {
       "items": {

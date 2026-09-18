@@ -38,8 +38,8 @@ def pure_service(app, path):
         'name': 'pure', 'inputContract': resource.input_contract,
         'outputContract': resource.output_contract,
         'flow': [{'nodeId': 'calculate', 'kind': 'block', 'artifactRef': resource.resource_id,
-                  'inputs': [{'target': [], 'source': {'kind': 'input'}}]}],
-        'output': [{'target': [], 'source': {'kind': 'node', 'nodeId': 'calculate'}}],
+                  'inputs': [{'source': {'kind': 'input'}}]}],
+        'output': [{'source': {'kind': 'node', 'nodeId': 'calculate'}}],
     })
     return app.state.services.save(ServiceWrite(name='pure', flow=flow))
 

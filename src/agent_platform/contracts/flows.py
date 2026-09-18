@@ -7,14 +7,11 @@ from .packages import Identifier
 from .budgets import InstanceBudget, NodeBudget, PositiveInt
 
 ResourceId = Annotated[str, Field(min_length=1)]
-Path = list[str | Annotated[int, Field(ge=0)]]
 
 
 class PortReference(StrictModel):
     kind: Literal['input', 'node', 'carry']
     node_id: Identifier | None = None
-    # 保留旧字段用于恢复与定位历史配置；非空路径由流程校验拒绝。
-    path: Path = Field(default_factory=list, description='必须为空，仅传递完整数据；字段处理使用通用块')
 
     @model_validator(mode='after')
     def node_required(self):
@@ -29,7 +26,6 @@ class ConstantValue(StrictModel):
 
 
 class PortBinding(StrictModel):
-    target: Path = Field(default_factory=list, description='必须为空，仅接收完整数据；字段处理使用通用块')
     source: Annotated[PortReference | ConstantValue, Field(discriminator='kind')]
 
 

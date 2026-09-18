@@ -96,27 +96,21 @@ const flowEditor = (() => {
   }
   function schema(ref) { return contracts().find(([id]) => id === ref)?.[2] || {}; }
   function sourceValue(source) {
-    return JSON.stringify({kind:source.kind,...(source.nodeId ? {nodeId:source.nodeId} : {}),path:source.path || []});
+    return JSON.stringify({kind:source.kind,...(source.nodeId ? {nodeId:source.nodeId} : {})});
   }
   function sourceOptions(nodes) {
-    const ports = [[{kind:'input', path:[]}, '服务输入', content.inputContract], ...nodes.map(n => [
-      {kind:n.kind === 'carry' ? 'carry' : 'node', nodeId:n.nodeId, path:[]}, n.kind === 'carry' ? n.nodeId + ' · 本轮携带值' : nodeName(n)+' ['+n.nodeId+'] 的输出', outputRef(n)])];
+    const ports = [[{kind:'input'}, '服务输入', content.inputContract], ...nodes.map(n => [
+      {kind:n.kind === 'carry' ? 'carry' : 'node', nodeId:n.nodeId}, n.kind === 'carry' ? n.nodeId + ' · 本轮携带值' : nodeName(n)+' ['+n.nodeId+'] 的输出', outputRef(n)])];
     return ports.map(([source, title, ref]) => [sourceValue(source), title + ' · 完整数据 · ' + typeName(schema(ref),schema(ref))]);
   }
   function bindings(target, values, contract, nodes, destination='当前节点输入') {
     target.replaceChildren();
-    const legacy = values.length > 1 || values.some(binding=>binding.target?.length || binding.source.path?.length);
-    if (legacy) {
-      const warning=el('p','此处使用了旧字段映射，无法通过校验。请添加通用块完成转换，然后重新选择完整数据来源。');
-      warning.className='binding-error';target.append(warning);
-      const detail=el('details');detail.append(el('summary','查看待替换的字段映射'),el('pre',JSON.stringify(values,null,2)));target.append(detail);
-    }
-    const binding = legacy ? null : values[0];
+    const binding = values[0];
     const options = sourceOptions(nodes);options.push(['constant','固定完整数据（JSON）']);
     const selected = binding ? binding.source.kind === 'constant' ? 'constant' : sourceValue(binding.source) : '';
     const label = el('label','数据来源 · 完整传给'+destination);
     const select = choices(options, selected, value=>{
-      values.splice(0,values.length,...(value ? [{target:[],source:value === 'constant' ? {kind:'constant',value:null} : JSON.parse(value)}] : []));
+      values.splice(0,values.length,...(value ? [{source:value === 'constant' ? {kind:'constant',value:null} : JSON.parse(value)}] : []));
       changed();render();
     });
     select.setAttribute('aria-label',destination+'数据来源');label.append(select);target.append(label);
@@ -215,7 +209,7 @@ const flowEditor = (() => {
       let inputText=node.inputs?.length ? node.inputs.map(({source})=>{
         const origin=scope.find(n=>n.nodeId===source.nodeId);
         const name=source.kind==='input'?'服务输入':source.kind==='constant'?'固定值':source.kind==='carry'?'本轮携带值':origin?nodeName(origin)+' ['+source.nodeId+']':source.nodeId+'（不可用）';
-        return name+(source.path?.length?' / '+source.path.join('.'):'');
+        return name;
       }).join('、'):'待指定来源';
       if(node.kind==='if')inputText='条件 → 成立 / 否则';
       if(node.body)inputText='初始值 → 每轮处理 → 更新携带值';
@@ -273,7 +267,7 @@ const flowEditor = (() => {
       else {content.budget.loopLimit+=defaults.loopLimit;content.budget.tokenLimit+=defaults.tokenLimit;}
     }
     let node={kind,nodeId,artifactRef:resource.resourceId,inputs:[]};
-    if(kind==='if')node={kind,nodeId,condition:{kind:'input',path:[]},outputContract:'',thenBranch:{nodes:[],output:[]},elseBranch:{nodes:[],output:[]}};
+    if(kind==='if')node={kind,nodeId,condition:{kind:'input'},outputContract:'',thenBranch:{nodes:[],output:[]},elseBranch:{nodes:[],output:[]}};
     if(kind==='repeat'||kind==='while') {
       node={kind,nodeId,carry:{contract:'',initial:[],update:[]},body:[]};
       if(kind==='repeat')node.count=0;

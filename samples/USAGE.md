@@ -61,9 +61,9 @@ with httpx.Client(base_url='http://127.0.0.1:8000', timeout=10) as client:
         'outputContract': contract['resourceId'],
         'flow': [{
             'nodeId': 'trim', 'kind': 'block', 'artifactRef': block['resourceId'],
-            'inputs': [{'target': [], 'source': {'kind': 'input', 'path': []}}],
+            'inputs': [{'source': {'kind': 'input'}}],
         }],
-        'output': [{'target': [], 'source': {'kind': 'node', 'nodeId': 'trim', 'path': []}}],
+        'output': [{'source': {'kind': 'node', 'nodeId': 'trim'}}],
     }
     validation = post('flows/validate', {'content': flow})
     if not validation['valid']:
@@ -161,14 +161,12 @@ PY
 
 | 字段 | 作用 |
 | --- | --- |
-| target | 必须为空数组 []（或省略），表示接收完整数据 |
 | source.kind=input | 引用服务输入，不填 nodeId |
 | source.kind=node | 引用可见前序节点输出，必须填 nodeId |
 | source.kind=carry | 引用循环当前携带值，nodeId 填循环节点 ID |
-| source.path | 必须为空数组 []（或省略），表示传递完整数据 |
 | source.kind=constant | 直接填符合接收方契约的完整 value，不填 nodeId/path |
 
-平台只传递完整数据，不支持字段路径引用、改名或拼装。source.path 和 target 只能为空数组，它们与 API 节点的请求路径 api.path 无关。来源完整输出与接收方契约不兼容时校验报错，例如 answer 无法直接传入要求 text 的契约；请添加通用块完成转换，再选择该通用块的完整输出。分支输出、循环初始值和更新值也遵循同一规则。历史字段映射保留供查看和修改，但不能保存、激活或调用，需添加通用块后重新保存。
+平台只传递完整数据，不支持字段路径引用、改名或拼装。每条来源只声明 source；API 节点的请求路径 api.path 保持不变。来源完整输出与接收方契约不兼容时校验报错，例如 answer 无法直接传入要求 text 的契约；请添加通用块完成转换，再选择该通用块的完整输出。分支输出、循环初始值和更新值也遵循同一规则。不提供旧字段映射的兼容或迁移。
 
 ### 控制容器字段
 

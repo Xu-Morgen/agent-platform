@@ -1,17 +1,15 @@
 """完整数据传递边界；使用真实契约、通用块和内存仓储，不调用模型。"""
-import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from pydantic import ValidationError
 
 from agent_platform.application import create_app
 from agent_platform.contracts.catalog import CatalogLoad
 from agent_platform.contracts.errors import PlatformError
 from agent_platform.contracts.flows import FlowDraft, PortBinding
-from agent_platform.contracts.runs import RunSubmit
 from agent_platform.contracts.services import ServiceWrite
-from agent_platform.flows.execution import compile_flow, assemble, FlowState
-from agent_platform.flows.snapshots import compile_snapshot
+from agent_platform.flows.execution import compile_flow, bound_value, FlowState
 from agent_platform.flows.validation import validate_flow
 from agent_platform.storage import MemoryStore
 
@@ -58,24 +56,24 @@ def convert(value: Answer) -> Text:
         self.assertTrue(validate_flow(valid, self.catalog).valid)
         self.assertEqual(await compile_flow(valid, self.catalog).run({'answer': '实际内容'}), {'text': '实际内容'})
 
-    def test_source_selection_target_rename_and_assembly_are_rejected(self):
-        cases = [
-            [{'target': ['text'], 'source': {'kind': 'input', 'path': ['answer']}}],
-            [{'source': {'kind': 'input', 'path': ['answer']}}],
-            [{'target': ['text'], 'source': {'kind': 'constant', 'value': '内容'}}],
-            [{'source': {'kind': 'input'}}, {'source': {'kind': 'input'}}],
-            [],
-        ]
-        for bindings in cases:
-            with self.subTest(bindings=bindings):
+    def test_field_mapping_is_not_part_of_the_protocol(self):
+        for binding in [
+            {'target': [], 'source': {'kind': 'input'}},
+            {'target': ['text'], 'source': {'kind': 'input'}},
+            {'source': {'kind': 'input', 'path': []}},
+            {'source': {'kind': 'input', 'path': ['answer']}},
+        ]:
+            with self.subTest(binding=binding), self.assertRaises(ValidationError):
+                PortBinding.model_validate(binding)
+
+    def test_exactly_one_complete_source_is_required(self):
+        for sources in [[], [{'source': {'kind': 'input'}}] * 2]:
+            with self.subTest(sources=sources):
                 draft = self.draft()
-                draft.output = [PortBinding.model_validate(value) for value in bindings]
+                draft.output = [PortBinding.model_validate(source) for source in sources]
                 self.assertFalse(validate_flow(draft, self.catalog).valid)
                 with self.assertRaises(PlatformError):
-                    assemble(draft.output, FlowState(input={'answer': '内容'}))
-        node = self.draft(converted=True)
-        node.flow[0].inputs[0].source.path = ['answer']
-        self.assertFalse(validate_flow(node, self.catalog).valid)
+                    bound_value(draft.output, FlowState(input={'answer': '内容'}))
 
     def test_complete_constants_and_loop_data_are_validated(self):
         draft = self.draft()
@@ -92,38 +90,5 @@ def convert(value: Answer) -> Text:
         }}]
         raw['output'] = [{'source': {'kind': 'node', 'nodeId': 'repeat'}}]
         self.assertTrue(validate_flow(FlowDraft.model_validate(raw), self.catalog).valid)
-        raw['flow'][0]['carry']['update'][0]['target'] = ['answer']
+        raw['flow'][0]['carry']['update'] = []
         self.assertFalse(validate_flow(FlowDraft.model_validate(raw), self.catalog).valid)
-
-    async def test_legacy_mapping_restores_for_editing_but_cannot_run(self):
-        services = self.app.state.services
-        valid = self.draft(converted=True)
-        saved = services.save(ServiceWrite(name='旧服务', flow=valid))
-        legacy = self.draft()
-        legacy.output = [PortBinding.model_validate({
-            'target': ['text'], 'source': {'kind': 'input', 'path': ['answer']}})]
-        # 模拟旧编译器曾保存的合法字段映射快照，保留原始流程与摘要。
-        snapshot = compile_snapshot(legacy, self.catalog, restoring=True)
-        with self.assertRaises(PlatformError):
-            await snapshot.graph.run({'answer': '内容'})
-        store = self.app.state.store
-        instance = store.read('instances')[saved.active_instance_id]
-        instance['flow'] = legacy.model_dump(mode='json')
-        instance['contentDigest'] = snapshot.content_digest
-        document = store.read('services')[saved.service_id]
-        document['service']['current']['content_digest'] = snapshot.content_digest
-        document['history'][0]['content_digest'] = snapshot.content_digest
-        store.write([('instances', saved.active_instance_id, instance), ('services', saved.service_id, document)])
-        copied_store = MemoryStore()
-        copied_store._documents = json.loads(json.dumps(store._documents))
-        restored = create_app(copied_store)
-        self.addCleanup(restored.state.catalog.close)
-        restored_services = restored.state.services
-        self.assertEqual(restored_services.schema(saved.service_id).flow.output[0].target, ['text'])
-        with self.assertRaises(PlatformError):
-            restored.state.submission.submit(RunSubmit(service_id=saved.service_id, input={'answer': '内容'}))
-        self.assertTrue(restored.state.submission.queue.empty())
-        with self.assertRaises(PlatformError):
-            restored_services.activate(saved.service_id, saved.active_instance_id)
-        fixed = restored_services.save(ServiceWrite(name='已转换', flow=valid), saved.service_id)
-        self.assertEqual(await restored_services.resolve_current(fixed.service_id).graph.run({'answer': '内容'}), {'text': '内容'})

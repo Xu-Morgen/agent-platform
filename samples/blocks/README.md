@@ -104,7 +104,7 @@ API 块通过注入的 BlockAPI 向节点配置的路径发起请求，凭据由
   "kind": "block",
   "artifactRef": "替换为加载完整块返回的 resourceId",
   "inputs": [
-    {"target": [], "source": {"kind": "input", "path": []}}
+    {"source": {"kind": "input"}}
   ]
 }
 ```

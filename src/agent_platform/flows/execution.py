@@ -15,7 +15,7 @@ from ..runtime.context import current_context
 from ..runtime.boundary import checkpoint
 from .validation import validate_flow
 
-COMPILER_VERSION = 'flow-1'
+COMPILER_VERSION = 'flow-2'
 execution_path = ContextVar('flow_path', default=())
 step_counter = ContextVar('flow_steps', default=None)
 
@@ -66,14 +66,11 @@ def resolve(source, state):
         return deepcopy(source.value)
     value = (state.input if source.kind == 'input' else
              state.carry[source.node_id] if source.kind == 'carry' else state.outputs[source.node_id])
-    if source.path:
-        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='flow.source',
-            message='平台只传递完整数据；字段选取或改名请添加通用块处理'))
     return deepcopy(value)
 
 
-def assemble(bindings, state):
-    if len(bindings) != 1 or bindings[0].target:
+def bound_value(bindings, state):
+    if len(bindings) != 1:
         raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='flow.source',
             message='请选择一个完整数据来源；字段映射和转换请添加通用块处理'))
     return resolve(bindings[0].source, state)
@@ -109,23 +106,12 @@ class FlowExecutor:
                 step_counter.reset(token)
 
 
-@dataclass(frozen=True)
-class InvalidFlowExecutor:
-    """旧版本仍可查看和复制修复，但不继续执行已禁用的字段映射。"""
-    error: ErrorResponse
-
-    async def run(self, value, *, recursion_limit=10000):
-        raise PlatformError(self.error.model_copy(deep=True))
-
-
-def compile_flow(draft, catalog, *, preserve_invalid=False):
+def compile_flow(draft, catalog):
     draft = draft.model_copy(deep=True)
     validation = validate_flow(draft, catalog)
     if not validation.valid:
         error = ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='flow.compile',
             message='输入输出契约校验失败，请添加通用块完成转换并重新保存', issues=validation.issues)
-        if preserve_invalid:
-            return InvalidFlowExecutor(error)
         raise PlatformError(error)
 
     def wrap(node):
@@ -133,7 +119,7 @@ def compile_flow(draft, catalog, *, preserve_invalid=False):
             stage = 'nodes.' + node.node_id
             try:
                 view = catalog.get(node.artifact_ref)
-                value = checked(catalog.contract(view.input_contract), assemble(node.inputs, state), stage + '.input')
+                value = checked(catalog.contract(view.input_contract), bound_value(node.inputs, state), stage + '.input')
                 context = current_context.get()
                 if node.kind == 'block':
                     operation = lambda: catalog.artifact(node.artifact_ref).invoke(plain(value))
@@ -173,7 +159,7 @@ def compile_flow(draft, catalog, *, preserve_invalid=False):
                     async def run(state):
                         child = await compiled.ainvoke(state.model_dump())
                         value = checked(catalog.contract(node.output_contract),
-                            assemble(bindings, FlowState.model_validate(child)), 'nodes.' + node.node_id + '.output')
+                            bound_value(bindings, FlowState.model_validate(child)), 'nodes.' + node.node_id + '.output')
                         return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(value)}}
                     return run
                 graph.add_node(name, guarded(node.node_id, lambda state: {}))
@@ -191,7 +177,7 @@ def compile_flow(draft, catalog, *, preserve_invalid=False):
                 def loop_run(node, child, condition_graph):
                     async def run(state):
                         contract = catalog.contract(node.carry.contract)
-                        carried = checked(contract, assemble(node.carry.initial, state), 'nodes.' + node.node_id + '.input')
+                        carried = checked(contract, bound_value(node.carry.initial, state), 'nodes.' + node.node_id + '.input')
                         iteration = 0
                         while True:
                             await boundary('node_start', node.node_id)
@@ -221,7 +207,7 @@ def compile_flow(draft, catalog, *, preserve_invalid=False):
                                 updated = await child.ainvoke(inner.model_dump())
                             finally:
                                 execution_path.reset(path_token)
-                            carried = checked(contract, assemble(node.carry.update, FlowState.model_validate(updated)),
+                            carried = checked(contract, bound_value(node.carry.update, FlowState.model_validate(updated)),
                                 'nodes.' + node.node_id + '.output')
                             iteration += 1
                         return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(carried)}}
@@ -239,7 +225,7 @@ def compile_flow(draft, catalog, *, preserve_invalid=False):
     graph.add_node('body', body)
     graph.add_edge(START, 'body')
     async def output(state):
-        result = checked(catalog.contract(draft.output_contract), assemble(draft.output, state), 'flow.output')
+        result = checked(catalog.contract(draft.output_contract), bound_value(draft.output, state), 'flow.output')
         return {'result': plain(result)}
 
     graph.add_node('output', guarded('output', output))
