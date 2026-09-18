@@ -60,7 +60,19 @@
       <p id="environment-result" role="status"></p>
     </section>
     <section data-page="services" aria-label="服务配置" hidden>
-      <p>加载模块后选择契约并逐个插入节点。未完成内容可保存为草稿。</p>
+      <div class="editor-heading"><div><h3>编排服务流程</h3><p>从输入开始，连接每一步处理，最后返回结果。</p></div><span class="editor-badge">可视化编排</span></div>
+      <div class="editor-topbar">
+      <label>服务名称 <input id="service-name" placeholder="为这个流程命名"></label>
+      <label>草稿 <select id="draft-select"><option value="">新建草稿</option></select></label>
+      <button id="draft-new">新建</button><button id="draft-save">保存草稿</button>
+      </div>
+      <p id="draft-result" role="status"></p>
+      <div class="flow-workspace">
+      <aside class="flow-library" aria-label="拼图块库">
+        <h3>拼图块</h3><p class="flow-hint">点击添加到流程末尾；用流程中的 ＋ 指定插入位置。</p>
+        <label class="library-search">搜索模块 <input id="module-search" type="search" placeholder="名称或用途…"></label>
+        <div id="module-library"></div>
+        <details class="resource-import"><summary>＋ 加载本地资源</summary>
       <form id="load-form">
         <label>资源类型 <select id="load-kind"><option value="block">单文件通用块</option><option value="package">业务包目录</option><option value="contract">契约文件</option></select></label>
         <label>本地路径 <input id="load-path" required placeholder="samples/blocks/minimal.py"></label>
@@ -68,36 +80,43 @@
         <button>加载资源</button>
       </form>
       <p id="load-result" role="status"></p>
-      <div id="module-library"></div>
-      <label>草稿 <select id="draft-select"><option value="">新建草稿</option></select></label>
-      <button id="draft-new">新建草稿</button><button id="draft-save">保存草稿</button>
-      <p id="draft-result" role="status"></p>
-      <label>服务名称 <input id="service-name"></label>
-      <label>服务输入契约 <select id="flow-input"></select></label>
-      <label>期望输出契约 <select id="flow-output"></select></label>
+        </details>
+      </aside>
+      <div class="flow-canvas">
+        <div class="canvas-heading"><strong>执行流程</strong><span>↓ 按顺序执行 · 数据来源在节点内指定</span></div>
+        <article class="flow-terminal start-terminal"><span class="terminal-tag">开始</span><h3>服务输入</h3><p>调用者提交的数据，后续节点可选择它作为输入。</p><label>输入数据结构 <select id="flow-input"></select></label><div id="flow-input-preview"></div></article>
+        <div id="flow-nodes"></div>
+        <article class="flow-terminal end-terminal"><span class="terminal-tag">结束</span><h3>返回结果</h3><p>选择返回给调用者的数据；最后一个节点的输出不会自动返回。</p><label>返回数据结构 <select id="flow-output"></select></label><div id="flow-output-preview"></div><div id="flow-output-bindings"></div></article>
+      </div>
+      </div>
+      <details class="flow-advanced"><summary>预算与输入样例</summary>
       <fieldset id="global-budget" hidden><legend>单任务全局预算</legend>
         <label>loop 上限 <input id="global-loop" type="number" min="1"></label>
         <label>token 上限 <input id="global-token" type="number" min="1"></label>
         <p>按模型返回的实际用量累计，超额停止后续步骤；单次请求可能超过剩余额度。</p>
       </fieldset>
-      <div id="flow-nodes"></div>
-      <dialog id="node-dialog"><form id="node-form">
+      <label>输入样例（可选 JSON；保存时校验）<textarea id="flow-example" rows="4" placeholder="填入符合服务输入契约的样例"></textarea></label>
+      </details>
+      <dialog id="node-dialog" aria-labelledby="node-title"><form id="node-form">
         <h3 id="node-title"></h3><div id="node-fields"></div><div id="node-capabilities"></div>
         <ul id="node-errors" role="alert"></ul>
         <button type="submit">校验并应用节点配置</button><button id="node-close" type="button">取消</button>
       </form></dialog>
-      <fieldset><legend>服务出口接线</legend><div id="flow-output-bindings"></div></fieldset>
-      <label>输入样例（可选 JSON；保存时校验）<textarea id="flow-example" rows="4" placeholder="填入符合服务输入契约的样例"></textarea></label>
+      <div class="flow-savebar">
       <button id="flow-validate">校验拼图</button>
+      <button id="instance-save" class="primary-button">校验并保存实例版本（立即生效）</button>
+      </div>
       <p id="service-result" role="status"></p>
       <ul id="flow-issues" role="alert"></ul>
-      <button id="instance-save">校验并保存实例版本（立即生效）</button>
+      <details class="service-versions"><summary>已保存的服务与版本历史</summary>
       <label>稳定服务 <select id="service-select"><option value="">新建服务</option></select></label>
       <button id="service-refresh">刷新服务和历史</button>
       <p id="service-current"></p>
       <h3>实例历史</h3><ul id="service-history"></ul>
       <p id="history-result" role="status"></p>
       <div id="history-view"></div>
+      </details>
+      <dialog id="insert-dialog" aria-labelledby="insert-title"><div class="insert-heading"><div><h3 id="insert-title">添加拼图块</h3><p id="insert-context"></p></div><button id="insert-close" type="button" aria-label="关闭添加拼图块">关闭</button></div><label>搜索模块 <input id="insert-search" type="search" placeholder="名称或用途…"></label><div id="insert-options"></div></dialog>
     </section>
     <section data-page="tasks" aria-label="任务调用" hidden>
       <p>选择已保存的服务提交任务。任务和结果的保留方式见左侧存储状态；可从历史列表打开记录。</p>

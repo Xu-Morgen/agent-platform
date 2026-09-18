@@ -5,6 +5,77 @@ const flowEditor = (() => {
   let resources = [], draftId = '', revision = 0;
   const empty = () => ({name: '', inputContract: '', outputContract: '', flow: [], output: [], nodeConfigurations: {}, examples: []});
   let content = empty();
+  const kindNames = {block:'通用块', package:'模型交互', if:'条件分支', repeat:'固定循环', while:'条件循环'};
+  const controls = [
+    {kind:'if', name:'条件分支', description:'根据布尔条件，选择「成立」或「否则」路径。'},
+    {kind:'repeat', name:'固定循环', description:'按指定次数重复执行，携带每轮的处理结果。'},
+    {kind:'while', name:'条件循环', description:'条件成立时重复执行；达到上限仍成立则报错停止。'},
+  ];
+  let insertion = null;
+  function nodeName(node) { return resources.find(r=>r.resourceId===node.artifactRef)?.name || kindNames[node.kind] || node.nodeId; }
+  function resolveSchema(value, root) { return value?.$ref ? root.$defs?.[value.$ref.split('/').pop()] || {} : value || {}; }
+  function fieldSchema(ref, path) {
+    const root = schema(ref);
+    return path.reduce((value, key)=>resolveSchema(value,root).properties?.[key] || {}, root);
+  }
+  function typeName(value, root, depth=0) {
+    if(depth>8)return '嵌套数据';
+    value = resolveSchema(value, root);
+    if (value.enum) return value.enum.map(v=>JSON.stringify(v)).join(' | ');
+    if (value.anyOf) return value.anyOf.map(v=>typeName(v,root,depth+1)).join(' | ');
+    if (value.type === 'array') return typeName(value.items,root,depth+1) + '[]';
+    return value.type || '未声明类型';
+  }
+  function pathLabel(ref, path, whole='完整数据') {
+    return (path.length ? path.join('.') : whole) + ' · ' + typeName(fieldSchema(ref,path),schema(ref));
+  }
+  function portPreview(parent, ref) {
+    parent.replaceChildren(); parent.classList.add('port-preview');
+    if (!ref) { parent.append(el('p','选择数据结构后显示字段及类型。')); return; }
+    const root=schema(ref), value=resolveSchema(root,root);
+    if (!Object.keys(root).length) { parent.append(el('p','数据结构不可用，请重新加载对应资源。')); return; }
+    const fields=Object.entries(value.properties || {});
+    if (!fields.length) { parent.append(el('code',typeName(value,root))); return; }
+    for (const [key,definition] of fields) {
+      const row=el('div');row.className='port-field';
+      row.append(el('code',key),el('span',typeName(definition,root)),el('small',value.required?.includes(key)?'必填':'可选'));
+      const description=definition.description || resolveSchema(definition,root).description;
+      if(description)row.append(el('p',description));
+      parent.append(row);
+    }
+  }
+  function renderLibrary(target, query, choose) {
+    target.replaceChildren();
+    const groups=[['处理模块',resources.filter(r=>r.kind!=='contract')],['流程控制',controls]];
+    let count=0;
+    for(const [title,items] of groups) {
+      const matches=items.filter(r=>(r.name+' '+(r.description||'')+' '+kindNames[r.kind]).toLowerCase().includes(query.toLowerCase().trim()));
+      if(!matches.length)continue;
+      target.append(el('h4',title));
+      for(const resource of matches) {
+        const item=button('',()=>choose(resource));item.className='module-tile';item.dataset.kind=resource.kind;
+        item.append(el('span',kindNames[resource.kind]),el('strong',resource.name),el('small',resource.description || '添加到流程中配置输入与输出'),el('b','＋'));
+        target.append(item);count++;
+      }
+    }
+    if(!count)target.append(el('p','没有匹配的拼图块。请换个关键词或加载本地资源。'));
+    if(!query && !resources.some(r=>r.kind!=='contract'))target.append(el('p','还没有处理模块，请在下方加载本地通用块或业务包。'));
+  }
+  function openInsert(nodes,index,label) {
+    insertion={nodes,index};$('insert-context').textContent=label;
+    $('insert-search').value=''; renderInsertOptions();$('insert-dialog').showModal();$('insert-search').focus();
+  }
+  function renderInsertOptions() {
+    renderLibrary($('insert-options'),$('insert-search').value,resource=>{
+      const {nodes,index}=insertion;$('insert-dialog').close();add(resource,nodes,index);
+    });
+  }
+  function insertPoint(parent,nodes,index) {
+    const row=el('div');row.className='flow-connector';
+    const label=index===0?'在此路径的开头添加拼图块':'在 '+nodeName(nodes[index-1])+' 之后添加拼图块';
+    const control=button('＋',()=>openInsert(nodes,index,label));control.title=label;control.setAttribute('aria-label',label);
+    row.append(control);parent.append(row);
+  }
   function el(tag, text) { const item = document.createElement(tag); if (text) item.textContent = text; return item; }
   function button(text, action) { const item = el('button', text); item.type = 'button'; item.onclick = action; return item; }
   function choices(items, value, change) {
@@ -29,36 +100,44 @@ const flowEditor = (() => {
   }
   function sourceOptions(nodes) {
     const ports = [[{kind:'input', path:[]}, '服务输入', content.inputContract], ...nodes.map(n => [
-      {kind:n.kind === 'carry' ? 'carry' : 'node', nodeId:n.nodeId, path:[]}, n.kind === 'carry' ? n.nodeId + ' 携带值' : n.nodeId, outputRef(n)])];
-    return ports.flatMap(([source, title, ref]) => paths(schema(ref)).map(path => [sourceValue({...source, path}), title + (path.length ? '.' + path.join('.') : '（完整值）')]));
+      {kind:n.kind === 'carry' ? 'carry' : 'node', nodeId:n.nodeId, path:[]}, n.kind === 'carry' ? n.nodeId + ' · 本轮携带值' : nodeName(n)+' ['+n.nodeId+'] 的输出', outputRef(n)])];
+    return ports.flatMap(([source, title, ref]) => paths(schema(ref)).map(path => [sourceValue({...source, path}), title + ' / ' + pathLabel(ref,path)]));
   }
-  function bindings(target, values, contract, nodes) {
+  function bindings(target, values, contract, nodes, destination='当前节点输入') {
     target.replaceChildren();
+    if(!values.length) { const hint=el('p','尚未指定数据来源。添加映射，将服务输入或前面节点的输出传入这里。');hint.className='flow-hint';target.append(hint); }
     values.forEach((binding, i) => {
       const row = el('div'); row.className = 'binding-row';
-      const label = el('span', '入口 ← 来源');
-      const destinations = paths(schema(contract)).map(path => [JSON.stringify(path), path.join('.') || '完整输入']);
+      const destinations = paths(schema(contract)).map(path => [JSON.stringify(path), pathLabel(contract,path)]);
       const dest = choices(destinations, JSON.stringify(binding.target), value => { if (value) { binding.target = JSON.parse(value); changed(); } });
-      dest.setAttribute('aria-label', '目标端口');
-      const options = sourceOptions(nodes); options.push(['constant', '常量（JSON）']);
+      dest.setAttribute('aria-label', destination+'字段');
+      const options = sourceOptions(nodes); options.push(['constant', '固定值（JSON）']);
       const source = choices(options, binding.source.kind === 'constant' ? 'constant' : sourceValue(binding.source), value => {
         if (!value) return;
         binding.source = value === 'constant' ? {kind:'constant', value:null} : JSON.parse(value); changed(); render();
-      }); source.setAttribute('aria-label', '来源端口');
-      row.append(label, dest, source);
+      }); source.setAttribute('aria-label', '数据来源');
+      const from=el('label','从哪里取值');from.append(source);
+      const to=el('label','传给哪里 · '+destination);to.append(dest);
+      const arrow=el('span','→');arrow.className='binding-arrow';arrow.setAttribute('aria-hidden','true');
+      row.append(from,arrow,to);
       if (binding.source.kind === 'constant') {
-        const input = el('input'); input.value = JSON.stringify(binding.source.value); input.setAttribute('aria-label', '常量 JSON');
-        input.onchange = () => { try { binding.source.value = JSON.parse(input.value); input.setCustomValidity(''); changed(); } catch { input.setCustomValidity('请输入合法 JSON'); input.reportValidity(); } }; row.append(input);
+        const label=el('div','固定值 · JSON');const input = el('input'); input.value = JSON.stringify(binding.source.value); input.setAttribute('aria-label', '常量 JSON');
+        input.onchange = () => { try { binding.source.value = JSON.parse(input.value); input.setCustomValidity(''); changed(); } catch { input.setCustomValidity('请输入合法 JSON'); input.reportValidity(); } };label.append(input);from.append(label);
       }
-      row.append(button('删除接线', () => { values.splice(i,1); changed(); render(); })); target.append(row);
+      const remove=button('×', () => { values.splice(i,1); changed(); render(); });remove.className='remove-binding';remove.setAttribute('aria-label','删除第 '+(i+1)+' 条映射');
+      row.append(remove); target.append(row);
     });
-    target.append(button('添加接线', () => { values.push({target:[],source:{kind:'input',path:[]}}); changed(); render(); }));
+    target.append(button('＋ 添加数据映射', () => { values.push({target:[],source:{kind:'input',path:[]}}); changed(); render(); }));
   }
   function issues(result) {
     $('flow-issues').replaceChildren();
+    document.querySelectorAll('.flow-node.has-issue').forEach(card=>card.classList.remove('has-issue'));
     for (const issue of result.issues || []) {
       const item = el('li', `${issue.nodeId || '服务'} · ${(issue.fieldPath || []).join('.')} · ${issue.reason}`);
-      item.dataset.nodeId = issue.nodeId || ''; $('flow-issues').append(item);
+      item.dataset.nodeId = issue.nodeId || '';
+      const card=Array.from(document.querySelectorAll('.flow-node')).find(card=>card.dataset.nodeId===issue.nodeId || card.dataset.conditionId===issue.nodeId);
+      if(card){card.classList.add('has-issue');item.append(button('定位节点',()=>{card.scrollIntoView({behavior:'smooth',block:'center'});card.querySelector('details').open=true;card.focus({preventScroll:true});}));}
+      $('flow-issues').append(item);
     }
     $('service-result').textContent = result.valid ? '拼图校验通过' : '拼图未通过校验，请按节点及端口修正';
   }
@@ -71,7 +150,8 @@ const flowEditor = (() => {
   }
   let timer;
   function changed() { revision++; $('service-result').textContent = '草稿已修改，等待校验'; clearTimeout(timer); timer = setTimeout(validate, 250); }
-  function render() {
+  function render(focusNode) {
+    const openDetails=new Set(Array.from(document.querySelectorAll('#flow-nodes details[open]')).map(item=>item.dataset.detailKey));
     $('service-name').value = content.name;
     $('flow-example').value = content.examples.length ? JSON.stringify(content.examples[0].input,null,2) : '';
     for (const [id,key] of [['flow-input','inputContract'],['flow-output','outputContract']]) {
@@ -85,7 +165,16 @@ const flowEditor = (() => {
     }
     $('flow-nodes').replaceChildren();
     sequence($('flow-nodes'), content.flow, []);
-    bindings($('flow-output-bindings'),content.output,content.outputContract,content.flow);
+    bindings($('flow-output-bindings'),content.output,content.outputContract,content.flow,'服务返回结果');
+    portPreview($('flow-input-preview'),content.inputContract);portPreview($('flow-output-preview'),content.outputContract);
+    for(const detail of document.querySelectorAll('#flow-nodes details')) {
+      detail.dataset.detailKey ||= detail.closest('.flow-node').dataset.nodeId+':'+detail.firstElementChild.textContent;
+      detail.open=openDetails.has(detail.dataset.detailKey);
+    }
+    for(const card of document.querySelectorAll('.flow-node')) {
+      if(card.dataset.nodeId===focusNode)card.querySelector('.node-details').open=true;
+      if(card.dataset.nodeId===focusNode){card.scrollIntoView({behavior:'smooth',block:'center'});card.focus({preventScroll:true});}
+    }
   }
   function outputRef(node) {
     return node.kind === 'if' ? node.outputContract : node.carry ? node.carry.contract : node.kind === 'carry' ? node.contract : resources.find(r=>r.resourceId===node.artifactRef)?.outputContract;
@@ -99,58 +188,85 @@ const flowEditor = (() => {
   }
   function bindingSection(parent, label, values, contract, scope) {
     const section=el('fieldset');section.append(el('legend',label));const body=el('div');body.dataset.bindingSection=label;
-    bindings(body,values,contract,scope);section.append(body);parent.append(section);
+    bindings(body,values,contract,scope,label.startsWith('输入 ·')?'当前节点输入':label);section.append(body);parent.append(section);
   }
   function sequence(parent, nodes, inherited) {
+    parent.classList.add('flow-sequence');
+    if(!nodes.length){const hint=el('p','点击 ＋ 添加这条路径的第一步');hint.className='empty-sequence';parent.append(hint);}
     nodes.forEach((node,index)=>{
+      insertPoint(parent,nodes,index);
       const scope=[...inherited,...nodes.slice(0,index)];
       const resource=resources.find(r=>r.resourceId===node.artifactRef);
-      const card=el('fieldset');card.dataset.nodeId=node.nodeId;card.dataset.kind=node.kind;
-      card.append(el('legend',`${index+1}. ${resource?.name || node.kind} · ${node.nodeId}`));
-      for(const [title,delta] of [['上移',-1],['下移',1]]) card.append(button(title,()=>{
-        const next=index+delta;if(next<0||next>=nodes.length)return;
-        [nodes[index],nodes[next]]=[nodes[next],nodes[index]];changed();render();
-      }));
-      card.append(button('删除节点',()=>{
+      const card=el('article');card.className='flow-node';card.tabIndex=-1;card.dataset.nodeId=node.nodeId;card.dataset.kind=node.kind;
+      if(node.kind==='while')card.dataset.conditionId=node.condition.nodeId;
+      const header=el('div');header.className='node-header';
+      const icon=el('span',({block:'▦',package:'✦',if:'⑂',repeat:'↻',while:'↻'})[node.kind]);icon.className='node-icon';
+      const title=el('div');title.className='node-title';title.append(el('small',kindNames[node.kind]+' · '+node.nodeId),el('h4',nodeName(node)));
+      const actions=el('div');actions.className='node-actions';
+      for(const [text,delta] of [['↑',-1],['↓',1]]) {
+        const move=button(text,()=>{const next=index+delta;[nodes[index],nodes[next]]=[nodes[next],nodes[index]];changed();render(node.nodeId);});
+        move.disabled=index+delta<0||index+delta>=nodes.length;move.setAttribute('aria-label',(delta<0?'上移':'下移')+' '+nodeName(node));actions.append(move);
+      }
+      const remove=button('×',()=>{
         for(const child of allNodes([node]))delete content.nodeConfigurations[child.nodeId];
         nodes.splice(index,1);if(!allNodes().some(n=>n.kind==='package'))delete content.budget;changed();render();
-      }));
+      });remove.setAttribute('aria-label','删除 '+nodeName(node));actions.append(remove);header.append(icon,title,actions);card.append(header);
+      const description=el('p',resource ? resource.description || '按输入数据执行处理，将结果提供给后续节点。' : controls.find(r=>r.kind===node.kind)?.description || '资源不可用，请重新加载。');description.className='node-description';card.append(description);
+      const summary=el('div');summary.className='node-port-summary';
+      let inputText=node.inputs?.length ? node.inputs.map(({source})=>{
+        const origin=scope.find(n=>n.nodeId===source.nodeId);
+        const name=source.kind==='input'?'服务输入':source.kind==='constant'?'固定值':source.kind==='carry'?'本轮携带值':origin?nodeName(origin)+' ['+source.nodeId+']':source.nodeId+'（不可用）';
+        return name+(source.path?.length?' / '+source.path.join('.'):'');
+      }).join('、'):'待指定来源';
+      if(node.kind==='if')inputText='条件 → 成立 / 否则';
+      if(node.body)inputText='初始值 → 每轮处理 → 更新携带值';
+      summary.append(el('span','输入 · '+inputText),el('span','输出 · '+(contracts().find(([id])=>id===outputRef(node))?.[1] || '待选择数据结构')));card.append(summary);
+      const detail=el('details');detail.className='node-details';detail.append(el('summary','配置输入、输出与参数'));card.append(detail);
       if(node.kind==='block'||node.kind==='package') {
-        card.append(el('p',resource?.description));const ports=el('div');bindings(ports,node.inputs,resource?.inputContract,scope);card.append(ports);
-        const detail=el('details');detail.append(el('summary','输入／输出契约'),el('pre',JSON.stringify(resource?.schemas,null,2)));card.append(detail);
-        if(node.kind==='package'||resource?.apiRequired)card.append(button('配置 '+node.nodeId,()=>configure(node,resource)),el('p',content.nodeConfigurations[node.nodeId]?'已配置，最终状态以拼图校验为准':node.kind==='package'?'无效：尚未配置参数、预算及模型':'无效：尚未配置 API 连接及请求路径'));
-      } else if(node.kind==='if') {
-        const condition=el('label','条件块输出（严格 bool）');
-        condition.append(choices(sourceOptions(scope),sourceValue(node.condition),v=>{if(v){node.condition=JSON.parse(v);changed()}}));card.append(condition);
-        contractChoice(card,'分支共同出口契约',node.outputContract,v=>node.outputContract=v);
-        for(const [key,title] of [['thenBranch','成立分支'],['elseBranch','否则分支']]){
-          const branch=el('fieldset');branch.dataset.branch=key;branch.append(el('legend',title));
-          sequence(branch,node[key].nodes,scope);
-          bindingSection(branch,'分支出口',node[key].output,node.outputContract,[...scope,...node[key].nodes]);card.append(branch);
+        bindingSection(detail,'输入 · 这个节点需要什么',node.inputs,resource?.inputContract,scope);
+        const inputPreview=el('div');portPreview(inputPreview,resource?.inputContract);detail.append(inputPreview);
+        detail.append(el('h5','输出 · 执行后可供后续节点使用'));const outputPreview=el('div');portPreview(outputPreview,resource?.outputContract);detail.append(outputPreview);
+        const raw=el('details');raw.className='raw-schema';raw.append(el('summary','查看完整契约 JSON'),el('pre',JSON.stringify(resource?.schemas,null,2)));detail.append(raw);
+        if(node.kind==='package'||resource?.apiRequired){
+          const configured=!!content.nodeConfigurations[node.nodeId];const status=el('p',configured?'参数已配置 · 兼容性以校验结果为准':'待配置 · '+(node.kind==='package'?'模型连接、参数与预算':'API 连接与请求路径'));status.className='configuration-status';card.append(status);
+          const configButton=button('配置'+(node.kind==='package'?'模型与参数':' API 连接'),()=>configure(node,resource));configButton.disabled=!resource;detail.append(configButton);
         }
+      } else if(node.kind==='if') {
+        const condition=el('label','判断依据 · 选择前面条件块输出的布尔值（true / false）');
+        condition.append(choices(sourceOptions(scope),sourceValue(node.condition),v=>{if(v){node.condition=JSON.parse(v);changed();render();}}));detail.append(condition);
+        contractChoice(detail,'两条分支汇合后的输出结构',node.outputContract,v=>node.outputContract=v);
+        const branches=el('div');branches.className='flow-branches';
+        for(const [key,title] of [['thenBranch','成立 · true'],['elseBranch','否则 · false']]){
+          const branch=el('div');branch.className='flow-branch';branch.dataset.branch=key;branch.append(el('h5',title));
+          const branchNodes=el('div');sequence(branchNodes,node[key].nodes,scope);branch.append(branchNodes);
+          const output=el('details');output.className='branch-output';output.dataset.detailKey=node.nodeId+':'+key;output.append(el('summary','本分支返回什么'));
+          bindingSection(output,'分支出口',node[key].output,node.outputContract,[...scope,...node[key].nodes]);branch.append(output);branches.append(branch);
+        }
+        card.append(branches,el('div','⑂ 分支汇合 · 统一输出给下一步'));card.lastChild.className='flow-merge';
       } else {
-        const key=node.kind==='repeat'?'count':'maxIterations';const label=el('label',node.kind==='repeat'?'固定次数（允许 0）':'最大次数（必须大于 0）');
+        const key=node.kind==='repeat'?'count':'maxIterations';const label=el('label',node.kind==='repeat'?'重复次数 · 0 表示跳过':'最大执行次数 · 防止无限循环');
         const input=el('input');input.type='number';input.min=node.kind==='repeat'?'0':'1';input.step='1';input.value=node[key]??'';input.dataset.count=key;
-        input.onchange=()=>{if(input.value==='')delete node[key];else node[key]=Number(input.value);changed()};label.append(input);card.append(label);
-        contractChoice(card,'循环携带值契约',node.carry.contract,v=>node.carry.contract=v);
-        bindingSection(card,'循环初始值',node.carry.initial,node.carry.contract,scope);
+        input.onchange=()=>{if(input.value==='')delete node[key];else node[key]=Number(input.value);changed();render();};label.append(input);detail.append(label);
+        contractChoice(detail,'轮次之间传递的数据结构',node.carry.contract,v=>node.carry.contract=v);
+        detail.append(el('p','初始值用于第一轮；循环体读取「本轮携带值」，每轮结束用「下轮携带值」更新。循环结束后输出最后的携带值。'));
+        bindingSection(detail,'循环初始值',node.carry.initial,node.carry.contract,scope);
         const inner=[...scope,{kind:'carry',nodeId:node.nodeId,contract:node.carry.contract}];
         if(node.kind==='while'){
-          const condition=el('label','前置条件块');condition.append(choices(resources.filter(r=>r.kind==='block').map(r=>[r.resourceId,r.name]),node.condition.artifactRef,v=>{node.condition.artifactRef=v;delete content.nodeConfigurations[node.condition.nodeId];changed();render()}));card.append(condition);
+          const condition=el('label','每轮执行前判断 · 输出必须为布尔值');condition.append(choices(resources.filter(r=>r.kind==='block').map(r=>[r.resourceId,r.name]),node.condition.artifactRef,v=>{node.condition.artifactRef=v;delete content.nodeConfigurations[node.condition.nodeId];changed();render();}));detail.append(condition);
           const conditionResource=resources.find(r=>r.resourceId===node.condition.artifactRef);
-          if(conditionResource?.apiRequired)card.append(button('配置 '+node.condition.nodeId,()=>configure(node.condition,conditionResource)));
-          bindingSection(card,'条件块输入',node.condition.inputs,resources.find(r=>r.resourceId===node.condition.artifactRef)?.inputContract,inner);
+          if(conditionResource?.apiRequired)detail.append(button('配置条件块 API',()=>configure(node.condition,conditionResource)));
+          bindingSection(detail,'条件块输入',node.condition.inputs,conditionResource?.inputContract,inner);
         }
-        const body=el('fieldset');body.dataset.branch='body';body.append(el('legend','循环体'));sequence(body,node.body,inner);card.append(body);
-        bindingSection(card,'下轮携带值',node.carry.update,node.carry.contract,[...inner,...node.body]);
+        const body=el('div');body.className='loop-body';body.dataset.branch='body';body.append(el('h5','↻ 循环体 · '+(node.kind==='repeat'?'执行 '+(node.count??'—')+' 次':'条件成立时执行，最多 '+node.maxIterations+' 次')));
+        const bodyNodes=el('div');sequence(bodyNodes,node.body,inner);body.append(bodyNodes);card.append(body);
+        const update=el('details');update.className='loop-update';update.append(el('summary','↻ 设置下轮携带值'));
+        bindingSection(update,'下轮携带值',node.carry.update,node.carry.contract,[...inner,...node.body]);card.append(update);
       }
       parent.append(card);
     });
-    const toolbar=el('div');toolbar.className='insert-toolbar';
-    const select=choices([...resources.filter(r=>r.kind!=='contract').map(r=>[r.resourceId,r.name]),...['if','repeat','while'].map(k=>[k,k])],'',()=>{});
-    select.setAttribute('aria-label','插入模块或容器');toolbar.append(select,button('插入节点',()=>{if(select.value)add(resources.find(r=>r.resourceId===select.value)||{kind:select.value},nodes)}));parent.append(toolbar);
+    insertPoint(parent,nodes,nodes.length);
   }
-  function add(resource,nodes=content.flow) {
+  function add(resource,nodes=content.flow,index=nodes.length) {
     const nodeId=newId(),kind=resource.kind;
     if(kind==='package') {
       const defaults=resource.budgetDefaults;
@@ -164,7 +280,7 @@ const flowEditor = (() => {
       if(kind==='repeat')node.count=0;
       else {node.maxIterations=1;node.condition={kind:'block',nodeId:nodeId+'_condition',artifactRef:'',inputs:[]};}
     }
-    nodes.push(node);changed();render();
+    nodes.splice(index,0,node);changed();render(nodeId);
   }
   for (const [id, key] of [['global-loop','loopLimit'],['global-token','tokenLimit']]) {
     $(id).onchange = () => { content.budget[key] = Number($(id).value); changed(); };
@@ -253,16 +369,14 @@ const flowEditor = (() => {
     };
     $('node-dialog').showModal();
   }
+  $('module-search').oninput=()=>renderLibrary($('module-library'),$('module-search').value,resource=>add(resource));
+  $('insert-search').oninput=renderInsertOptions;
+  $('insert-close').onclick=()=>$('insert-dialog').close();
   $('node-close').onclick = () => $('node-dialog').close();
   async function refresh() {
     const result = await window.agentPlatform.listResources();
     if (!result.ok) { $('load-result').textContent = result.error.message; return; }
-    resources = result.data; $('module-library').replaceChildren();
-    for (const resource of resources) {
-      const item = el('article'); item.append(el('strong',resource.name),el('p',resource.description));
-      if (resource.kind !== 'contract') item.append(button('插入 ' + resource.name, () => add(resource)));
-      $('module-library').append(item);
-    }
+    resources = result.data; renderLibrary($('module-library'),$('module-search').value,resource=>add(resource));
     await refreshDrafts(); await refreshSaved(); render();
   }
   async function refreshDrafts() {
@@ -366,6 +480,7 @@ const flowEditor = (() => {
     if (!result.ok) { $('draft-result').textContent = result.error.message; return; }
     draftId = id; content = {...empty(),...clone(result.data.content)}; changed();render();
   };
+  renderLibrary($('module-library'),'',resource=>add(resource));
   render();
   return {refresh, validate};
 })();
