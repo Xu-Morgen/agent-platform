@@ -169,55 +169,56 @@ const flowEditor = (() => {
     $(id).onchange = () => { content.budget[key] = key === 'strictTokenLimit' ? $(id).checked : Number($(id).value); changed(); };
   }
   async function configure(node, resource) {
-    const config = clone(content.nodeConfigurations[node.nodeId] || {parameters:{},budget:resource.budgetDefaults,capabilities:{}});
+    const config = clone(content.nodeConfigurations[node.nodeId] || {parameters:{},budget:resource.budgetDefaults,model:null,maxOutputTokens:512});
     const response = await window.agentPlatform.listEnvironments();
     if (!response.ok) { $('service-result').textContent = response.error.message; return; }
-    const fields = [], caps = [];
+    const fields = [];
     $('node-fields').replaceChildren(); $('node-capabilities').replaceChildren(); $('node-errors').replaceChildren();
     $('node-title').textContent = resource.name + ' · ' + node.nodeId;
-    for (const [key, definition] of Object.entries(resource.schemas.configuration.properties || {})) {
-      const budget = ['loopLimit','tokenLimit'].includes(key);
-      const parent = budget ? config.budget : config.parameters;
-      const label = el('label', `${key}${resource.schemas.configuration.required?.includes(key) ? ' *' : ''} · ${definition.description || definition.title || ''}`);
-      const value = parent[key] ?? definition.default;
-      let input;
-      if (definition.enum) input = choices(definition.enum.map(v=>[JSON.stringify(v),String(v)]), value === undefined ? '' : JSON.stringify(value),()=>{});
-      else {
-        input = el(['object','array'].includes(definition.type) || definition.$ref || definition.anyOf ? 'textarea' : 'input');
-        input.type = definition.type === 'boolean' ? 'checkbox' : ['integer','number'].includes(definition.type) ? 'number' : 'text';
-        if (input.type === 'checkbox') input.checked = value ?? false;
-        else input.value = value === undefined ? '' : input.tagName === 'TEXTAREA' ? JSON.stringify(value,null,2) : value;
+    config.budget ||= clone(resource.budgetDefaults);
+    const parameterSchema = resource.schemas.configuration;
+    const groups = [
+      {title:'业务参数', parent:config.parameters, schema:parameterSchema},
+      {title:'节点累计预算', parent:config.budget, schema:{properties:{
+        loopLimit:{type:'integer',minimum:1,title:'最大调用次数'},
+        tokenLimit:{type:'integer',minimum:1,title:'最大累计 token'},
+      }}},
+      {title:'模型调用', parent:config, schema:{properties:{
+        maxOutputTokens:{type:'integer',minimum:1,default:512,title:'单次输出 token 上限'},
+      }}},
+    ];
+    for (const {title,parent,schema} of groups) {
+      $('node-fields').append(el('strong',title));
+      for (const [key, definition] of Object.entries(schema.properties || {})) {
+        const label = el('label', `${key}${schema.required?.includes(key) ? ' *' : ''} · ${definition.description || definition.title || ''}`);
+        const value = parent[key] ?? definition.default;
+        let input;
+        if (definition.enum) input = choices(definition.enum.map(v=>[JSON.stringify(v),String(v)]), value === undefined ? '' : JSON.stringify(value),()=>{});
+        else {
+          input = el(['object','array'].includes(definition.type) || definition.$ref || definition.anyOf ? 'textarea' : 'input');
+          input.type = definition.type === 'boolean' ? 'checkbox' : ['integer','number'].includes(definition.type) ? 'number' : 'text';
+          if (input.type === 'checkbox') input.checked = value ?? false;
+          else input.value = value === undefined ? '' : input.tagName === 'TEXTAREA' ? JSON.stringify(value,null,2) : value;
+        }
+        if (definition.minimum !== undefined) input.min = definition.minimum;
+        input.dataset.field = key;
+        fields.push(() => {
+          if (input.type !== 'checkbox' && input.value === '') { delete parent[key]; return; }
+          parent[key] = definition.enum || input.tagName === 'TEXTAREA' ? JSON.parse(input.value) : input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value) : input.value;
+        });
+        label.append(input); $('node-fields').append(label);
       }
-      input.dataset.field = key;
-      fields.push(() => {
-        if (input.type !== 'checkbox' && input.value === '') { delete parent[key]; return; }
-        parent[key] = definition.enum || input.tagName === 'TEXTAREA' ? JSON.parse(input.value) : input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value) : input.value;
-      });
-      label.append(input); $('node-fields').append(label);
     }
-    for (const requirement of resource.requiredCapabilities) {
-      const key = requirement.capabilityId, selected = config.capabilities[key];
-      const label = el('label', `能力 ${key} · ${requirement.kind}`);
-      const options = requirement.kind === 'block'
-        ? resources.filter(r=>r.kind==='block').map(r=>[JSON.stringify({kind:'block',artifactRef:r.resourceId}),r.name])
-        : response.data.flatMap(env=>env.connections.filter(c=>c.kind===requirement.kind).map(c=>[
-          JSON.stringify({kind:requirement.kind,environmentId:env.environmentId,connectionId:c.connectionId}),env.name+' / '+c.connectionId+' / '+(c.model || 'API')]));
-      const identity = selected ? requirement.kind === 'block' ? {kind:'block',artifactRef:selected.artifactRef} : {kind:requirement.kind,environmentId:selected.environmentId,connectionId:selected.connectionId} : null;
-      const select = choices(options,identity ? JSON.stringify(identity) : '',()=>{});select.dataset.capability = key;label.append(select);
-      let method, path;
-      if (requirement.kind === 'api') {
-        method = choices(['GET','POST','PUT','PATCH','DELETE'].map(v=>[v,v]),selected?.apiMethod || '',()=>{});
-        path = el('input');path.placeholder = '/相对路径';path.value = selected?.apiPath || '';label.append(method,path);
-      }
-      caps.push(() => { if (!select.value) delete config.capabilities[key]; else {
-        config.capabilities[key] = JSON.parse(select.value);
-        if (method) Object.assign(config.capabilities[key],{apiMethod:method.value,apiPath:path.value});
-      }}); $('node-capabilities').append(label);
-    }
+    const label = el('label', '模型连接');
+    const options = response.data.flatMap(env=>env.connections.filter(c=>c.kind==='model').map(c=>[
+      JSON.stringify({environmentId:env.environmentId,connectionId:c.connectionId}),env.name+' / '+c.connectionId+' / '+c.model]));
+    const select = choices(options, config.model ? JSON.stringify(config.model) : '',()=>{});
+    select.dataset.field = 'model';label.append(select);$('node-capabilities').append(label);
     $('node-form').onsubmit = async event => {
       event.preventDefault();$('node-errors').replaceChildren();
       try {
-        fields.forEach(read=>read());caps.forEach(read=>read());
+        fields.forEach(read=>read());
+        config.model = select.value ? JSON.parse(select.value) : null;
         const result = await window.agentPlatform.validateFlowNode({node,configuration:config,strictTokenLimit:content.budget?.strictTokenLimit ?? true});
         if (!result.ok) {
           $('node-errors').append(el('li',result.error.message + ' · ' + (result.error.fieldPath || []).join('.'))); return;

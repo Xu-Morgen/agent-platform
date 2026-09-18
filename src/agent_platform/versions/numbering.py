@@ -10,10 +10,6 @@ def signatures(snapshot):
     structural['modules'] = {ref: value.content.digest for ref, value in snapshot.catalog._artifacts.items()}
     structural['contracts'] = {ref: value.schema for ref, value in snapshot.catalog._contracts.items()}
     configuration = {'nodes': draft['nodeConfigurations'], 'budget': draft['budget']}
-    # 块能力内容属于模块版本，不能因内容地址变化同时误记配置变更。
-    for config in configuration['nodes'].values():
-        for binding in config['capabilities'].values():
-            binding.pop('artifactRef', None)
     return json.dumps(structural, sort_keys=True), json.dumps(configuration, sort_keys=True)
 
 

@@ -1,13 +1,11 @@
-"""加载固定版本业务包并检查本地运行依赖，不自动安装依赖。"""
+"""加载固定版本的声明式 Prompt 包；无业务入口或包依赖安装。"""
 from dataclasses import dataclass
-from importlib.metadata import version, PackageNotFoundError
-import platform
-from packaging.requirements import Requirement
-from packaging.specifiers import SpecifierSet
 from pydantic import ValidationError
-from ..contracts.packages import PackageManifest, PackageBudget
+from ..contracts.base import StrictModel
+from ..contracts.packages import PackageManifest
+from ..runtime.packages import prompt_fields
 from .snapshots import ContentSnapshot, capture
-from .validation import invalid, load_symbol, validation_error
+from .validation import invalid, load_model, validation_error
 
 
 @dataclass(frozen=True)
@@ -28,40 +26,25 @@ class PackageRegistry:
         content = capture(directory)
         try:
             manifest = PackageManifest.model_validate_json(content.read_resource('package.json'))
-            runtime = manifest.runtime_requirements
+            models = {key: load_model(content, reference, ['contractRefs', key])
+                      for key, reference in manifest.contract_refs.model_dump().items() if reference}
             try:
-                compatible_python = platform.python_version() in SpecifierSet(runtime.python)
-            except ValueError:
-                raise invalid('Python 版本约束格式无效', ['runtimeRequirements', 'python'], code='DEPENDENCY_ERROR') from None
-            if not compatible_python:
-                raise invalid('当前 Python 版本不满足包声明', ['runtimeRequirements', 'python'], code='DEPENDENCY_ERROR')
-            for index, dependency in enumerate(runtime.dependencies):
-                path = ['runtimeRequirements', 'dependencies', index]
-                try:
-                    requirement = Requirement(dependency)
-                except ValueError:
-                    raise invalid('代码依赖声明格式无效', path, code='DEPENDENCY_ERROR') from None
-                if requirement.marker and not requirement.marker.evaluate():
-                    continue
-                if requirement.url or requirement.extras:
-                    raise invalid('首期不支持 URL/extras 依赖', path, code='DEPENDENCY_ERROR')
-                try:
-                    installed = version(requirement.name)
-                except PackageNotFoundError:
-                    raise invalid(f'缺少已安装代码依赖：{requirement.name}', path, code='DEPENDENCY_ERROR') from None
-                if installed not in requirement.specifier:
-                    raise invalid(f'代码依赖版本不满足声明：{requirement.name}', path, code='DEPENDENCY_ERROR')
-            load_symbol(content, manifest.entry, ['entry'])
-            for key, reference in manifest.contract_refs.model_dump().items():
-                model = load_symbol(content, reference, ['contractRefs', key], model=True)
-                if key == 'configuration' and not issubclass(model, PackageBudget):
-                    raise invalid('包配置模型必须继承 PackageBudget', ['contractRefs', key])
-            for i, capability in enumerate(manifest.required_capabilities):
-                load_symbol(content, capability.input_model, ['requiredCapabilities', i, 'inputModel'], model=True)
-                load_symbol(content, capability.output_model, ['requiredCapabilities', i, 'outputModel'], model=True)
-            ids = [value.capability_id for value in manifest.required_capabilities]
-            if len(set(ids)) != len(ids):
-                raise invalid('能力标识重复', ['requiredCapabilities'])
+                prompt = content.read_resource(manifest.prompt).decode('utf-8')
+                if not prompt.strip():
+                    raise ValueError('Prompt 不能为空')
+                fields = prompt_fields(prompt)
+            except (KeyError, ValueError):
+                raise invalid('Prompt 文件不可用或占位符无效', ['prompt']) from None
+            for path in fields:
+                model = models.get('input' if path[0] == 'input' else 'configuration', StrictModel)
+                schema = model.model_json_schema(by_alias=True)
+                current = schema
+                for key in path[1:]:
+                    if '$ref' in current:
+                        current = schema['$defs'][current['$ref'].split('/')[-1]]
+                    current = current.get('properties', {}).get(key)
+                    if current is None:
+                        raise invalid('Prompt 字段不存在或不是可直接访问的对象字段：' + '.'.join(path), ['prompt'])
             key = (manifest.package_id, manifest.version)
             existing = self._items.get(key)
             if existing:

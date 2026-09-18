@@ -1,6 +1,5 @@
 """单 worker 消费固定快照，生命周期独立于提交连接。"""
 import asyncio
-from ..adapters.api import APIAdapter
 from ..adapters.models import ModelAdapters
 from .boundary import Boundary, current_boundary
 from .cancellation import CancellationPolicy, terminal_for_error
@@ -52,7 +51,6 @@ class RunWorker:
         if runs.get(run_id).status in TERMINAL:
             return
         boundary = self.boundary_factory()
-        api = APIAdapter(envs.credentials)
         model = ModelAdapters(envs.credentials)
         token_policy = None
         policies = (CancellationPolicy(runs, run_id),) + boundary.policies
@@ -61,7 +59,7 @@ class RunWorker:
             token_policy = policy_type(run_id, snapshot, runs)
             policies += (token_policy, LoopPolicy(run_id, snapshot, runs))
         boundary.policies = policies
-        context = FlowRunContext(run_id, snapshot, runs, api, model, token_policy)
+        context = FlowRunContext(run_id, snapshot, runs, model, token_policy)
         bt, ct = current_boundary.set(boundary), current_context.set(context)
         try:
             await boundary.check('run_start', run_id)
@@ -88,7 +86,6 @@ class RunWorker:
                 await boundary.check('cleanup', run_id)
             finally:
                 await model.close()
-                await api.close()
                 envs.release(run_id)
                 current_context.reset(ct)
                 current_boundary.reset(bt)

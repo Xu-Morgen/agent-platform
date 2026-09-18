@@ -7,7 +7,7 @@ class LoopPolicy:
         self.run_id, self.runs = run_id, runs
         self.global_limit = snapshot.draft.budget.loop_limit
         self.local_limits = {
-            key: snapshot.configuration['packages.' + key]['loopLimit']
+            key: snapshot.draft.node_configurations[key].budget.loop_limit
             for key in snapshot.packages
         }
 
@@ -81,7 +81,7 @@ class StrictTokenPolicy:
     def __init__(self, run_id, snapshot, runs):
         self.ledger = TokenLedger(run_id, runs)
         self.global_limit = snapshot.draft.budget.token_limit
-        self.local_limits = {b: snapshot.configuration['packages.' + b]['tokenLimit'] for b in snapshot.packages}
+        self.local_limits = {b: snapshot.draft.node_configurations[b].budget.token_limit for b in snapshot.packages}
 
     def error(self, code, message):
         return PlatformError(ErrorResponse(code=code, stage='budget.token', message=message,

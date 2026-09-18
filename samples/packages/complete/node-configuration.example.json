@@ -1,24 +1,17 @@
 {
   "parameters": {
     "instruction": "准确概括事实，不补充原文之外的信息。",
-    "maxOutputTokens": 512,
-    "useGuidance": false,
-    "style": {"language": "zh", "keywordLimit": 3}
-  },
-  "budget": {"loopLimit": 1, "tokenLimit": 32768},
-  "capabilities": {
-    "normalize": {"kind": "block", "artifactRef": "replace-block-resource-id"},
-    "guidance": {
-      "kind": "api",
-      "environmentId": "replace-environment-id",
-      "connectionId": "replace-api-connection-id",
-      "apiMethod": "POST",
-      "apiPath": "/guidance"
-    },
-    "chat": {
-      "kind": "model",
-      "environmentId": "replace-environment-id",
-      "connectionId": "replace-model-connection-id"
+    "style": {
+      "language": "zh"
     }
+  },
+  "model": {
+    "environmentId": "replace_environment_id",
+    "connectionId": "chat"
+  },
+  "maxOutputTokens": 512,
+  "budget": {
+    "loopLimit": 1,
+    "tokenLimit": 32768
   }
 }

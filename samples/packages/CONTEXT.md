@@ -1,77 +1,38 @@
-# 执行入口与可用钩子
+# 平台标准执行入口
 
-## 平台调用顺序
+所有业务包统一使用平台入口，不再开放自定义 invoke 或 PackageContext。每次调用执行以下步骤：
 
-加载时导入入口和类型；保存服务时验证配置与绑定。每次执行包时，平台检查预算和取消状态，严格验证业务输入/配置，然后调用清单 entry 指向的函数，最后验证业务输出并记录步骤结果。
+1. 平台检查取消状态、任务和节点预算，并登记一次调用。
+2. 按输入契约验证节点输入，按可选 Config 验证业务参数。
+3. 从固定快照读取 Prompt，替换预留字段。
+4. 构造平台 ModelRequest，发起一次模型调用并记录用量。
+5. 校验 ModelResponse，再按包输出契约严格验证 response.output。
+6. 返回校验后的业务对象；任何校验失败都使步骤失败。
 
-```python
-async def invoke(value, config, context):
-    ...
-    return output
+平台保留模型请求和响应的内置契约检查。系统消息包含由包输出契约生成的 JSON Schema，渲染后的 Prompt 作为 user 消息发送。模型仍可能返回不合法内容，最终以程序校验为准。不自动重试、不修复 JSON、不做字段改名或包装解包。
+
+## Prompt 占位符
+
+```text
+请使用 {{parameters.style.language}} 概括以下文本：
+{{input.text}}
 ```
 
-| 参数/返回值 | 实际类型及用途 |
-| --- | --- |
-| value | contractRefs.input 指向的模型实例，使用 `value.text` 取值 |
-| config | contractRefs.configuration 指向的模型实例；合并节点 parameters 和 budget 后验证所得 |
-| context | 平台 PackageContext，仅提供下面列出的公共方法 |
-| 返回值 | 符合 contractRefs.output 的模型或字典，不返回整个 ModelResponse |
+- input 指已通过契约校验的本次节点输入。
+- parameters 指已验证并补默认值的节点业务参数。
+- 路径使用对外 JSON 字段名，例如 {{input.sourceText}}；支持嵌套对象字段。
+- {{input}} 或 {{parameters}} 可插入整个对象。
+- 字符串原样填入；对象、数组、数字、布尔和 null 采用 JSON 表示。
+- 只替换一次，输入文本中出现的占位符不会再次执行。
+- 不支持表达式、函数、过滤器、数组索引或条件模板；单个 JSON 花括号可直接书写，双花括号保留给占位符。
+- 加载时检查模板语法及契约字段。可空/联合类型的内部字段不能直接访问，可插入整个值，或用上游通用块准备确定结构。
 
-同步入口也支持，返回 awaitable 时平台会等待。与块不同，包入口的输入/输出契约以清单为准，不从函数类型注解推导。三个参数按位置传入，函数名可改但需同步 entry。加载器检查可调用性，不会替你验证所有入口签名问题。
+字符数计算、清洗、拆分、排序、外部查询和结构转换都由通用块完成，再通过接线传入包。包契约只定义和验证数据结构，不承担数据加工。
 
-## PackageContext 的全部公共方法
+## 协议与错误
 
-| 方法 | 返回值 | 作用及限制 |
-| --- | --- | --- |
-| `await context.call_model(capability_id, request)` | ModelResponse | 调用已声明且绑定的 model 能力；request 为平台 ModelRequest 或符合该契约的数据 |
-| `await context.call_capability(capability_id, value)` | 该能力 outputModel 实例 | 调用已声明的 model/api/block 能力；输入输出均受契约校验 |
-| `context.read_resource(name)` | bytes | 读取当前包固定内容快照中的文件，例如 `prompt.txt`；自行 UTF-8 解码 |
-| `await context.record_progress(step_id, message)` | None | 触发名为 progress 的运行边界检查；当前 message 不保存、不展示，不生成百分比或自定义 StepRecord |
+平台 ModelRequest 包含 messages 和 maxOutputTokens；模型响应包含 JSON output 和 usage。业务输出只返回 output 经包契约校验后的值，不混入模型用量。用量在任务/步骤记录中查询。
 
-capability_id 对应清单中的 capabilityId，不是环境 connectionId；未声明或类型不符会报 DEPENDENCY_ERROR。只有模型/API/块能力，不能用 context 调用另一个包或直接改任务状态。
+Prompt 文件丢失、占位符错误在加载时报 CONFIGURATION_ERROR；业务输入错误报 CONTRACT_VALIDATION_ERROR；模型响应或业务输出错误报 OUTPUT_VALIDATION_ERROR。预算、取消、传输错误保留平台各自的错误语义，不返回固定成功内容。
 
-read_resource 使用规范包内相对路径，不允许绝对路径和 `..`。包源码通过内存导入，`__file__` 不是可供 open 的真实文件路径；使用快照资源保证提交后的任务不受源文件改动影响。
-
-## 模型请求与响应的所有字段
-
-| 字段 | 作用 |
-| --- | --- |
-| ModelRequest.messages | 至少一条消息 |
-| messages[].role | system/user/assistant |
-| messages[].content | 字符串内容，不支持多模态消息数组 |
-| ModelRequest.maxOutputTokens | 正整数，本次请求输出 token 上限 |
-| ModelResponse.output | JSON 值；模型协议层不会自动知道业务输出模型 |
-| ModelResponse.usage.inputTokens / outputTokens | 非负计数；无法计量时可能为 null |
-| ModelResponse.usage.quality | exact / upper_bound / estimated / unsupported |
-| ModelResponse.usage.source | 计量来源说明 |
-
-业务包只构造请求，usage 由平台适配器返回并核算。完整示例先把 response.output 验证为 ModelSummary，再检查配置驱动的关键词数量上限；平台最后还会验证包的 Output。不要把 usage 字段添加到业务输出中，除非显式扩展业务契约。
-
-## 可用的校验及处理钩子
-
-- `@field_validator`：验证一个字段，例如配置 instruction 不能全为空白。
-- `@model_validator`：验证跨字段关系，见 [完整独立契约](../contracts/complete.py)。
-- invoke 中的前处理：调用块能力、构造请求或查询必要上下文。
-- invoke 中的后处理：验证模型 JSON、明确检查动态约束、组装业务输出。
-- 局部资源清理：普通 Python `try/finally`，不注册平台全局清理逻辑。
-
-**平台未提供可注册的 on_load/on_start/on_finish/on_error/on_cancel 钩子，也没有清单 hooks 字段。** runtime 内部 Boundary 的 observer/policies 由平台管理，不是给包修改的扩展接口。record_progress 只提供一个主动检查点；无法用它中断正在执行的同步 CPU 代码。
-
-## 错误和取消
-
-模型/API 的传输错误和运行时校验错误应向上传播；不要捕获后返回固定成功内容。需要明确业务错误时：
-
-```python
-from agent_platform.contracts.errors import ErrorResponse, PlatformError
-
-raise PlatformError(ErrorResponse(
-    code='OUTPUT_VALIDATION_ERROR',
-    stage='sample.summary',
-    message='关键词数量超过节点配置的上限',
-    field_path=['keywords'],
-))
-```
-
-普通异常也会使步骤失败，但平台会隐藏异常正文并返回通用错误。message 应说明可操作原因，不放原始输入、模型响应或凭据。校验位置和 code 使用当前平台错误契约支持的值。
-
-主动取消等待当前模型传输结束再完成；等待中超时/断连优先记失败。关闭应用立即停止本地传输。包无需自行管理取消状态，不应吞掉取消或预算异常。没有自动重试和恢复；同一任务在拼图循环中多次进入包会累计调用次数与 token。
+包不维护运行钩子、检查点或取消处理。主动取消等待当前模型传输结束；传输错误优先记失败；关闭应用立即停止本地传输。平台在各执行边界统一检查。

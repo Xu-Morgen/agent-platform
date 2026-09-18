@@ -32,8 +32,7 @@ class RunSubmission:
             if not validation.valid:
                 raise PlatformError(ErrorResponse(code='CONFIGURATION_ERROR', stage='runs.submit',
                     message='当前环境或节点配置校验失败', issues=validation.issues))
-            ids = {c.environment_id for config in draft.node_configurations.values()
-                   for c in config.capabilities.values() if c.environment_id}
+            ids = {config.model.environment_id for config in draft.node_configurations.values()}
             environments = {key: self.environments.get(key) for key in sorted(ids)}
             run = self.runs.create(service_id=service.service_id, instance_id=snapshot.instance_id,
                 version=service.current.version, revision=service.current.revision,

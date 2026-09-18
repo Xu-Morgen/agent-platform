@@ -30,7 +30,7 @@ API 文档在 `http://127.0.0.1:8000/docs`。桌面显示的后端地址可能�
 | path | 后端可读路径；块/契约选文件，包选目录；推荐绝对路径 |
 | symbol | 契约必填，为文件中导出的类型名称；块/包省略 |
 
-块/包返回 resourceId、inputContract、outputContract 和 schemas；包另有 configurationContract、requiredCapabilities、budgetDefaults。独立契约直接用 resourceId 作为端口引用，schemas.value 展示类型。
+块/包返回 resourceId、inputContract、outputContract 和 schemas；包另有 configurationContract、budgetDefaults。独立契约直接用 resourceId 作为端口引用，schemas.value 展示类型。
 
 ## 2. 可直接执行的最小闭环
 
@@ -101,9 +101,8 @@ PY
     "summarize": {
       "parameters": {},
       "budget": {"loopLimit": 1, "tokenLimit": 32768},
-      "capabilities": {
-        "chat": {"kind": "model", "environmentId": "replace-environment-id", "connectionId": "replace-model-connection-id"}
-      }
+      "model": {"environmentId": "replace-environment-id", "connectionId": "replace-model-connection-id"},
+      "maxOutputTokens": 512
     }
   },
   "budget": {"loopLimit": 1, "tokenLimit": 32768, "strictTokenLimit": false}

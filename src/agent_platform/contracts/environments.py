@@ -3,7 +3,8 @@ from typing import Literal
 from urllib.parse import urlsplit
 from pydantic import Field, SecretStr, field_validator, model_validator
 from .base import StrictModel
-from .packages import Identifier, PositiveInt
+from .packages import Identifier
+from .budgets import PositiveInt
 
 
 class Connection(StrictModel):

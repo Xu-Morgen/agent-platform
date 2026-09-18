@@ -1,34 +1,46 @@
-"""包仅可访问声明的能力，不暴露包调度或任务状态写入入口。"""
-from .boundary import checkpoint
-from ..contracts.errors import ErrorResponse, PlatformError
+"""平台标准入口：替换 Prompt 字段、调用一次模型、严格校验结果。"""
+import json
+import re
+from ..contracts.base import StrictModel
+from ..contracts.models import ModelRequest
+from .validation import validate
+
+_PLACEHOLDER = re.compile(r'\{\{\s*((?:input|parameters)(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\}\}')
 
 
-class PackageContext:
-    __slots__ = ('_runtime', '_binding_id', '_artifact')
+def prompt_fields(prompt):
+    """只支持命名空间与对象字段路径，不求值表达式、过滤器或索引。"""
+    remainder = _PLACEHOLDER.sub('', prompt)
+    if '{{' in remainder or '}}' in remainder:
+        raise ValueError('Prompt 占位符只支持 {{input.field}} 或 {{parameters.field}}')
+    return [match.group(1).split('.') for match in _PLACEHOLDER.finditer(prompt)]
 
-    def __init__(self, runtime, binding_id, artifact):
-        self._runtime, self._binding_id, self._artifact = runtime, binding_id, artifact
 
-    async def call_capability(self, capability_id, value):
-        requirement = next((r for r in self._artifact.manifest.required_capabilities if r.capability_id == capability_id), None)
-        if requirement is None:
-            raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage='packages.capability', message='包未声明此能力'))
-        binding_id = self._binding_id + '.' + capability_id
-        if requirement.kind == 'block':
-            return await self._runtime.call_block(binding_id, value)
-        if requirement.kind == 'api':
-            return await self._runtime.call_api(binding_id, value)
-        return await self._runtime._call_model(binding_id, value)
+def render_prompt(prompt, value, parameters):
+    data = {'input': value.model_dump(mode='json', by_alias=True),
+            'parameters': parameters.model_dump(mode='json', by_alias=True)}
+    def substitute(match):
+        item = data
+        for key in match.group(1).split('.'):
+            item = item[key]
+        return item if isinstance(item, str) else json.dumps(item, ensure_ascii=False, separators=(',', ':'))
+    return _PLACEHOLDER.sub(substitute, prompt)
 
-    async def call_model(self, capability_id, request):
-        requirement = next((r for r in self._artifact.manifest.required_capabilities if r.capability_id == capability_id), None)
-        if requirement is None or requirement.kind != 'model':
-            raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage='packages.model', message='包未声明此模型能力'))
-        return await self.call_capability(capability_id, request)
 
-    def read_resource(self, name):
-        return self._artifact.content.read_resource(name)
-
-    async def record_progress(self, step_id, message):
-        # 只发布检查事件；不保存任意业务文本或凭据。
-        await checkpoint('progress', self._binding_id + '.' + step_id)
+async def invoke_prompt(runtime, node_id, artifact, value):
+    stage = 'packages.' + node_id
+    manifest = artifact.manifest
+    config = runtime.snapshot.draft.node_configurations[node_id]
+    parsed = validate(artifact.content.load(manifest.contract_refs.input), value, stage + '.input')
+    parameter_model = (artifact.content.load(manifest.contract_refs.configuration)
+                       if manifest.contract_refs.configuration else StrictModel)
+    parameters = validate(parameter_model, config.parameters, stage + '.configuration')
+    prompt = render_prompt(artifact.content.read_resource(manifest.prompt).decode('utf-8'), parsed, parameters)
+    output_model = artifact.content.load(manifest.contract_refs.output)
+    request = ModelRequest(messages=[
+        {'role': 'system', 'content': '根据用户消息中的任务返回 JSON，不输出 Markdown 或额外说明。输出必须符合以下 JSON Schema：\n'
+         + json.dumps(output_model.model_json_schema(by_alias=True), ensure_ascii=False)},
+        {'role': 'user', 'content': prompt},
+    ], max_output_tokens=config.max_output_tokens)
+    response = await runtime.call_model(node_id, request)
+    return validate(output_model, response.output, stage + '.output')

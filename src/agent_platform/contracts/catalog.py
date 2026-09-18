@@ -1,7 +1,7 @@
 from typing import Literal
 from pydantic import Field, JsonValue
 from .base import StrictModel
-from .packages import PackageBudget
+from .budgets import NodeBudget
 
 
 class CatalogLoad(StrictModel):
@@ -21,5 +21,4 @@ class CatalogResource(StrictModel):
     output_contract: str | None = None
     configuration_contract: str | None = None
     schemas: dict[str, JsonValue] = Field(default_factory=dict)
-    budget_defaults: PackageBudget | None = None
-    required_capabilities: list[dict[str, JsonValue]] = Field(default_factory=list)
+    budget_defaults: NodeBudget | None = None

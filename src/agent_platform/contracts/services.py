@@ -2,7 +2,8 @@ from typing import Literal
 from pydantic import Field, JsonValue
 from .base import StrictModel
 from .flows import FlowDraft
-from .packages import Identifier, PositiveInt
+from .packages import Identifier
+from .budgets import PositiveInt
 
 
 class ServiceWrite(StrictModel):

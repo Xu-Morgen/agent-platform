@@ -14,27 +14,14 @@ def validation_error(exc: ValidationError, prefix=()):
     return validation_exception(exc, prefix=prefix, code='CONFIGURATION_ERROR')
 
 
-def load_symbol(content, reference, path, *, model=False):
+def load_model(content, reference, path):
     try:
         symbol = content.load(reference)
-        if model:
-            if not isinstance(symbol, type) or not issubclass(symbol, StrictModel):
-                raise TypeError()
-            symbol.model_json_schema()
-        elif not callable(symbol):
+        if not isinstance(symbol, type) or not issubclass(symbol, StrictModel):
             raise TypeError()
+        symbol.model_json_schema()
         return symbol
     except ModuleNotFoundError as exc:
         raise invalid(f'缺少代码依赖模块：{exc.name}', path, code='DEPENDENCY_ERROR') from None
     except Exception:
-        raise invalid('入口或契约不可用，请检查声明和本地依赖', path, code='DEPENDENCY_ERROR') from None
-
-
-def schema_shape(model):
-    def clean(value):
-        if isinstance(value, dict):
-            return {k: clean(v) for k, v in value.items() if k not in ('title', 'description')}
-        if isinstance(value, list):
-            return [clean(v) for v in value]
-        return value
-    return clean(model.model_json_schema())
+        raise invalid('契约不可用，请检查模型声明', path, code='DEPENDENCY_ERROR') from None

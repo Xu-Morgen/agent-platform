@@ -56,7 +56,7 @@ class ContentSnapshot:
     files: Mapping[str, bytes]
 
     def read_resource(self, name: str) -> bytes:
-        """包上下文可代理此接口；不使用原始目录或 __file__ 读取资源。"""
+        """平台入口从快照读取 Prompt；不使用原始目录或 __file__。"""
         path = PurePosixPath(name)
         if path.is_absolute() or '..' in path.parts or str(path) != name:
             raise ValueError('资源必须使用规范的快照相对路径')

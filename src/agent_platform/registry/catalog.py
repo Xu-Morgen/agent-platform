@@ -6,6 +6,8 @@ from .single_blocks import SingleBlockRegistry, capture_file
 from .validation import invalid
 from ..blocks.single import strict_adapter
 from ..contracts.catalog import CatalogResource
+from ..contracts.base import StrictModel
+from ..contracts.budgets import NodeBudget
 from ..contracts.errors import PlatformError
 
 
@@ -82,7 +84,8 @@ class ModuleCatalog:
                 resource_id = f'{request.kind}:{identifier}:{meta.version}:{artifact.content.digest}'
                 schemas, refs = {}, {}
                 if request.kind == 'package':
-                    annotations = {key: artifact.content.load(ref) for key, ref in meta.contract_refs.model_dump().items()}
+                    annotations = {key: artifact.content.load(ref) if ref else StrictModel
+                                   for key, ref in meta.contract_refs.model_dump().items()}
                 else:
                     annotations = {'input': artifact.input_adapter, 'output': artifact.output_adapter}
                 for direction, annotation in annotations.items():
@@ -91,20 +94,10 @@ class ModuleCatalog:
                     self._contracts[ref] = contract
                     schemas[direction] = contract.schema
                     refs[direction + '_contract'] = ref
-                capabilities = []
-                if request.kind == 'package':
-                    for requirement in meta.required_capabilities:
-                        item = requirement.model_dump(mode='json', by_alias=True)
-                        for direction in ('input', 'output'):
-                            ref = resource_id + ':capability:' + requirement.capability_id + ':' + direction
-                            contract = self.register_contract(ref, artifact.content.load(getattr(requirement, direction + '_model')))
-                            item[direction + 'Contract'] = ref
-                            item[direction + 'Schema'] = contract.schema
-                        capabilities.append(item)
                 view = CatalogResource(resource_id=resource_id, kind=request.kind, name=meta.name,
                     description=meta.description, version=meta.version, digest=artifact.content.digest,
-                    schemas=schemas, required_capabilities=capabilities,
-                    budget_defaults=meta.budget_defaults if request.kind == 'package' else None, **refs)
+                    schemas=schemas,
+                    budget_defaults=(meta.budget_defaults or NodeBudget()) if request.kind == 'package' else None, **refs)
                 self._artifacts[resource_id] = artifact
             self._views[resource_id] = view
             return self.get(resource_id)

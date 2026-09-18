@@ -25,9 +25,8 @@ def execution_error(exc, stage, run_id):
 
 
 class RunContext:
-    def __init__(self, run_id, snapshot, runs, api=None, model=None, token_policy=None):
+    def __init__(self, run_id, snapshot, runs, model=None, token_policy=None):
         self.run_id, self.snapshot, self.runs = run_id, snapshot, runs
-        self.api = api
         self.model = model
         self.token_policy = token_policy
 
@@ -79,21 +78,9 @@ class RunContext:
         return next(c for c in environment.connections if c.connection_id == binding.connection_id)
 
     async def invoke_package(self, binding_id, value):
-        from .validation import validate
-        from .packages import PackageContext
+        from .packages import invoke_prompt
         artifact = self.snapshot.packages.get(binding_id)
         if artifact is None:
             raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage='packages.binding', message='包绑定不存在'))
-        stage = 'packages.' + binding_id
-
-        async def execute():
-            manifest = artifact.manifest
-            input_value = validate(artifact.content.load(manifest.contract_refs.input), value, stage + '.input')
-            config = validate(artifact.content.load(manifest.contract_refs.configuration),
-                              self.snapshot.configuration['packages.' + binding_id], stage + '.configuration')
-            result = artifact.content.load(manifest.entry)(input_value, config, PackageContext(self, binding_id, artifact))
-            if isawaitable(result):
-                result = await result
-            return validate(artifact.content.load(manifest.contract_refs.output), result, stage + '.output')
-
-        return await self.run_step(stage, execute, kind='package', package_binding_id=binding_id)
+        return await self.run_step('packages.' + binding_id,
+            lambda: invoke_prompt(self, binding_id, artifact, value), kind='package', package_binding_id=binding_id)

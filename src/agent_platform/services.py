@@ -1,6 +1,7 @@
 """服务保存的同步临界区；所有验证成功后才写入版本与当前指针。"""
 from uuid import uuid4
 from .contracts.services import ServiceView, VersionView, ServiceSchema
+from .contracts.base import StrictModel
 from .registry.validation import invalid
 from .versions.snapshots import SnapshotRepository
 from .versions.numbering import VersionAllocator
@@ -46,7 +47,8 @@ class ServiceManager:
         service = self.get(service_id)
         snapshot = self.resolve_current(service_id)
         configuration_schemas = {
-            'packages.' + binding: artifact.content.load(artifact.manifest.contract_refs.configuration).model_json_schema()
+            'packages.' + binding: (artifact.content.load(artifact.manifest.contract_refs.configuration)
+                                    if artifact.manifest.contract_refs.configuration else StrictModel).model_json_schema()
             for binding, artifact in snapshot.packages.items()
         }
         return ServiceSchema(service=service, **snapshot.schema, flow=snapshot.draft,

@@ -14,7 +14,7 @@
 
 已确认的产品规则：
 
-- 包是可复用的 LLM 交互单元，包含模型调用前后的输入输出、Prompt 与必要处理。实例负责完整业务流程。
+- 包是可复用的 LLM 交互单元，仅维护输入输出契约、可选参数与 Prompt，由平台执行模型调用。实例负责完整业务流程。
 - 服务选择一个当前实例，旧实例不能直接接收新调用；回退在中心选择历史实例。
 - 脚本、流程、包内容、配置和历史版本快照仅保存在内存，退出桌面程序即丢失。后续数据库版本才保留跨重启历史。
 - 任务失败或取消保留终态，释放运行上下文，实例恢复就绪；不重试、不回滚已发生的外部操作。
@@ -104,7 +104,7 @@ flowchart TB
 | InstanceSnapshot | instanceId、serviceId、revision、changeKind、flow、compilerVersion、packageRefs、blockRefs、nodeConfigurations、environmentRefs、contractRefs、contentDigest | 只保存校验通过的完整流程；内容、契约和配置不可变 |
 | BlockArtifact | blockId、version、digest、source、entry、inputContract、outputContract | 单文件单业务函数，完整源码字节快照 |
 | FlowNode | nodeId、kind、artifactRef、inputs、configuration | 同包多次放置拥有不同 nodeId；端口引用可追踪 |
-| PackageArtifact | packageId、version、digest、files、entry、contractRefs、runtimeRequirements | 内容保存在内存，不能只指向可变源文件 |
+| PackageArtifact | packageId、version、digest、files、contractRefs、prompt、budgetDefaults | 内容保存在内存，不能只指向可变源文件 |
 | ConfigurationSnapshot | configId、revision、scope、values | 按作用域绑定包或实例，不依赖不明确的平铺覆盖顺序 |
 | Environment | environmentId、revision、connections、credentialRefs、activeRunIds | revision 用于运行记录，不计入实例版本 |
 | Run | runId、serviceId、instanceId、environmentSnapshot、input、status、cancelRequested、usage、result、error | 任务始终绑定接受提交时的实例及环境 |
@@ -126,16 +126,13 @@ flowchart TB
 
 ### 5.1 业务包
 
-包必须声明版本、包入口、输入输出模型、配置模型、所需能力、预算字段及兼容运行时。包入口负责一次模型交互单元的输入准备、Prompt 构造、平台模型调用和输出结构化；不调度其他业务包，不拥有完整业务流程。
+2026-09-18 起，业务包仅声明身份/版本、输入输出契约、Prompt 和可选业务参数模型。平台提供统一执行入口，包不再维护 entry、runtimeRequirements、requiredCapabilities 或 PackageContext。
 
-概念签名（不是已实现代码）：
+标准调用：严格校验输入及业务参数 → 读取快照 Prompt → 替换 {{input.field}} / {{parameters.field}} → 构造并校验 ModelRequest → 一次模型请求与计量 → 校验 ModelResponse → 严格校验业务输出。系统消息自动携带输出 JSON Schema，返回值为校验后的业务对象。错误不做自动修复或重试。
 
-```python
-async def invoke(input: PackageInput, config: PackageConfig,
-                 context: PackageContext) -> PackageOutput: ...
-```
+Prompt 不执行表达式或转换，只做命名字段替换；如何准备输入、清洗、查询、加工数据及组合结果都由通用块节点负责。嵌套对象字段可直接引用，对象/数组按 JSON 填入，插入内容不递归解析。
 
-PackageContext 提供 `call_model`、`call_capability`、`record_progress`，不开放直接修改任务状态和最终结果的能力。实例统一通过平台 `invoke_package(binding_id, input)` 调用包，计数与校验不能由包自行绕过。复杂多模型业务拆成多个包调用；首期包内部不隐藏无限循环或自动重试。
+节点配置独立包含 parameters、model（environmentId/connectionId）、budget 和 maxOutputTokens。包可通过 budgetDefaults 提供节点初始化限额；预算不进入 Config，运行只读取固定节点和任务预算。无需自定义参数的包可省略 configuration 契约引用。
 
 ### 5.2 服务拼图生成实例
 
@@ -143,7 +140,7 @@ PackageContext 提供 `call_model`、`call_capability`、`record_progress`，不
 
 保存链路为：草稿 → 结构与契约检查 → 模块及环境检查 → 编译执行图 → 固定完整内容 → 原子保存版本。服务实例用于任务调用，不能将未完成草稿作为实例执行。旧 instance.json、entry.py、workflow.py 不要求兼容；旧样例迁移到新流程结构，历史任务文档保留原证据。
 
-包节点经平台 invoke_package(nodeId, input) 执行，通用块经独立 invoke_block(nodeId, input) 执行；通用块不再强制附属于某个包绑定。内部已有能力调用接口可复用，但不得以旧绑定结构限制新流程。业务包仍通过 PackageContext 使用已声明能力。
+包节点经平台 invoke_package(nodeId, input) 执行，通用块经独立 invoke_block(nodeId, input) 执行；通用块不再强制附属于某个包绑定。包不再调用 API 或块；相关数据处理在独立通用块节点中完成。
 
 新流程协议是受限结构化描述，不执行用户在页面输入的 Python。顺序、if/else、repeat、while 是显式结构，禁止用任意回边暗示循环。服务输入、最终输出及节点输入均有契约；输出节点完成后由平台统一校验、提交结果。
 
@@ -163,7 +160,7 @@ Python 契约模型／严格类型声明是权威来源，导出 JSON Schema 供
 
 所有用户输入、包／通用块输入输出、API 响应、模型结构化结果、实例最终结果均运行时校验。未知字段默认拒绝，禁止把字符串数字自动转成数值；模型返回无法解析的 JSON 直接失败，无自动修复。配置默认值显式呈现在表单，保存时形成完整配置。
 
-加载阶段检查模块源码、依赖与声明契约，不要求运行环境已绑定。节点配置阶段检查必需配置和能力绑定；保存阶段检查整个流程的端口及当前环境；运行时再检查实际数据。固定 LMS 解包块以 `code == "10000"` 为成功，其余保留可用的 `code/msg/subCode/subMsg`；`bizData` 按绑定目标契约校验，不固定成字符串。
+加载阶段检查模块源码、依赖与声明契约，不要求运行环境已绑定。节点配置阶段检查必需配置和模型连接；保存阶段检查整个流程的端口及当前环境；运行时再检查实际数据。固定 LMS 解包块以 `code == "10000"` 为成功，其余保留可用的 `code/msg/subCode/subMsg`；`bizData` 按绑定目标契约校验，不固定成字符串。
 
 ### 5.5 流程结构、端口与数据作用域
 
@@ -208,7 +205,7 @@ def convert(value: Input) -> Output:
 
 业务包源码加载成功只代表模块资源可用。包节点必须配置参数、预算、所需环境连接后才能标记合法。同一包放置两次，nodeId、参数、环境及预算完全独立；同一节点在循环中重复执行时累计同一份局部预算，不逐轮重置。
 
-点击包节点打开悬浮窗，依配置 Schema 显示字段、说明、默认值、必填与嵌套错误；选择已保存环境及满足能力类型的连接。保存节点配置后重新校验节点，主流程保持草稿；保存服务版本另走全流程校验。通用块显示函数说明、输入输出和连线，不提供模型预算／环境配置窗。
+点击包节点打开悬浮窗，依配置 Schema 显示字段、说明、默认值、必填与嵌套错误；选择已保存环境中的模型连接。保存节点配置后重新校验节点，主流程保持草稿；保存服务版本另走全流程校验。通用块显示函数说明、输入输出和连线，不提供模型预算／环境配置窗。
 
 错误扩展保留 code、stage、fieldPath，并增加可选 nodeId、sourceNodeId、sourcePort、targetPort 和结构化校验 issue（原因类型、可读原因、期望约束）。对 Pydantic 错误提取脱敏原因，不直接输出包含输入值的 repr、原始 ctx 或任意异常全文。页面定位节点／端口并在配置字段旁显示错误；运行失败保留尝试及循环路径。
 
@@ -222,9 +219,9 @@ def convert(value: Input) -> Output:
 4. 原子保存快照并切换 activeInstanceId；失败则保留旧指针，不能出现半生效实例。
 5. 旧实例退役，已有任务继续使用自己的快照，新提交只接受当前实例。
 
-从首次挂载就固定内容，退役时保留该内容，不能等退役后再从已经改动的源目录重新复制。平台运行时及已安装第三方依赖按应用会话锁定；包清单记录这些运行要求，首期不支持会话内升级宿主依赖。快照不包含远端模型、API 或凭据实体。
+从首次挂载就固定内容，退役时保留该内容，不能等退役后再从已经改动的源目录重新复制。平台运行时及已安装第三方依赖按应用会话锁定；Prompt 包不声明运行依赖；通用块仍检查其依赖，首期不支持会话内升级宿主依赖。快照不包含远端模型、API 或凭据实体。
 
-Python 自有源码按内容摘要建立独立模块命名空间，从内存内容加载，并保留已加载对象供旧任务使用；不得覆盖同名模块导致旧实例实际执行新代码。包资源经上下文读取内存快照，首期模板不依赖源文件绝对路径。该加载方式属于受信任代码管理，不是沙箱。
+Python 自有源码按内容摘要建立独立模块命名空间，从内存内容加载，并保留已加载对象供旧任务使用；不得覆盖同名模块导致旧实例实际执行新代码。平台标准入口读取包 Prompt 的内存快照，首期模板不依赖源文件绝对路径。该加载方式属于受信任代码管理，不是沙箱。
 
 ### 6.2 历史回退
 
@@ -282,7 +279,7 @@ stateDiagram-v2
 
 ### 9.1 配置组合
 
-每个包的配置 Schema 必须暴露正整数 `loopLimit`、`tokenLimit`，模板给出可编辑默认值。它们表示该包绑定在单任务内允许累计使用的上限。含包实例配置另包含单任务全局 `loopLimit`、`tokenLimit`、`strictTokenLimit`，界面展示局部与全局约束。
+包的业务参数 Schema 不包含平台预算。节点 budget 暴露正整数 `loopLimit`、`tokenLimit`，包可选 budgetDefaults 仅提供初始化默认值，未声明时使用平台默认 1/32768。节点显式配置覆盖包默认值，保存后固定为节点在单任务内允许累计使用的上限。含包实例配置另包含单任务全局 `loopLimit`、`tokenLimit`、`strictTokenLimit`，界面展示局部与全局约束。
 
 首期全局默认值取所有包绑定配置上限之和，并在表单中显式展示后保存；用户可改小或改大。执行时同时满足单包绑定限额和全局限额，不依赖隐式配置覆盖。相同包绑定多次时按 bindingId 分别计局部账，全局仍累计全部调用。默认 `strictTokenLimit=true`，可在实例配置切换为非严格；改变预算是配置版本更新。
 

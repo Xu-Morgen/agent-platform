@@ -30,3 +30,9 @@
 | I6 拼图契约 | [任务卡](tasks/i6.md) |
 | I7 拼图执行 | [任务卡](tasks/i7.md) |
 | I8 页面与业务迁移 | [任务卡](tasks/i8.md)、[平台记录](delivery/i8-platform.md)、[查重记录](delivery/i8-similarity.md) |
+
+## 2026-09-18 Prompt 包精简
+
+已将包执行入口移至平台，移除包内 invoke/PackageContext、运行依赖与能力列表。包仅维护输入输出契约、可选参数和 Prompt；数据准备与处理归通用块。节点直接配置模型、预算和 maxOutputTokens，包可选 budgetDefaults 只提供初始化值。桌面配置、最小/完整模板与开发手册同步迁移。
+
+轻量验证覆盖包加载、占位符校验/替换、严格输入输出、嵌套参数、固定快照、节点/任务预算、循环累计、服务历史和纯块流程；HTTP 加载/保存/契约查询/配置版本与实际 Electron 表单编辑、保存、重开均通过。模型返回使用临时合成数据验证真实适配器及 worker 链路，未进行真实 LLM 验收；未安装依赖、运行重型测试或打包。旧清单和 capabilities 节点配置需按样例迁移。

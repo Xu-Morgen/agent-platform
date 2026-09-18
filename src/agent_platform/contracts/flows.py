@@ -2,7 +2,8 @@
 from typing import Annotated, Literal
 from pydantic import Field, JsonValue, ValidationError, model_validator
 from .base import StrictModel
-from .packages import Identifier, InstanceBudget, PackageBudget
+from .packages import Identifier
+from .budgets import InstanceBudget, NodeBudget, PositiveInt
 
 ResourceId = Annotated[str, Field(min_length=1)]
 Path = list[str | Annotated[int, Field(ge=0)]]
@@ -30,19 +31,16 @@ class PortBinding(StrictModel):
     source: Annotated[PortReference | ConstantValue, Field(discriminator='kind')]
 
 
-class CapabilitySelection(StrictModel):
-    kind: Literal['model', 'api', 'block']
-    environment_id: Identifier | None = None
-    connection_id: Identifier | None = None
-    artifact_ref: ResourceId | None = None
-    api_method: Literal['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] | None = None
-    api_path: str = ''
+class ModelSelection(StrictModel):
+    environment_id: Identifier
+    connection_id: Identifier
 
 
 class NodeConfiguration(StrictModel):
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
-    budget: PackageBudget
-    capabilities: dict[Identifier, CapabilitySelection] = Field(default_factory=dict)
+    budget: NodeBudget | None = None
+    model: ModelSelection
+    max_output_tokens: PositiveInt = 512
 
 
 class ModuleNode(StrictModel):

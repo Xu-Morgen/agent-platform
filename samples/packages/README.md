@@ -1,31 +1,31 @@
-# 创建业务包
+# 创建 Prompt 业务包
 
-业务包封装模型交互和必要前后处理。完整业务流程仍由服务拼图组织，包内不调度其他包。
+业务包只维护输入输出契约、可选业务参数和 Prompt。平台负责验证、替换占位符、调用一次 LLM、验证并返回业务输出。数据清洗、转换、请求准备和结果加工使用流程中的通用块节点。
 
-## 创建步骤
+## 最小交付
 
-1. 复制 [minimal/](minimal/README.md) 目录，修改 package.json 的 packageId/name/version。
-2. 在 models.py 定义输入、输出 StrictModel，以及继承 PackageBudget 的 Config。
-3. 在 package.json 的 contractRefs 中引用这些类型，在 entry 中引用实际函数。
-4. 在 entry.py 实现 `invoke(value, config, context)`。调用前在 requiredCapabilities 中声明所需能力。
-5. 在平台资源页加载整个目录，插入包节点，配置参数、预算和能力连接，再保存服务。
+```text
+my-package/
+├── package.json   # 身份、版本、输入输出契约引用
+├── models.py      # 输入输出 StrictModel；按需添加 Config
+└── prompt.txt     # 含 {{input.text}} 等占位符的 Prompt
+```
 
-| 文件 | 最小实现 | 完整实现 | 作用 |
-| --- | --- | --- | --- |
-| package.json | 必需 | 必需 | 资源元数据、符号引用、依赖、能力、默认预算 |
-| models.py | 必需 | 必需 | 本模板的业务输入输出、配置及能力契约 |
-| entry.py | 必需 | 必需 | 本模板的执行函数 |
-| prompt.txt | 无，Prompt 直接写在入口中 | 有 | 可维护的固定模型指令资源 |
-| node-configuration.example.json | 说明材料 | 说明材料 | 节点配置示例，平台不会自动读取 |
-| README.md | 说明材料 | 说明材料 | 输入输出和操作步骤 |
+1. 复制 [minimal/](minimal/README.md)，修改 packageId/name。
+2. 在 models.py 声明输入输出结构和验证规则，并在 package.json 的 contractRefs 中引用。
+3. 在 prompt.txt 编写任务指令和输入占位符。
+4. 加载整个目录，将包插入服务，接线并选择模型连接；配置节点与任务预算后保存。
 
-只有 package.json 是固定文件名；models.py 和 entry.py 可改名，只要同步清单中的 `module:Symbol`。例如 `entry:invoke` 指 entry.py 中的 invoke，`models:Text` 指 models.py 中导出的 Text。包内自有代码使用相对导入，如 `from .models import Text`。
+不编写 entry.py，不声明 requiredCapabilities、runtimeRequirements 或包依赖。契约使用平台已有的 StrictModel/Pydantic；只维护结构和验证规则，不在验证器里做数据转换、调用网络或处理业务流程。包没有独立依赖安装机制。
 
-页面加载时选目录，不选 package.json 文件。加载会检查已安装依赖、解析入口/模型、捕获目录内容；不会发起模型请求。目录不应含凭据、虚拟环境以外的大型数据或运行日志，快照会收集其中的资源文件。
+`package.json` 为固定清单名；契约文件名由符号引用决定。Prompt 默认读取 prompt.txt，可用 prompt 字段改成包内相对路径。所有内容从内存快照读取。
 
-## 两种模板
+最小模板没有 Config；[完整模板](complete/README.md)增加可选参数、嵌套配置和预算默认值。两者使用同一平台入口。节点配置示例和 README 是说明材料，不会自动执行。
 
-- [最小包](minimal/README.md)：一次模型调用，没有自定义业务配置；只需要模型连接。
-- [完整包](complete/README.md)：嵌套业务配置、声明并使用三类能力、快照资源读取、检查点、业务输出验证和明确错误。需要额外加载最小通用块，并配置指导 API 连接。
+[全部配置](CONFIGURATION.md) · [标准执行及占位符规则](CONTEXT.md) · [加载、接线和调用](../USAGE.md)
 
-**全部清单/节点/环境配置**见 [CONFIGURATION.md](CONFIGURATION.md)。**入口参数和全部上下文方法**见 [CONTEXT.md](CONTEXT.md)。加载、接线和外部调用见 [USAGE.md](../USAGE.md)。
+## 从旧业务包迁移
+
+移除 entry、runtimeRequirements、requiredCapabilities，以及 entry.py；把 Prompt 写入 prompt.txt。Config 改为继承 StrictModel，并移出预算字段。把前后处理和 API/块调用迁到独立通用块节点。节点将 capabilities.chat 改为 model，仅保留 environmentId/connectionId；单次输出限额改由节点 maxOutputTokens 配置。
+
+旧清单和旧节点配置会被严格校验拒绝，不自动猜测迁移。修改同一会话已加载的包内容后，需由维护者更新包版本，或在新会话加载。代码、Prompt、README 等目录内容都参与版本摘要。
