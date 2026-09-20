@@ -2,7 +2,7 @@
 
 每次保存一份 PDF 或 DOCX，执行“读取完整文档 → 出题包”，成功时返回论述题、四选一单选题、填空题各一道及参考答案。扫描 PDF 在本地用 RapidOCR 识别；正文一次性传给包，不逐页出题。旧版 DOC 不支持。
 
-本次按用户要求暂不调用线上模型。已交付源码、契约、可复现的服务组装脚本和离线验收；离线模型响应只验证平台协议与重试，不能证明真实题目质量。真实模型业务验收仍需配置连接后进行。
+本次按用户要求暂不调用线上模型。已交付源码、契约、服务页配置说明并完成本地离线验收；离线模型响应只验证平台协议与重试，不能证明真实题目质量。真实模型业务验收仍需配置连接后进行。
 
 ## 资源与契约
 
@@ -11,9 +11,6 @@
 | [read_document.py](read_document.py) | 唯一通用块；文件输入、资料输出及全部读取逻辑 |
 | [document-question-generator/](document-question-generator/package.json) | 声明式业务包，只含清单、契约、Prompt |
 | [contract-examples.json](contract-examples.json) | 文件引用、资料、合法题目及非法题目示例 |
-| [setup_service.py](setup_service.py) | 调用现有平台 API 加载、验证并保存服务 |
-| [make_fixtures.py](make_fixtures.py) | 生成自制 DOCX、文字/扫描/混合 PDF 与失败样本 |
-| [verify.py](verify.py) | 真实本地文档/OCR、离线模型协议的任务链路检查 |
 
 文件输入为 `{document: TaskFile}`，使用平台已有格式限制和文件控件。示例中的零值摘要和 ID 只演示结构，不能作为实际任务输入；必须先由任务页或上传接口获得引用。
 
@@ -22,6 +19,13 @@
 题目输出固定为 `{questions: [...]}`，题型顺序由 Python 校验，Schema 的 minItems/maxItems/prefixItems 同步表达。选项为严格 A/B/C/D 对象，文本去除无关空白并忽略大小写比较后不能重复。填空标记只能是四个连续下划线，每空对应一个非空答案。所有模型继承 StrictModel，禁止未知字段和隐式转换。
 
 服务端口直接使用块/包加载后提供的 inputContract/outputContract。可单独加载 read_document.py 的 Input/Output、包 models.py 的 Input/Output 查看契约；自定义题目校验依赖契约身份，服务返回应选择包自己的输出契约，不以另载文件的相似 Schema 代替。
+
+| 契约用途 | Python 文件 | 加载时填写的 symbol |
+| --- | --- | --- |
+| 文件输入 | [read_document.py](read_document.py) | Input |
+| 全文资料（读取块输出） | [read_document.py](read_document.py) | Output |
+| 全文资料（业务包输入） | [models.py](document-question-generator/models.py) | Input |
+| 三种题目与参考答案 | [models.py](document-question-generator/models.py) | Output |
 
 ## 准备与运行限制
 
@@ -51,16 +55,6 @@
 5. 任务页选择文件，等到显示保存成功后提交。查看读取步骤页数进度、出题步骤和最终 questions。文件/页码错误与出题失败会分别定位。
 6. 每个任务固定实例版本和文件副本。移动原文件不影响任务；持久化模式保留跨重启历史，`--memory` 模式仅供会话验证。
 
-可选自动组装（使用同一 FlowDraft/服务 API，不增加流程导入协议）：
-
-```bash
-.venv/bin/python examples/document-question-generation/setup_service.py \
-  --base-url http://127.0.0.1:实际端口 \
-  --environment-id 实际环境ID --connection-id 实际模型连接ID
-```
-
-脚本要求后端与资源位于同一机器，加载时可下载依赖和模型；不会上传文档、提交任务或调用模型。每次执行会创建一个新服务，控制台返回真实 serviceId 和实例版本。应用内也可以完全通过服务页完成上述步骤。
-
 ## 线上模型与 DeepSeek
 
 可以采用“本地解析/OCR + 线上 API 出题”：不需要在本机运行大语言模型，出题时会把文件名与全文发送给服务商。当前平台支持 OpenAI 兼容 Chat Completions，不会把 PDF 原文件直接传给多模态接口。
@@ -83,20 +77,8 @@
 
 预算是累计供应商实际 token 的上限，不是模型上下文容量，也不等于人民币费用。131072 的初始预算无法覆盖 1M 上下文的满量请求；长文需相应提高节点和任务预算，并为最多三次包调用留余量。没有可用 usage 时平台明确失败。资料不足时包返回保留对象 `{"error":"INSUFFICIENT_INPUT"}`，平台记账后以 PACKAGE_INPUT_INSUFFICIENT 终止；它不是成功题目且不触发格式重试。
 
-## 可复现验收
+## 验证与待办
 
-准备好的环境在本次工作中使用 `/tmp/agent-platform-ocr-runtime`；它是临时验证缓存，正式桌面会使用自己的持久目录。运行下面的脚本可能准备/修复此独立缓存，但不调用线上模型：
+历史本地 OCR 与任务链路验收见[归档记录](../../docs/archive/2026-09-20/document-validation-record.md)。开发验收脚本、样本生成器及回归测试已按项目规则删除；服务组装辅助脚本也已清理，服务统一通过平台页面配置；业务包、读取块与契约示例继续保留。
 
-```bash
-.venv/bin/python examples/document-question-generation/verify.py \
-  --cache-dir /tmp/agent-platform-ocr-runtime
-.venv/bin/python -m unittest discover -s tests -p test_document_question_generation.py -v
-```
-
-第二个命令在主环境中只运行契约/协议检查，缺少 DOCX/PDF 依赖时会明确跳过解析检查。解析检查需在已准备环境中运行，不应把 skip 当作验收通过。
-
-验收材料全部由 make_fixtures.py 自制。verify.py 通过真实平台子进程、上传文件副本和真实本地 OCR 处理 DOCX、文字/三页扫描/混合 PDF；出题响应由离线桩提供，第一次故意返回少题，第二次合法，检查仅包重试、读取一次、末页资料完整进入两次请求、预算累计，以及空白/损坏文档不会进入出题步骤。另验证资料不足只调用一次且记账、扫描第一页后取消实际工作进程。
-
-本次验证结果：独立环境中的 9 项契约/解析/协议检查、9 项流程重试检查、12 项平台文件/依赖/取消回归和 4 项桌面文件控件检查通过；samples 两个块、两个包及独立契约的三个入口均成功加载。DOCX 合并单元格去重与嵌套表格位置也已检查。读取块的文件大小、渲染尺寸上限有直接边界检查；OCR 无结果/低置信度使用故障注入验证，确认后页失败不会返回前页正文为成功结果。
-
-真实线上模型、答案正确性、单选唯一性，以及复杂排版/低清晰度资料的人工质量验收未完成，按用户要求暂缓。后续使用自制或授权文档实际出题，逐项核对题目依据与答案；JSON 合法不能代替业务验收。
+正式服务尚未绑定用户选定的模型连接。真实线上出题、答案正确性、单选唯一性、复杂排版/低清晰度资料质量及桌面人工走查仍待验收，按用户要求暂不调用线上模型。后续配置模型连接、保存正式服务，再使用自制或授权文档逐项核对；JSON 合法不能代替业务验收。

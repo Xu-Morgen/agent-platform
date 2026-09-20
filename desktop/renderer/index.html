@@ -158,11 +158,13 @@
       <div class="task-workspace">
         <div class="task-launch-column">
           <form id="task-form" class="settings-card task-composer">
-            <div class="panel-heading"><div><span class="section-eyebrow">INPUT</span><h4>提交新任务</h4></div><span class="count-badge">JSON</span></div>
+            <div class="panel-heading"><div><span class="section-eyebrow">INPUT</span><h4>提交新任务</h4></div><span id="task-input-kind" class="count-badge">JSON</span></div>
             <p class="field-hint">输入需符合所选服务的输入契约。每次提交都会创建一个新任务。</p>
+            <div id="task-json-input">
             <label for="task-input">任务输入 <span class="required-mark">*</span></label>
             <div class="input-tools"><button id="task-example" type="button">填入服务样例</button><button id="task-format" type="button">格式化 JSON</button></div>
             <textarea id="task-input" rows="9" required spellcheck="false" aria-describedby="task-input-notice">{}</textarea>
+            </div>
             <div id="task-files" aria-live="polite"></div>
             <p id="task-input-notice" class="inline-status" role="status"></p>
             <button id="task-submit" type="submit" class="primary-button">提交并运行</button>

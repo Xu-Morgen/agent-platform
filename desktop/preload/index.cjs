@@ -1,10 +1,10 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
   prepareResource: (body) => ipcRenderer.invoke('platform:prepareResource', body),
   preparationStatus: (id) => ipcRenderer.invoke('platform:preparationStatus', id),
   cancelPreparation: (id) => ipcRenderer.invoke('platform:cancelPreparation', id),
-  selectTaskFile: () => ipcRenderer.invoke('platform:selectTaskFile'),
+  uploadTaskFile: (file) => ipcRenderer.invoke('platform:uploadTaskFile', webUtils.getPathForFile(file)),
   removeTaskFile: (id) => ipcRenderer.invoke('platform:removeTaskFile', id),
   platformInfo: () => ipcRenderer.invoke('platform:platformInfo'),
   listRuns: (query) => ipcRenderer.invoke('platform:listRuns', query),

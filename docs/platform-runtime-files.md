@@ -1,6 +1,6 @@
 # 平台运行文件与依赖
 
-实施入口：[平台改造计划](platform-files-and-dependencies-plan.md)。三类业务资源不变；任务文件、依赖环境、模型缓存均为平台运行数据。当前实现面向 Linux/macOS 的受信任本地块，不提供代码沙箱或系统库安装。
+实施记录：[平台改造计划（归档）](archive/2026-09-20/platform-files-and-dependencies-plan.md)。三类业务资源不变；任务文件、依赖环境、模型缓存均为平台运行数据。当前实现面向 Linux/macOS 的受信任本地块，不提供代码沙箱或系统库安装。
 
 ## 静态声明
 
@@ -45,9 +45,9 @@ def run(value: Input, *, context: BlockContext) -> int:
     return context.file(value.document).stat().st_size
 ```
 
-`TaskFile` 导出 `x-platform-file` 标注，页面根据标注生成 PDF/DOCX 控件。嵌套对象、可空字段和 JSON 中已有的数组项均支持；其他字段继续填写 JSON。保存成功才允许提交，平台生成包含 `fileId`、`originalName`、`format`、`size`、`sha256` 的引用。字段内无本机路径。
+`TaskFile` 导出 `x-platform-file` 标注，页面根据标注生成 PDF/DOCX 控件。输入契约仅包含文件字段（含固定嵌套对象）时，只显示文件控件，自动组装提交数据，隐藏 JSON 编辑区与样例按钮。包含其他字段、可空分支或数组结构时保留 JSON 输入；嵌套对象、可空字段和 JSON 中已有的数组项均支持。保存成功才允许提交，平台生成包含 `fileId`、`originalName`、`format`、`size`、`sha256` 的引用。字段内无本机路径。
 
-桌面主进程原生选择文件并流式发送给后端，不把二进制放进 IPC JSON。API 客户端使用 `POST /api/v1/files?name=example.pdf`，请求体为原始文件流，响应为同一文件引用；`DELETE /api/v1/files/{fileId}` 仅删除未绑定任务的上传。
+页面文件控件选择本地文件，preload 从 File 对象取得路径，桌面主进程流式发送给后端，不把二进制放进 IPC JSON。取消选择保留已有附件，成功保存后显示文件名与大小；上传失败明确报错。API 客户端使用 `POST /api/v1/files?name=example.pdf`，请求体为原始文件流，响应为同一文件引用；`DELETE /api/v1/files/{fileId}` 仅删除未绑定任务的上传。
 
 默认单文件上限 50 MiB，可通过 `AGENT_PLATFORM_FILE_MAX_BYTES` 设置。平台检查文件名、扩展名、PDF 标识或 DOCX ZIP 结构、大小与摘要；具体解析块仍须检查文件损坏、加密及业务可读性。任务提交时验证引用与实际副本，并在同一文档事务中保存任务关联。执行时只提供属于该任务且摘要正确的副本。源文件移动不影响平台副本。
 
@@ -55,20 +55,10 @@ def run(value: Input, *, context: BlockContext) -> int:
 
 块可通过 `context.model(name)` 获取平台准备的模型路径，按只读约定使用；这是受信任代码接口，不是文件系统权限沙箱。必须显式传递模型路径，任务函数不得调用 pip 或自行下载模型。`context.progress(message, current=..., total=...)` 写入步骤进度；无法计算总量时省略 total，不伪造百分比。
 
-## 当前验证范围
+## 验证与恢复边界
 
-已做不下载依赖的静态声明、文件格式/超限/摘要/归属/重启恢复、模型缓存损坏与离线复用、真实子进程自定义校验、CPU 取消及 API 桥接测试，以及原有数据流、重试与持久化回归。模型网络失败测试使用本地 HTTP transport 替身，不等同真实 OCR 验收。
+文件、缓存、子进程与桌面控件的开发测试及一次性 OCR 验收脚本已按项目规则删除。历史验证结果见[归档记录](archive/2026-09-20/document-validation-record.md)，文档业务使用[正式读取块与出题包](../examples/document-question-generation/README.md)。
 
-已在用户授权后完成新环境实际安装、3 个官方模型下载与真实扫描 PDF OCR；结果为 `PLATFORM OCR TEST 2026`，删除原文件后执行及禁用下载连接后的离线重复执行均成功。最终验收环境标识为 `d82ce67311506ab1492e564f14277227e509db6b4378e344fb7b8012162b7c6d`。原生系统对话框未人工走查，控件逻辑已自动验证保存/替换/移除/取消和迟到响应隔离。
+对于改造前未记录依赖锁的持久资源，首次成功恢复会补全当前经过验证的环境锁；原实例内容摘要、版本、任务历史保持原身份，之后继续使用固定锁。平台无法追溯从未记录过的历史安装状态。
 
-真实 OCR 验收脚本已准备为 `scripts/verify_document_runtime.py`，需显式执行：
-
-```bash
-.venv/bin/python scripts/verify_document_runtime.py --cache-dir /tmp/agent-platform-ocr-runtime
-```
-
-脚本已实际执行通过。重新运行会安装或复用 `rapidocr-onnxruntime==1.4.4`、`onnxruntime==1.23.2`、`PyMuPDF==1.26.7` 及锁定的传递依赖，下载 3 个带官方 SHA-256 的 PP-OCRv4 模型。版本存在性已核对 PyPI，模型来源为 [RapidAI 官方模型清单](https://github.com/RapidAI/RapidOCR/blob/main/python/rapidocr/default_models.yaml)。脚本构造合成扫描 PDF，经过任务文件保存、源文件删除、实际任务调用与离线复用；禁止把尚未执行的脚本当作通过记录。安装前须遵守工作区确认约定。
-
-对于改造前未记录依赖锁的持久资源，首次成功恢复会补全当前经过验证的环境锁；原实例内容摘要、版本、任务历史保持原身份，之后继续使用固定锁。平台无法追溯从未记录过的历史安装状态。已使用改造前源码实际创建持久记录，并验证新版恢复、任务执行和第二次恢复通过。
-
-自动验证记录：文件/声明/进程/缓存边界 12 项、重试与预算 9 项、完整数据流 8 项、持久化 5 项；Node 输入与文件控件 8 项。另执行真实 pip 离线冲突检查，得到 DEPENDENCY_CONFLICT；无匹配 wheel 得到 DEPENDENCY_WHEEL_UNAVAILABLE。未执行打包、发布或系统配置修改。
+原生系统文件对话框与完整桌面操作仍待人工走查；控件逻辑验证不替代此项验收。

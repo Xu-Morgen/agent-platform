@@ -1,6 +1,10 @@
 # 文档出题实例计划：通用块与业务包
 
-日期：2026-09-20。状态：实现与本地验收已完成；真实线上出题和人工质量验收按用户要求暂缓。前置：[平台改造计划](platform-files-and-dependencies-plan.md)。交付：[实例使用说明](../examples/document-question-generation/README.md)。
+> 归档说明（2026-09-20）：本文件保留实施方案及当时的验收记录，当前使用以[平台运行说明](../../platform-runtime-files.md)和[文档出题说明](../../../examples/document-question-generation/README.md)为准。归档不代表真实线上模型与人工质量验收已完成。
+
+日期：2026-09-20。状态：实现与本地验收已完成；真实线上出题和人工质量验收按用户要求暂缓。前置：[平台改造计划](platform-files-and-dependencies-plan.md)。交付：[实例使用说明](../../../examples/document-question-generation/README.md)。
+
+> 后续清理说明：历史交付中的 `setup_service.py` 已按用户要求删除，当前服务统一通过平台页面配置。以下实施记录保持当时含义。
 
 ## 已确认需求
 

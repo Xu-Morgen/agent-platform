@@ -100,8 +100,8 @@ const operations = {
   updateEnvironment: (id, body) => ['PUT', `/environments/${encodeURIComponent(id)}`, body],
 };
 function registerConfigurationBridge(backend) {
-  ipcMain.removeHandler('platform:selectTaskFile');
-  ipcMain.handle('platform:selectTaskFile', async (event) => {
+  ipcMain.removeHandler('platform:uploadTaskFile');
+  ipcMain.handle('platform:uploadTaskFile', async (event, filename) => {
     if (event.senderFrame?.url.split('#')[0] !== pageURL || event.senderFrame !== event.sender.mainFrame) {
       return failure('CONTRACT_VALIDATION_ERROR', '请求来源无效', 'desktop.files');
     }
@@ -109,11 +109,9 @@ function registerConfigurationBridge(backend) {
     if (!owner || owner.isDestroyed() || !backend.address) return failure('BACKEND_UNAVAILABLE', '窗口或后端不可用', 'desktop.files');
     let stream;
     try {
-      const selection = await dialog.showOpenDialog(owner, {
-        title: '选择任务文件', properties: ['openFile'], filters: [{ name: 'PDF / DOCX', extensions: ['pdf', 'docx'] }],
-      });
-      if (selection.canceled || !selection.filePaths.length) return { ok: true, data: null };
-      const filename = selection.filePaths[0];
+      if (typeof filename !== 'string' || !path.isAbsolute(filename)) {
+        return failure('FILE_SAVE_FAILED', '请选择本地文件', 'desktop.files');
+      }
       stream = require('node:fs').createReadStream(filename);
       const response = await fetch(`${backend.address}/api/v1/files?name=${encodeURIComponent(path.basename(filename))}`, {
         method: 'POST', headers: { 'Content-Type': 'application/octet-stream' },
