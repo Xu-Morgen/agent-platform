@@ -109,7 +109,8 @@ def read_pdf(path, context, deadline):
                             text = ''
                         else:
                             ocr = engine(tuple(context.model(name) for name in ('det', 'rec', 'cls')))
-                            result, _ = ocr(pix.tobytes('png'))
+                            # PDF 渲染已应用页面旋转；保持呈现方向，避免分类器误翻转正常文字行。
+                            result, _ = ocr(pix.tobytes('png'), use_cls=False)
                             check(deadline, number)
                             result = [item for item in (result or []) if not empty_ocr_box(item, pix)]
                             if not result or any(not str(item[1]).strip() or float(item[2]) < 0.5 for item in result):
@@ -174,7 +175,7 @@ def read_docx(path, context, deadline):
 
 
 @block(
-    id='read-document', version='1.0.1', name='读取完整文档',
+    id='read-document', version='1.0.2', name='读取完整文档',
     description='读取 PDF/DOCX 正文；扫描及混合 PDF 本地 OCR，全文一次性输出。',
     dependencies=['rapidocr-onnxruntime==1.4.4', 'onnxruntime==1.23.2', 'PyMuPDF==1.26.7', 'python-docx==1.2.0'],
     dependencySources=[{'kind': 'index', 'url': 'https://pypi.org/simple'}],
