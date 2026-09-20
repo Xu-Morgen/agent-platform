@@ -8,6 +8,7 @@ from typing import Annotated
 from pydantic import Field
 from agent_platform.blocks import BlockContext, block
 from agent_platform.contracts.base import StrictModel
+from agent_platform.contracts.node_input import NodeInput
 from agent_platform.contracts.errors import ErrorResponse, PlatformError
 from agent_platform.contracts.files import TaskFile
 
@@ -175,7 +176,7 @@ def read_docx(path, context, deadline):
 
 
 @block(
-    id='read-document', version='1.0.2', name='读取完整文档',
+    id='read-document', version='2.0.0', name='读取完整文档',
     description='读取 PDF/DOCX 正文；扫描及混合 PDF 本地 OCR，全文一次性输出。',
     dependencies=['rapidocr-onnxruntime==1.4.4', 'onnxruntime==1.23.2', 'PyMuPDF==1.26.7', 'python-docx==1.2.0'],
     dependencySources=[{'kind': 'index', 'url': 'https://pypi.org/simple'}],
@@ -191,14 +192,14 @@ def read_docx(path, context, deadline):
          'sha256': 'e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c', 'filename': 'cls.onnx'},
     ],
 )
-def read_document(value: Input, *, context: BlockContext) -> Output:
+def read_document(value: NodeInput[Input, tuple[()]], *, context: BlockContext) -> Output:
     deadline = time.monotonic() + MAX_SECONDS
-    path = context.file(value.document)
-    if value.document.size > MAX_BYTES or path.stat().st_size > MAX_BYTES:
+    path = context.file(value.primary.document)
+    if value.primary.document.size > MAX_BYTES or path.stat().st_size > MAX_BYTES:
         fail('文件超过 50 MiB', code='FILE_TOO_LARGE')
-    text = (read_pdf(path, context, deadline) if value.document.format == 'pdf'
+    text = (read_pdf(path, context, deadline) if value.primary.document.format == 'pdf'
             else read_docx(path, context, deadline))
     check(deadline)
     if not text.strip():
         fail('文档正文为空，不能生成题目')
-    return Output(file_name=value.document.original_name, text=text)
+    return Output(file_name=value.primary.document.original_name, text=text)

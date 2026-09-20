@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 from agent_platform.contracts.base import StrictModel
+from agent_platform.contracts.node_input import NodeInput
 from agent_platform.contracts.files import TaskFile
 
 ItemId = Annotated[str, Field(pattern=r'^[a-z][a-z0-9-]{0,31}$')]
@@ -54,3 +55,7 @@ class Output(StrictModel):
     results: list[Result] = Field(min_length=1, max_length=20, description='由执行节点实际生成的结果')
     summary: str = Field(min_length=1, description='结果说明')
     reviewer_note: str | None = Field(default=None, description='可省略，也可以显式为 null')
+
+
+class ReviewInput(NodeInput[Output, tuple[Annotated[Input, Field(description="本次处理的原始批次")]]]):
+    """供资源开发者声明审查入口；服务输入仍选择业务 Input，不填写封装。"""

@@ -15,7 +15,7 @@ from ..runtime.context import current_context
 from ..runtime.boundary import checkpoint
 from .validation import validate_flow
 
-COMPILER_VERSION = 'flow-4'
+COMPILER_VERSION = 'flow-5'
 execution_path = ContextVar('flow_path', default=())
 step_counter = ContextVar('flow_steps', default=None)
 
@@ -67,6 +67,8 @@ def checked(contract, value, stage):
 
 
 def resolve(source, state):
+    if isinstance(source, tuple):
+        return deepcopy(state.primaries[source[1]])
     if isinstance(source, ConstantValue):
         return deepcopy(source.value)
     value = (state.input if source.kind == 'input' else
@@ -85,6 +87,7 @@ class FlowState(StrictModel):
     input: Any
     outputs: dict[str, Any] = Field(default_factory=dict)
     carry: dict[str, Any] = Field(default_factory=dict)
+    primaries: dict[str, Any] = Field(default_factory=dict)
     result: Any = None
 
 
@@ -119,12 +122,34 @@ def compile_flow(draft, catalog):
             message='输入输出契约校验失败，请添加通用块完成转换并重新保存', issues=validation.issues)
         raise PlatformError(error)
 
-    def wrap(node, source, next_contract=None, next_node=None):
+    def envelope(node, source, defaults, state):
+        references = defaults if node.references is None else node.references
+        try:
+            return {'primary': resolve(source, state), 'references': [resolve(ref, state) for ref in references]}
+        except KeyError:
+            raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='nodes.' + node.node_id + '.references',
+                node_id=node.node_id, message='本次执行的参考来源不可用')) from None
+
+    async def validate_consumer(node, source, defaults, state, producer):
+        try:
+            await asyncio.to_thread(checked, catalog.contract(catalog.get(node.artifact_ref).input_contract),
+                                    envelope(node, source, defaults, state), 'nodes.' + node.node_id + '.input')
+        except PlatformError as exc:
+            # 仅 primary 的字段错误可归因于直接生产者；参考和跨字段错误立即失败。
+            paths = [issue.field_path for issue in exc.error.issues] or [exc.error.field_path or []]
+            if paths and all(path and path[0] == 'primary' for path in paths):
+                exc.error.code = 'OUTPUT_VALIDATION_ERROR'
+                exc.error.stage = 'nodes.' + producer + '.output'
+                exc.error.source_node_id = producer
+            exc.error.node_id = node.node_id
+            raise
+
+    def wrap(node, source, defaults, next_contract=None, next_node=None):
         async def execute(state):
             stage = 'nodes.' + node.node_id
             try:
                 view = catalog.get(node.artifact_ref)
-                value = await asyncio.to_thread(checked, catalog.contract(view.input_contract), resolve(source, state), stage + '.input')
+                value = await asyncio.to_thread(checked, catalog.contract(view.input_contract), envelope(node, source, defaults, state), stage + '.input')
                 context = current_context.get()
                 if node.kind == 'block':
                     operation = lambda: catalog.artifact(node.artifact_ref).invoke(plain(value))
@@ -134,6 +159,15 @@ def compile_flow(draft, catalog):
                         raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage=stage, message='包执行需要任务上下文'))
                     result = await context.invoke_package(node.node_id, plain(value))
                 result = await asyncio.to_thread(checked, catalog.contract(view.output_contract), result, stage + '.output')
+                updated = state.model_copy(deep=True)
+                updated.outputs[node.node_id] = plain(result)
+                updated.primaries[node.node_id] = deepcopy(plain(value)['primary'])
+                if isinstance(next_node, ModuleNode):
+                    await validate_consumer(next_node, PortReference(kind='node', node_id=node.node_id),
+                                            [('primary', node.node_id)], updated, node.node_id)
+                elif isinstance(next_node, IfNode):
+                    await validate_consumer(next_node.condition, PortReference(kind='node', node_id=node.node_id),
+                                            [('primary', node.node_id)], updated, node.node_id)
                 if next_contract:
                     try:
                         await asyncio.to_thread(checked, catalog.contract(next_contract), result, stage + '.output')
@@ -141,9 +175,9 @@ def compile_flow(draft, catalog):
                         exc.error.source_node_id = node.node_id
                         exc.error.message = ('输出不符合下一步输入契约' if next_node else '输出不符合服务输出契约') + '：' + exc.error.message
                         raise
-                return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(result)}}
+                return {'outputs': updated.outputs, 'primaries': updated.primaries}
             except PlatformError as exc:
-                exc.error.node_id = node.node_id
+                exc.error.node_id = exc.error.node_id or node.node_id
                 raise
         attempt = guarded(node.node_id, execute)
         async def run(state):
@@ -160,46 +194,48 @@ def compile_flow(draft, catalog):
                         raise PlatformError(error) from None
         return run
 
-    def sequence(nodes, incoming, final_contract=None):
+    def sequence(nodes, incoming, final_contract=None, incoming_defaults=()):
         graph = StateGraph(FlowState)
         previous = START
         for index, node in enumerate(nodes):
             name = f'node_{index}'
             source = PortReference(kind='node', node_id=nodes[index - 1].node_id) if index else incoming
+            defaults = [('primary', nodes[index - 1].node_id)] if index else incoming_defaults
             if isinstance(node, ModuleNode):
                 following = nodes[index + 1] if index + 1 < len(nodes) else None
-                expected = (catalog.get(following.artifact_ref).input_contract if isinstance(following, ModuleNode)
-                            else final_contract if following is None else None)
-                graph.add_node(name, wrap(node, source, expected, following), retry_policy=None)
+                expected = final_contract if following is None else None
+                graph.add_node(name, wrap(node, source, defaults, expected, following), retry_policy=None)
                 graph.add_edge(previous, name)
                 previous = name
             elif isinstance(node, IfNode):
-                branches = {True: (sequence(node.then_branch.nodes, source), node.then_branch.output),
-                            False: (sequence(node.else_branch.nodes, source), node.else_branch.output)}
-                def chooser(node):
-                    def choose(state):
-                        value = resolve(node.condition, state)
-                        if type(value) is not bool:
-                            raise PlatformError(ErrorResponse(code='OUTPUT_VALIDATION_ERROR', stage='flow.condition',
-                                node_id=node.node_id, message='条件输出必须为严格 bool'))
-                        return 'true' if value else 'false'
-                    return choose
-                def branch_run(node, compiled, bindings):
+                branches = {True: (sequence(node.then_branch.nodes, source, incoming_defaults=defaults), node.then_branch.output),
+                            False: (sequence(node.else_branch.nodes, source, incoming_defaults=defaults), node.else_branch.output)}
+                condition_run = wrap(node.condition, source, defaults)
+                def if_run(node, branches, condition_run, source):
                     async def run(state):
-                        child = await compiled.ainvoke(state.model_dump())
+                        token = execution_path.set((*execution_path.get(), node.node_id + '.condition'))
+                        try:
+                            condition_state = await condition_run(state.model_copy(deep=True))
+                        finally:
+                            execution_path.reset(token)
+                        decision = condition_state['outputs'][node.condition.node_id]
+                        if type(decision) is not bool:
+                            raise PlatformError(ErrorResponse(code='OUTPUT_VALIDATION_ERROR', stage='flow.condition',
+                                node_id=node.condition.node_id, message='条件输出必须为严格 bool'))
+                        compiled, bindings = branches[decision]
+                        token = execution_path.set((*execution_path.get(), node.node_id + ('.then' if decision else '.else')))
+                        try:
+                            child = await compiled.ainvoke(state.model_dump())
+                        finally:
+                            execution_path.reset(token)
                         value = await asyncio.to_thread(checked, catalog.contract(node.output_contract),
                             bound_value(bindings, FlowState.model_validate(child)), 'nodes.' + node.node_id + '.output')
-                        return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(value)}}
+                        return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(value)},
+                                'primaries': {**deepcopy(state.primaries), node.node_id: resolve(source, state)}}
                     return run
-                graph.add_node(name, guarded(node.node_id, lambda state: {}))
+                graph.add_node(name, guarded(node.node_id, if_run(node, branches, condition_run, source)))
                 graph.add_edge(previous, name)
-                for decision, (compiled, bindings) in branches.items():
-                    graph.add_node(name + ('_true' if decision else '_false'), guarded(node.node_id, branch_run(node, compiled, bindings)))
-                graph.add_conditional_edges(name, chooser(node), {'true': name + '_true', 'false': name + '_false'})
-                graph.add_node(name + '_join', guarded(node.node_id, lambda state: {}))
-                graph.add_edge(name + '_true', name + '_join')
-                graph.add_edge(name + '_false', name + '_join')
-                previous = name + '_join'
+                previous = name
             else:
                 child = sequence(node.body, PortReference(kind='carry', node_id=node.node_id))
                 condition_graph = sequence([node.condition], PortReference(kind='carry', node_id=node.node_id)) if isinstance(node, WhileNode) else None
@@ -207,6 +243,7 @@ def compile_flow(draft, catalog):
                     async def run(state):
                         contract = catalog.contract(node.carry.contract)
                         carried = await asyncio.to_thread(checked, contract, bound_value(node.carry.initial, state), 'nodes.' + node.node_id + '.input')
+                        initial = plain(carried)
                         iteration = 0
                         while True:
                             await boundary('node_start', node.node_id)
@@ -239,7 +276,8 @@ def compile_flow(draft, catalog):
                             carried = await asyncio.to_thread(checked, contract, bound_value(node.carry.update, FlowState.model_validate(updated)),
                                 'nodes.' + node.node_id + '.output')
                             iteration += 1
-                        return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(carried)}}
+                        return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(carried)},
+                                'primaries': {**deepcopy(state.primaries), node.node_id: initial}}
                     return run
                 graph.add_node(name, guarded(node.node_id, loop_run(node, child, condition_graph)))
                 graph.add_edge(previous, name)

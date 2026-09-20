@@ -33,6 +33,8 @@ class VersionAllocator:
         last = self._last.get(service_id)
         if last is None:
             number = VersionNumber(1, 1, 0, 'initial')
+        elif current is None:
+            number = VersionNumber(last.revision + 1, last.major + 1, 0, 'breaking')
         else:
             old_code, old_config = signatures(current)
             new_code, new_config = signatures(candidate)

@@ -15,6 +15,7 @@ class ServiceManager:
         self.allocator = VersionAllocator()
         self._services = {}
         self._history = {}
+        self._unsupported = {}
         from .storage import MemoryStore
         self.store = store or MemoryStore()
         self._restore()
@@ -27,7 +28,8 @@ class ServiceManager:
         from .versions.numbering import VersionNumber
         for instance_id, document in self.store.read('instances').items():
             if document['compilerVersion'] != COMPILER_VERSION:
-                raise ValueError('实例编译器版本不兼容')
+                self._unsupported[instance_id] = document
+                continue
             snapshot = compile_snapshot(FlowDraft.model_validate(document['flow']), self.catalog,
                                         include_runtime_identity='runtimeLocks' in document)
             expected_locks = document.get('runtimeLocks', {})
@@ -43,7 +45,9 @@ class ServiceManager:
             if not history or service.current not in history or service.active_instance_id != service.current.instance_id:
                 raise ValueError('服务历史与当前指针不一致')
             for version in history:
-                if self.snapshots.get(version.instance_id).content_digest != version.content_digest:
+                digest = (self._unsupported[version.instance_id]['contentDigest'] if version.instance_id in self._unsupported
+                          else self.snapshots.get(version.instance_id).content_digest)
+                if digest != version.content_digest:
                     raise ValueError('服务版本与实例摘要不一致')
             self._services[key], self._history[key] = service, history
             latest = max(history, key=lambda value: value.revision)
@@ -63,15 +67,22 @@ class ServiceManager:
     def list(self):
         return [value.model_copy(deep=True) for value in self._services.values()]
 
+    def require_supported(self, instance_id):
+        if instance_id in self._unsupported:
+            raise invalid('旧实例执行协议不受支持；请重新加载升级后的资源，通过服务页保存新实例。历史记录仍可查看',
+                          ['instanceId'], code='VERSION_CONFLICT')
+
     def resolve_current(self, service_id):
-        return self.snapshots.get(self.get(service_id).active_instance_id)
+        instance_id = self.get(service_id).active_instance_id
+        self.require_supported(instance_id)
+        return self.snapshots.get(instance_id)
 
     def save(self, request, service_id=None):
         previous = self.get(service_id) if service_id else None
         from .flows.snapshots import prepare_flow_snapshot
         candidate = prepare_flow_snapshot(request.flow, self.catalog, self.environments)
         key = service_id or 'svc_' + uuid4().hex
-        current = self.resolve_current(key) if previous else None
+        current = (self.resolve_current(key) if previous and previous.active_instance_id not in self._unsupported else None)
         # 单事件循环内无 await；验证结束后一次性分配、入库、切换。
         from copy import deepcopy
         allocator = deepcopy(self.allocator)
@@ -113,6 +124,17 @@ class ServiceManager:
         version = next((v for v in self.history(service_id) if v.instance_id == instance_id), None)
         if version is None:
             raise invalid('该实例不属于此服务的历史', ['instanceId'], code='RECORD_NOT_FOUND')
+        if instance_id in self._unsupported:
+            from copy import deepcopy
+            document = self._unsupported[instance_id]
+            flow = deepcopy(document['flow'])
+            def value(camel, snake):
+                return flow.get(camel, flow.get(snake))
+            return FlowHistory(version=version, flow=flow, compiler_version=document['compilerVersion'],
+                input=self.catalog.contract(value('inputContract', 'input_contract')).schema,
+                output=self.catalog.contract(value('outputContract', 'output_contract')).schema,
+                examples=flow.get('examples', []), configuration={}, executable=False,
+                upgrade_message='请升级资源并通过服务页保存新实例；此历史快照不可执行或回退激活')
         snapshot = self.snapshots.get(instance_id)
         return FlowHistory(version=version, flow=snapshot.draft, compiler_version=snapshot.compiler_version,
             configuration=snapshot.configuration, **snapshot.schema)
@@ -123,6 +145,7 @@ class ServiceManager:
         version = next((value for value in self._history[service_id] if value.instance_id == instance_id), None)
         if version is None:
             raise invalid('该实例不属于此服务的历史', ['instanceId'], code='RECORD_NOT_FOUND')
+        self.require_supported(instance_id)
         snapshot = self.snapshots.get(instance_id)
         # 只校验当前环境；入口、包和块继续使用历史快照，不重读源目录。
         result = preflight(snapshot.draft.model_dump(by_alias=True), snapshot.catalog, self.environments)

@@ -2,7 +2,7 @@
 
 仅三个运行必需文件：package.json、models.py、prompt.txt。输入输出均为 `{ "text": "字符串" }`，没有 Config、业务入口、能力声明或包依赖。
 
-Prompt 使用 `{{input.text}}`；平台调用一次模型，严格验证返回的 text 字段。模型返回数字、额外字段或非 JSON 内容会失败。
+Prompt 使用 `{{input.primary.text}}`；平台调用一次模型，严格验证返回的 text 字段。模型返回数字、额外字段或非 JSON 内容会失败。
 
 1. 加载当前目录。
 2. 将包放入服务，选包的输入输出契约并接线。
@@ -12,3 +12,5 @@ Prompt 使用 `{{input.text}}`；平台调用一次模型，严格验证返回�
 6. 保存服务并提交 `{"text":"需要概括的文本"}`。
 
 [清单](package.json) · [完整配置](../CONFIGURATION.md) · [标准入口](../CONTEXT.md)
+
+2.0.0 的 Entry 为 NodeInput[Text, tuple[()]]。首节点简单模式即可；接在其他节点后时切换高级模式，显式保留空参考列表。调用服务时仍填写 {"text":"内容"}。

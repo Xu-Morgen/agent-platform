@@ -16,13 +16,13 @@
 {"text": "hello"}
 ```
 
-函数 `trim(value: Text) -> Text` 的参数类型是入口，返回值类型是出口。Text 的 `text: str` 必填，允许空字符串；纯空白输入会得到空字符串。平台先验证输入，再调用函数，最后验证返回值。
+函数 `trim(value: NodeInput[Text, tuple[()]]) -> Text` 的参数类型是入口，返回值类型是出口。Text 的 `text: str` 必填，允许空字符串；纯空白输入会得到空字符串。平台先验证输入，再调用函数，最后验证返回值。
 
-也可以直接用 `str`、`bool` 等类型，例如 `def is_ready(value: str) -> bool`；这时输入是 JSON 字符串，输出是 JSON 布尔值。条件块必须返回严格 bool，不能用 0/1 替代。
+也可以直接用 `str`、`bool` 等类型，例如 `def is_ready(value: NodeInput[str, tuple[()]]) -> bool`；这时服务输入是 JSON 字符串，函数通过 value.primary 读取，输出是 JSON 布尔值。条件块必须返回严格 bool，不能用 0/1 替代。
 
 ## 最完整实现
 
-[complete.py](complete.py)（`1.1.0`）在一个块内展示 API 能力、响应契约、嵌套输入、默认值、枚举、自定义字段校验、可选任务附件、进度上报、显式业务错误与输出统计。执行顺序为检查附件 → 查询 API → 严格验证响应 → 整理正文并检查 requireContent → 添加前缀 → 构造输出。源码包含分区中文讲解；模型文件接入为注释示范，默认不下载或运行模型。
+[complete.py](complete.py)（`2.0.0`）在一个块内展示 API 能力、响应契约、嵌套输入、默认值、枚举、自定义字段校验、可选任务附件、进度上报、显式业务错误与输出统计。执行顺序为检查附件 → 查询 API → 严格验证响应 → 整理正文并检查 requireContent → 添加前缀 → 构造输出。源码包含分区中文讲解；模型文件接入为注释示范，默认不下载或运行模型。
 
 运行前须在节点上绑定 API 连接并填写请求路径；本例在平台节点配置中填 `/lookup`，具体步骤见下方“完整块的 API 配置”。服务输入示例：
 
@@ -90,7 +90,7 @@ APIResponse 要求响应为仅包含 text 的对象，text 长度为 1～10000 �
 
 - 一个文件必须恰好有一个注册函数，可包含未装饰的辅助函数及多个模型。
 - 普通块只接受一个无默认值的位置参数，参数和返回值都必须有类型注解；API 块另接收无默认值的关键字参数 `api: BlockAPI`。可另声明无默认值的关键字参数 `context: BlockContext`，通过 `context.file(reference)` 访问当前任务附件，通过 `context.model(name)` 获取声明模型路径，通过 `context.progress(message, current=..., total=...)` 报告实际进度。不支持 `*args`、`**kwargs` 或其他任意能力参数。
-- `def run(value: Input) -> Output` 和 `async def run(value: Input) -> Output` 都可以。两者均在对应 Python 子进程中执行；CPU 计算不会占用平台事件循环，取消或超时会终止子进程。每次调用均创建新进程，不依赖模块全局变量跨调用保留状态。
+- `def run(value: NodeInput[Input, tuple[()]]) -> Output` 和 `async def run(value: NodeInput[Input, tuple[()]]) -> Output` 都可以。两者均在对应 Python 子进程中执行；CPU 计算不会占用平台事件循环，取消或超时会终止子进程。每次调用均创建新进程，不依赖模块全局变量跨调用保留状态。
 - 模型可使用 Pydantic `field_validator`、`model_validator`；完整写法见 [契约示例](../contracts/README.md)。入口含自定义校验时，接线会受到契约身份限制。
 - 没有 on_load、before_run、after_run、on_error、on_cancel 注册钩子。前后处理写在函数内；需要局部资源清理时使用 Python `try/finally`。
 
@@ -100,7 +100,7 @@ API 块通过注入的 BlockAPI 向节点配置的路径发起请求，凭据由
 
 ## 输入参数怎么固定
 
-块的业务选项包含在输入契约中；`nodeConfigurations` 为 API 块保存连接引用和请求路径。第一步自动接收服务完整输入，后续步骤自动接收上一层完整输出，均须符合 Input 契约；需要固定选项或拼装字段时，先通过另一个通用块处理。例如完整块节点：
+块的业务选项包含在输入契约中；`nodeConfigurations` 为 API 块保存连接引用和请求路径。第一步自动接收服务完整输入，后续步骤自动接收上一层完整输出，主数据均须符合 Input 契约，平台再封装为 NodeInput；需要固定选项或拼装字段时，先通过另一个通用块处理。例如完整块节点：
 
 ```json
 {
@@ -110,11 +110,11 @@ API 块通过注入的 BlockAPI 向节点配置的路径发起请求，凭据由
 }
 ```
 
-调用数据可包含 options，例如 {"query":"内容","options":{"letterCase":"upper"}}；其余选项由 Options 默认值补齐；服务输入的 query 仍须满足块的长度约束，并为 normalize 节点配置下方的 API 连接和请求路径。最容易成功的接法是直接选择此块返回的 inputContract/outputContract 作为服务端口，并采用完整输入/输出接线，见 [公共用法](../USAGE.md)。
+调用数据可包含 options，例如 {"query":"内容","options":{"letterCase":"upper"}}；其余选项由 Options 默认值补齐；服务输入的 query 仍须满足块的长度约束，并为 normalize 节点配置下方的 API 连接和请求路径。最容易成功的接法是直接选择此块返回的 primaryContract/outputContract 作为服务端口，并采用完整输入/输出接线，见 [公共用法](../USAGE.md)。
 
 ## 完整块的 API 配置
 
-[complete.py](complete.py) 声明 `@block(..., api=True)`，函数签名为 `async def normalize(value: Input, *, api: BlockAPI, context: BlockContext) -> Output`。最小示例保持无外部依赖的单输入计算函数。
+[complete.py](complete.py) 声明 `@block(..., api=True)`，函数签名为 `async def normalize(value: NodeInput[Input, tuple[()]], *, api: BlockAPI, context: BlockContext) -> Output`。最小示例保持无外部依赖的零参考计算函数。
 
 1. 在环境页添加 API 连接，填写 Base URL、可选 Bearer Token 和超时；API 连接不配置模型、不获取模型列表。
 2. 加载 complete.py 并插入节点，点击节点配置选择 API 连接，填写“请求路径”（本例为 `/lookup`）。API 环境也可通过 HTTP 创建：
@@ -135,7 +135,7 @@ API 块通过注入的 BlockAPI 向节点配置的路径发起请求，凭据由
 完整示例通过以下调用使用平台节点的路径：
 
 ```python
-response = await api.request('GET', {'query': value.query}, response_type=APIResponse)
+response = await api.request('GET', {'query': value.primary.query}, response_type=APIResponse)
 ```
 
 `await api.request(method, payload, response_type=APIResponse)` 支持 GET/POST/PUT/PATCH/DELETE；GET 的 payload 为查询参数，其余为 JSON 请求体。节点的 api.path 是 Base URL 下的相对路径，不接受完整 URL、查询字符串或目录回退，不提供隐含默认路径。response_type 必填，响应经过严格校验后返回对应类型；具体响应外壳的解包由块代码完成。
@@ -156,6 +156,12 @@ response = await api.request('GET', {'query': value.query}, response_type=APIRes
 
 进度不是输出，也不是完整日志：平台保存步骤的最新进度，页面不保证展示每条短暂消息；`3 / 3` 仅表示块内处理完成，平台还会校验出口并运行后续节点。不能用 progress 代替逐框 OCR 诊断、审计事件或任务成功状态。
 
-Input 使用 `field_validator` 演示纯空白查询校验。此校验无法完全表达为 JSON Schema，服务开始端口优先选本块导出的 inputContract；与其他类型接线时仍以平台校验为准。源码说明了 model_validator 的适用场景、同步/异步入口、模型路径接入、全部装饰器参数、资源清理及取消/重试边界；没有声明或实现额外生命周期钩子。
+Input 使用 `field_validator` 演示纯空白查询校验。此校验无法完全表达为 JSON Schema，服务开始端口优先选本块导出的 primaryContract；与其他类型接线时仍以平台校验为准。源码说明了 model_validator 的适用场景、同步/异步入口、模型路径接入、全部装饰器参数、资源清理及取消/重试边界；没有声明或实现额外生命周期钩子。
 
 本次教学示例验证使用已有依赖与临时本地 HTTP 服务：静态声明、严格输入、实际块子进程/API/附件调用、输出契约、成功进度、空白正文失败与非法 API 响应均通过。测试资料与运行缓存已清理；没有安装新依赖、调用线上模型或进行完整桌面人工验收。
+
+## NodeInput 与 Python 条件块
+
+入口必须从 `agent_platform.contracts.node_input` 导入 `NodeInput`，声明 `NodeInput[主数据类型, tuple[参考类型, ...]]`；这里的省略号是文档示意，实际必须列出每个固定位置，不能使用变长 tuple[T, ...]。两套块模板均声明零参考 `tuple[()]`；首节点用简单模式，后接节点需配置高级空列表。输出保持业务类型。
+
+在复制的最小块中可把返回注解改为 `bool`、函数体改为 `return bool(value.primary.text.strip())`，并更改 id/name/version，得到条件块；在 if 或 while 的条件位置选择它。条件独立执行，不替换分支或循环体的主数据。条件应只判断数据，避免外部 API 副作用；输入、输出错误不能当作 false。

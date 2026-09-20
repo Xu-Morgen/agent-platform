@@ -19,7 +19,7 @@ const flowEditor = (() => {
     value = resolveSchema(value, root);
     if (value.enum) return value.enum.map(v=>JSON.stringify(v)).join(' | ');
     if (value.anyOf) return value.anyOf.map(v=>typeName(v,root,depth+1)).join(' | ');
-    if (value.type === 'array') return typeName(value.items,root,depth+1) + '[]';
+    if (value.type === 'array') return value.prefixItems ? '['+value.prefixItems.map(item=>typeName(item,root,depth+1)).join(', ')+']' : typeName(value.items,root,depth+1) + '[]';
     return value.type || '未声明类型';
   }
   function portPreview(parent, ref) {
@@ -147,10 +147,10 @@ const flowEditor = (() => {
   }
   function contracts() {
     return resources.flatMap(r => r.kind === 'contract' ? [[r.resourceId, '契约 · ' + r.name + ' · ' + r.version.slice(0,12) + (r.archived ? ' · 已归档' : ''), r.schemas.value]]
-      : [['input', '输入'], ['output', '输出']].map(([key, name]) => [r[key + 'Contract'], kindNames[r.kind] + ' · ' + r.name + ' · v' + r.version + (r.archived ? ' · 已归档' : '') + ' · ' + name + '契约', r.schemas[key]]));
+      : [['primary', '主数据输入'], ['output', '输出']].map(([key, name]) => [r[key + 'Contract'], kindNames[r.kind] + ' · ' + r.name + ' · v' + r.version + (r.archived ? ' · 已归档' : '') + ' · ' + name + '契约', r.schemas[key]]).filter(([ref])=>ref));
   }
   function selectableContracts(current = '') {
-    const hidden=new Set(resources.filter(r=>r.archived).flatMap(r=>[r.resourceId,r.inputContract,r.outputContract,r.configurationContract]));
+    const hidden=new Set(resources.filter(r=>r.archived).flatMap(r=>[r.resourceId,r.primaryContract,r.inputContract,r.outputContract,r.configurationContract]));
     return contracts().filter(([ref])=>ref===current || !hidden.has(ref));
   }
   function schema(ref) { return contracts().find(([id]) => id === ref)?.[2] || {}; }
@@ -233,7 +233,7 @@ const flowEditor = (() => {
     return node.kind === 'if' ? node.outputContract : node.carry ? node.carry.contract : node.kind === 'carry' ? node.contract : resources.find(r=>r.resourceId===node.artifactRef)?.outputContract;
   }
   function allNodes(nodes = content.flow) {
-    return nodes.flatMap(n=>[n,...(n.kind === 'if' ? [...allNodes(n.thenBranch.nodes),...allNodes(n.elseBranch.nodes)] : n.body ? [...(n.condition?.nodeId ? [n.condition] : []),...allNodes(n.body)] : [])]);
+    return nodes.flatMap(n=>[n,...(n.kind === 'if' ? [...(n.condition?.nodeId ? [n.condition] : []),...allNodes(n.thenBranch.nodes),...allNodes(n.elseBranch.nodes)] : n.body ? [...(n.condition?.nodeId ? [n.condition] : []),...allNodes(n.body)] : [])]);
   }
   function newId() { let i=1;const ids=new Set(allNodes().map(n=>n.nodeId));while(ids.has('node_'+i))i++;return 'node_'+i; }
   function contractChoice(parent, label, value, update) {
@@ -243,7 +243,45 @@ const flowEditor = (() => {
     const section=el('fieldset');section.append(el('legend',label));const body=el('div');body.dataset.bindingSection=label;
     bindings(body,values,contract,scope,label.startsWith('输入 ·')?'当前节点输入':label);section.append(body);parent.append(section);
   }
-  function sequence(parent, nodes, inherited, incoming='服务完整输入') {
+  function referenceEditor(parent, node, resource, scope, automatic) {
+    const root=resource?.schemas.input || {}, slots=resolveSchema(resolveSchema(root,root).properties?.references,root).prefixItems || [];
+    parent.append(el('p','主数据自动传递；简单模式参考：'+automatic+'。资源声明 '+slots.length+' 个参考位置。'));
+    const panel=el('details');panel.dataset.detailKey=node.nodeId+':references';panel.open=node.references!=null;
+    panel.append(el('summary','高级参考设置'));
+    panel.append(choices([['simple','简单模式 · 自动来源'],['advanced','高级模式 · 替换参考列表']],node.references==null?'simple':'advanced',value=>{
+      if(value==='simple')delete node.references;
+      else node.references=[];
+      changed();render();
+    }));
+    if(node.references!=null){
+      if(!slots.length)panel.append(el('p','此资源声明零参考：保存为空列表。'));
+      slots.forEach((slot,index)=>{
+        const label=el('label',`references[${index}] · ${slot.description || typeName(slot,root)}`);
+        label.append(choices(sourceOptions(scope),node.references[index]?sourceValue(node.references[index]):'',value=>{
+          node.references[index]=value?JSON.parse(value):{kind:'node',nodeId:''};changed();render();
+        }));panel.append(label);
+      });
+      if(node.references.length>slots.length)panel.append(button('清除多余参考',()=>{node.references.splice(slots.length);changed();render();}));
+      const keys=node.references.map(ref=>ref&&sourceValue(ref));
+      if(new Set(keys).size!==keys.length)panel.append(el('p','同一来源不能重复绑定，请修改后保存。'));
+    }
+    parent.append(panel);
+  }
+  function conditionEditor(parent,node,scope,incoming,automatic){
+    if(node.condition?.kind!=='block'){
+      parent.append(el('p','此条件使用旧引用协议。请删除该控制节点并重新添加 Python 条件块。'));return;
+    }
+    const condition=el('label','Python 条件块 · 独立执行并返回严格 bool');
+    condition.append(choices(resources.filter(r=>r.kind==='block'&&(!r.archived||r.resourceId===node.condition.artifactRef)).map(r=>[r.resourceId,r.name+' · v'+r.version]),node.condition.artifactRef,value=>{
+      node.condition.artifactRef=value;delete content.nodeConfigurations[node.condition.nodeId];changed();render();
+    }));parent.append(condition,el('p','主数据：'+incoming+'；条件结果只选择路径。'));
+    const resource=resources.find(r=>r.resourceId===node.condition.artifactRef);
+    const preview=el('div');portPreview(preview,resource?.primaryContract);parent.append(preview);
+    referenceEditor(parent,node.condition,resource,scope,automatic);
+    parent.append(el('p','条件出口：bool（true / false），保存时严格校验。'));
+    if(resource?.apiRequired)parent.append(button('配置通用块 API',()=>configure(node.condition,resource)));
+  }
+  function sequence(parent, nodes, inherited, incoming='服务完整输入', incomingReference='无（零项）') {
     parent.classList.add('flow-sequence');
     if(!nodes.length){const hint=el('p','点击 ＋ 添加这条路径的第一步');hint.className='empty-sequence';parent.append(hint);}
     nodes.forEach((node,index)=>{
@@ -251,7 +289,7 @@ const flowEditor = (() => {
       const scope=[...inherited,...nodes.slice(0,index)];
       const resource=resources.find(r=>r.resourceId===node.artifactRef);
       const card=el('article');card.className='flow-node';card.tabIndex=-1;card.dataset.nodeId=node.nodeId;card.dataset.kind=node.kind;
-      if(node.kind==='while')card.dataset.conditionId=node.condition.nodeId;
+      if(node.condition?.nodeId)card.dataset.conditionId=node.condition.nodeId;
       const header=el('div');header.className='node-header';
       const icon=el('span',({block:'▦',package:'✦',if:'⑂',repeat:'↻',while:'↻'})[node.kind]);icon.className='node-icon';
       const title=el('div');title.className='node-title';title.append(el('small',kindNames[node.kind]+' · '+node.nodeId+(resource ? ' · v'+resource.version+(resource.archived ? ' · 已归档' : '') : '')),el('h4',nodeName(node)));
@@ -266,6 +304,7 @@ const flowEditor = (() => {
       });remove.setAttribute('aria-label','删除 '+nodeName(node));actions.append(remove);header.append(icon,title,actions);card.append(header);
       const description=el('p',resource ? resource.description || '按输入数据执行处理，将结果提供给后续节点。' : controls.find(r=>r.kind===node.kind)?.description || '资源不可用，请重新加载。');description.className='node-description';card.append(description);
       const summary=el('div');summary.className='node-port-summary';
+      const automatic=index ? nodeName(nodes[index-1])+' 本次执行的主数据输入' : incomingReference;
       const previousInput=index ? nodeName(nodes[index-1])+' 的完整输出' : incoming;
       let inputText=previousInput;
       if(node.kind==='if')inputText='条件 → 成立 / 否则';
@@ -274,7 +313,8 @@ const flowEditor = (() => {
       const detail=el('details');detail.className='node-details';detail.append(el('summary',node.kind==='block'||node.kind==='package'?'查看固定契约与配置参数':'配置条件或循环'));card.append(detail);
       if(node.kind==='block'||node.kind==='package') {
         detail.append(el('h5','输入契约 · 自动接收'+previousInput));
-        const inputPreview=el('div');portPreview(inputPreview,resource?.inputContract);detail.append(inputPreview);
+        const inputPreview=el('div');portPreview(inputPreview,resource?.primaryContract);detail.append(inputPreview);
+        referenceEditor(detail,node,resource,scope,automatic);
         detail.append(el('p','输入输出类型由'+kindNames[node.kind]+'固定声明。运行时输出不符合契约时，按服务设置重新调用本步骤；下一步不会执行。预算不足或取消时立即停止。'));
         detail.append(el('h5','输出契约 · 执行后可供后续步骤使用'));const outputPreview=el('div');portPreview(outputPreview,resource?.outputContract);detail.append(outputPreview);
         const raw=el('details');raw.className='raw-schema';raw.append(el('summary','查看完整契约 JSON'),el('pre',JSON.stringify(resource?.schemas,null,2)));detail.append(raw);
@@ -283,13 +323,12 @@ const flowEditor = (() => {
           const configButton=button('配置'+(node.kind==='package'?'模型与参数':' API 连接'),()=>configure(node,resource));configButton.disabled=!resource;detail.append(configButton);
         }
       } else if(node.kind==='if') {
-        const condition=el('label','判断依据 · 选择前面通用块输出的布尔值（true / false）');
-        condition.append(choices(sourceOptions(scope),sourceValue(node.condition),v=>{if(v){node.condition=JSON.parse(v);changed();render();}}));detail.append(condition);
+        conditionEditor(detail,node,scope,previousInput,automatic);
         contractChoice(detail,'契约 · 分支输出契约',node.outputContract,v=>node.outputContract=v);
         const branches=el('div');branches.className='flow-branches';
         for(const [key,title] of [['thenBranch','成立 · true'],['elseBranch','否则 · false']]){
           const branch=el('div');branch.className='flow-branch';branch.dataset.branch=key;branch.append(el('h5',title));
-          const branchNodes=el('div');sequence(branchNodes,node[key].nodes,scope,previousInput);branch.append(branchNodes);
+          const branchNodes=el('div');sequence(branchNodes,node[key].nodes,scope,previousInput,automatic);branch.append(branchNodes);
           const output=el('details');output.className='branch-output';output.dataset.detailKey=node.nodeId+':'+key;output.append(el('summary','本分支返回什么'));
           bindingSection(output,'分支出口',node[key].output,node.outputContract,[...scope,...node[key].nodes]);branch.append(output);branches.append(branch);
         }
@@ -302,13 +341,7 @@ const flowEditor = (() => {
         detail.append(el('p','初始值用于第一轮；循环体读取「本轮携带值」，每轮结束用「下轮携带值」更新。循环结束后输出最后的携带值。'));
         bindingSection(detail,'循环初始值',node.carry.initial,node.carry.contract,scope);
         const inner=[...scope,{kind:'carry',nodeId:node.nodeId,contract:node.carry.contract}];
-        if(node.kind==='while'){
-          const condition=el('label','每轮执行前判断 · 输出必须为布尔值');condition.append(choices(resources.filter(r=>r.kind==='block'&&(!r.archived||r.resourceId===node.condition.artifactRef)).map(r=>[r.resourceId,r.name+' · v'+r.version+(r.archived ? ' · 已归档' : '')]),node.condition.artifactRef,v=>{node.condition.artifactRef=v;delete content.nodeConfigurations[node.condition.nodeId];changed();render();}));detail.append(condition);
-          const conditionResource=resources.find(r=>r.resourceId===node.condition.artifactRef);
-          if(conditionResource?.apiRequired)detail.append(button('配置通用块 API',()=>configure(node.condition,conditionResource)));
-          detail.append(el('p','条件通用块自动接收本轮完整携带值。'));
-          const preview=el('div');portPreview(preview,conditionResource?.inputContract);detail.append(preview);
-        }
+        if(node.kind==='while')conditionEditor(detail,node,inner,'本轮完整携带值','无（零项）');
         const body=el('div');body.className='loop-body';body.dataset.branch='body';body.append(el('h5','↻ 循环体 · '+(node.kind==='repeat'?'执行 '+(node.count??'—')+' 次':'条件成立时执行，最多 '+node.maxIterations+' 次')));
         const bodyNodes=el('div');sequence(bodyNodes,node.body,inner,'本轮完整携带值');body.append(bodyNodes);card.append(body);
         const update=el('details');update.className='loop-update';update.append(el('summary','↻ 设置下轮携带值'));
@@ -326,7 +359,7 @@ const flowEditor = (() => {
       else {content.budget.loopLimit+=defaults.loopLimit;content.budget.tokenLimit+=defaults.tokenLimit;}
     }
     let node={kind,nodeId,artifactRef:resource.resourceId};
-    if(kind==='if')node={kind,nodeId,condition:{kind:'input'},outputContract:'',thenBranch:{nodes:[],output:[]},elseBranch:{nodes:[],output:[]}};
+    if(kind==='if')node={kind,nodeId,condition:{kind:'block',nodeId:nodeId+'_condition',artifactRef:''},outputContract:'',thenBranch:{nodes:[],output:[]},elseBranch:{nodes:[],output:[]}};
     if(kind==='repeat'||kind==='while') {
       node={kind,nodeId,carry:{contract:'',initial:[],update:[]},body:[]};
       if(kind==='repeat')node.count=0;
@@ -481,17 +514,18 @@ const flowEditor = (() => {
     function tree(nodes,parent){for(const node of nodes){
       const item=el('fieldset');item.append(el('legend',node.nodeId+' · '+node.kind));
       const own={...node};delete own.body;delete own.thenBranch;delete own.elseBranch;
-      item.append(el('pre',JSON.stringify({node:own,configuration:history.flow.nodeConfigurations[node.nodeId]},null,2)));
+      item.append(el('pre',JSON.stringify({node:own,configuration:(history.flow.nodeConfigurations || history.flow.node_configurations || {})[node.nodeId]},null,2)));
       if(node.kind==='if')for(const key of ['thenBranch','elseBranch']){const branch=el('fieldset');branch.append(el('legend',key),el('pre',JSON.stringify(node[key].output,null,2)));tree(node[key].nodes,branch);item.append(branch);}
       if(node.body)tree(node.body,item);parent.append(item);
     }}
-    tree(history.flow.flow,target);
+    if(history.executable===false)target.append(el('p',history.upgradeMessage));
+    else tree(history.flow.flow,target);
     const detail=el('details');detail.append(el('summary','完整快照、契约、参数和预算'),el('pre',JSON.stringify(history,null,2)));target.append(detail);
   }
   $('service-refresh').onclick=()=>refreshSaved();
   $('service-select').onchange=async()=>{
     const id=$('service-select').value;
-    if(id){const result=await window.agentPlatform.serviceSchema(id);if(!result.ok){$('service-result').textContent=result.error.message;return;}
+    if(id){const result=await window.agentPlatform.serviceSchema(id);if(!result.ok){await refreshSaved(id);$('service-result').textContent=result.error.message;return;}
       content=clone(result.data.flow);draftId='';changed();render();
     }
     await refreshSaved(id);

@@ -30,66 +30,23 @@ API 文档在 `http://127.0.0.1:8000/docs`。桌面显示的后端地址可能�
 | path | 后端可读路径；块/契约选文件，包选目录；推荐绝对路径 |
 | symbol | 契约必填，为文件中导出的类型名称；块/包省略 |
 
-块/包返回 resourceId、inputContract、outputContract 和 schemas；包另有 configurationContract、budgetDefaults。API 块另有 apiRequired=true，需要在节点上配置 API 连接和请求路径 api.path。独立契约直接用 resourceId 作为端口引用，schemas.value 展示类型。
+块/包返回 resourceId、primaryContract、inputContract、outputContract 和 schemas；primaryContract 是业务主数据契约，inputContract 是平台使用的完整 NodeInput 契约；包另有 configurationContract、budgetDefaults。API 块另有 apiRequired=true，需要在节点上配置 API 连接和请求路径 api.path。独立契约直接用 resourceId 作为端口引用，schemas.value 展示类型。
 
 ## 2. 可直接执行的最小闭环
 
-这段代码会向上面运行中的后端加载最小块与独立契约、创建一个服务并提交一次真实纯块任务，不依赖模型或外部 API：
+通过服务页完成资源加载、拼接和保存，不使用自动组装服务的辅助脚本：
 
-```bash
-.venv/bin/python - <<'PY'
-from pathlib import Path
-import time
-import httpx
+1. 加载 `samples/blocks/minimal.py`，再加载 `samples/contracts/minimal.py`，symbol 选 Text。
+2. 新建服务，输入和输出均选择独立 Text 契约；也可分别选择最小块的“主数据输入”和“输出”契约。
+3. 添加一个最小块，命名为 trim，保持简单参考模式。首节点默认没有参考，符合模板声明。
+4. 校验后保存实例，在任务页提交 `{"text":"  hello  "}`，结果应为 `{"text":"hello"}`。
+5. 若添加第二个最小块，把第二个块切换为高级参考模式，保持空列表；该模板声明零参考，默认的一项参考会被严格拒绝。
 
-with httpx.Client(base_url='http://127.0.0.1:8000', timeout=10) as client:
-    def post(path, body):
-        response = client.post('/api/v1/' + path, json=body)
-        response.raise_for_status()
-        return response.json()
-
-    block = post('catalog/load', {
-        'kind': 'block', 'path': str(Path('samples/blocks/minimal.py').resolve()),
-    })
-    contract = post('catalog/load', {
-        'kind': 'contract', 'path': str(Path('samples/contracts/minimal.py').resolve()),
-        'symbol': 'Text',
-    })
-    flow = {
-        'name': '最小文本整理',
-        'inputContract': contract['resourceId'],
-        'outputContract': contract['resourceId'],
-        'flow': [{
-            'nodeId': 'trim', 'kind': 'block', 'artifactRef': block['resourceId'],
-        }],
-    }
-    validation = post('flows/validate', {'content': flow})
-    if not validation['valid']:
-        raise RuntimeError(validation['issues'])
-    service = post('services', {'name': flow['name'], 'flow': flow})
-    run = post('runs', {'serviceId': service['serviceId'], 'input': {'text': '  hello  '}})
-    for _ in range(100):
-        response = client.get('/api/v1/runs/' + run['runId'])
-        response.raise_for_status()
-        state = response.json()
-        if state['status'] in ('completed', 'failed', 'cancelled'):
-            if state['status'] != 'completed':
-                raise RuntimeError(state)
-            response = client.get('/api/v1/runs/' + run['runId'] + '/result')
-            response.raise_for_status()
-            print(response.json())  # 结果中的业务输出为 {"text": "hello"}。
-            break
-        time.sleep(0.1)
-    else:
-        raise TimeoutError('任务尚未结束，请根据 runId 查询状态')
-PY
-```
-
-这里独立契约 Text 与块的 Text 都是无自定义校验的相同结构，因此可以直接接线。若不需要独立契约，也可把服务 inputContract/outputContract 分别设为块返回的对应引用。
+服务调用方只提交业务 JSON。平台实际给首块的输入是 `{"primary":{"text":"  hello  "},"references":[]}`；最终返回仍是业务结果。
 
 ## 3. 包与 API 通用块如何组成服务
 
-把上述 flow 中的 block 节点换为已加载的 package，nodeId 设为 summarize；服务端口选该包的 inputContract/outputContract，出口 source.nodeId 同步改为 summarize。
+在服务页添加最小 package 节点，nodeId 设为 summarize；服务端口选该包的 primaryContract/outputContract。完整包声明一个参考，单独作为首节点时需使用高级模式，把 references[0] 绑定为服务输入。
 
 在同一 FlowDraft 顶层加入：
 
@@ -111,7 +68,7 @@ PY
 
 ### 最完整通用块的节点配置
 
-加载 `samples/blocks/complete.py`，使用其 inputContract/outputContract 作为服务端口，将块节点命名为 normalize，并将服务完整输入传给块节点，平台自动返回该节点的完整输出。在同一 FlowDraft 顶层加入：
+加载 `samples/blocks/complete.py`，使用其 primaryContract/outputContract 作为服务端口，将块节点命名为 normalize，并将服务完整输入传给块节点，平台自动返回该节点的完整输出。在同一 FlowDraft 顶层加入：
 
 ```json
 {
@@ -129,7 +86,7 @@ PY
 
 替换为实际 API 环境和连接 ID；path 必填，为该连接 Base URL 下的请求路径。环境保存 Base URL、凭据和超时，节点保存路径；方法、请求参数和响应契约由块定义。该片段不是完整的服务保存请求。只有通用块时不需要模型连接或任务预算。
 
-输入示例为 `{"query":"greeting"}`（query 不能全为空白），可另带 options 和可选任务附件；`options.requireContent=true` 时拒绝整理后为空白的正文。块使用 `api.request('GET', {'query': value.query}, response_type=APIResponse)`，请求节点配置的路径。若 Base URL 是 `https://example.com/api`，实际请求为 `https://example.com/api/lookup?query=greeting`；这是配置示意，项目不提供此远端服务。响应要求及选项见 [完整块说明](blocks/README.md#最完整实现)。
+输入示例为 `{"query":"greeting"}`（query 不能全为空白），可另带 options 和可选任务附件；`options.requireContent=true` 时拒绝整理后为空白的正文。块使用 `api.request('GET', {'query': value.primary.query}, response_type=APIResponse)`，请求节点配置的路径。若 Base URL 是 `https://example.com/api`，实际请求为 `https://example.com/api/lookup?query=greeting`；这是配置示意，项目不提供此远端服务。响应要求及选项见 [完整块说明](blocks/README.md#最完整实现)。
 
 完整块会上报 API 等待消息及三个处理阶段的实际进度；进度不加入业务输出，不代表整个任务成功。
 
@@ -155,6 +112,7 @@ PY
 | nodeId | 整个流程内唯一，以英文字母开头，仅字母/数字/下划线/连字符 |
 | kind | block/package |
 | artifactRef | 对应加载结果 resourceId |
+| references | 省略或 null 为简单模式；数组为高级模式并替换默认列表，允许 []；每项仅含 kind 与可选 nodeId，禁止重复 |
 
 ### 分支与循环的数据来源
 
@@ -165,18 +123,24 @@ PY
 | source.kind=carry | 引用循环当前携带值，nodeId 填循环节点 ID |
 | source.kind=constant | 直接填符合接收方契约的完整 value，不填 nodeId/path |
 
-业务包和通用块不声明 inputs，也不选择数据来源；输入输出契约由其代码或清单固定声明。第一步接收服务完整输入，之后只接收上一层完整输出；分支内第一步接收进入分支前的完整数据，循环体和循环条件通用块的第一步接收本轮完整携带值。平台只传递完整数据，不支持字段路径引用、改名或拼装。分支与循环配置中的每条来源只声明 source；API 节点的请求路径 api.path 保持不变。来源完整输出与接收方契约不兼容时校验报错，例如 answer 无法直接传入要求 text 的契约；请在两步之间添加通用块完成转换。分支输出、循环初始值和更新值也遵循同一规则。服务返回只配置 outputContract，自动使用顶层流程最后一步的完整输出，不声明 output 或手动选择返回来源；空流程不能保存为服务。不提供旧字段映射的兼容或迁移。
+资源入口统一声明 `NodeInput[P, R]`，P 为主数据契约，R 是固定位置元组；JSON 为 `{primary, references: [...]}`。服务第一步 primary 为完整服务输入，后续为上一层完整输出。简单模式的 references 只有上一节点此次的 primary，首节点为零项，不递归保留参考。高级模式按声明的槽位选择完整服务输入、已执行且可见节点的完整输出或当前 carry；顺序、数量、类型均校验，不能重复、前向或越域引用。
+
+if 条件与分支首节点都收到进入 if 的主数据及同样的默认参考。while 条件和循环体首节点、repeat 循环体首节点默认零参考，以当前 carry 为 primary。内部第二步起按普通顺序规则。容器后的默认参考为容器入口主数据，循环为初始 carry；不得读取上一轮节点残留结果。
+
+平台不支持字段路径引用、改名或拼装；需要转换时添加通用块。常量仅允许用于控制容器的完整值绑定，不能作为高级参考。服务返回仅配置 outputContract，自动返回顶层最后一步完整输出；空流程不能保存。API 的请求路径 api.path 不受节点输入封装影响，块通过 value.primary 生成业务请求并单独校验业务响应。
+
+主数据字段错误尽可能在直接生产节点输出检查时识别，按 retryLimit 重试该生产节点；参考缺失、参考校验与消费者跨字段错误立即失败，不重跑历史生产者。任何输入错误都会阻止消费者执行。条件输出错误可重试条件块，不执行错误分支；外部副作用不回滚。
 
 ### 控制容器字段
 
 | kind | 配置 | 语义 |
 | --- | --- | --- |
-| if | nodeId、condition、outputContract、thenBranch、elseBranch | condition 引用严格 bool；两条分支均有 nodes（默认 []）和必填 output 接线，共用出口契约 |
+| if | nodeId、condition、outputContract、thenBranch、elseBranch | condition 是 kind=block 的完整节点，独立执行并返回严格 bool；两条分支均有 nodes（默认 []）和必填 output 接线，共用出口契约 |
 | repeat | nodeId、count、carry、body | count 为非负整数；body 默认 []；0 次返回初始 carry |
 | while | nodeId、maxIterations、condition、carry、body | condition 是一个 kind=block 的完整节点，输出严格 bool；body 默认 []；maxIterations 是正整数 |
 | carry | contract、initial、update | 携带值类型、初始接线、每轮结束更新接线，三项均必填 |
 
-if.condition 是端口引用；while.condition 是实际执行条件检查的块节点，两者格式不同。while 达到上限后条件仍为真会失败。循环体以 carry 读当前状态；外部从容器节点出口读取结果，不能越过作用域读取内部节点。这些是服务编排字段，不是资源或包生命周期钩子。
+if.condition 与 while.condition 使用相同的完整块节点格式；其 nodeId 也必须全局唯一，可以单独配置 references。while 达到上限后条件仍为真会失败。循环体以 carry 读当前状态；外部从容器节点出口读取结果，不能越过作用域读取内部节点。这些是服务编排字段，不是资源或包生命周期钩子。
 
 ## 5. 保存、版本与外部调用
 
@@ -202,3 +166,7 @@ if.condition 是端口引用；while.condition 是实际执行条件检查的块
 ## 文档业务组合
 
 独立的 [文档出题实例](../examples/document-question-generation/README.md) 演示 PDF/DOCX 上传、本地 OCR、整份资料输入和线上模型出题，不改变本目录三类模板的用途。成功结果只包含题目；资料不足按平台失败协议终止，题目结构错误按 retryLimit 重试本包，全文不静默截断。
+
+## 升级旧协议
+
+flow-5 不执行旧裸输入或 if 端口引用。旧服务版本与任务终态仍可查看，不允许直接调用、回退激活或复制为可执行草稿。请重新加载 2.0.0 资源，通过服务页重建流程并为原服务保存新实例；不会静默改写旧快照。

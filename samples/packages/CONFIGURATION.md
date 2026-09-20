@@ -10,7 +10,7 @@
 | version | 必填 | 三段版本，例如 1.0.0；同版本必须对应相同内容 |
 | name | 必填 | 非空显示名称 |
 | description | 默认空字符串 | 用途说明 |
-| contractRefs.input | 必填 | 输入模型引用，例如 models:Input |
+| contractRefs.input | 必填 | NodeInput 入口引用，例如 models:Entry；业务主数据从其 primary 推导 |
 | contractRefs.output | 必填 | 输出模型引用，例如 models:Output |
 | contractRefs.configuration | 可省略/null | 业务参数模型，例如 models:Config；省略时只接受空 parameters |
 | prompt | 默认 prompt.txt | UTF-8 Prompt 文件的包内规范相对路径 |

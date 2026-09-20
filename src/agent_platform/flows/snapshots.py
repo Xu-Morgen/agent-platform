@@ -66,7 +66,7 @@ def compile_snapshot(draft, catalog, *, include_runtime_identity=True):
             contracts.add(node.carry.contract)
     for ref in resources:
         view = catalog.get(ref)
-        contracts.update(filter(None, [view.input_contract, view.output_contract, view.configuration_contract]))
+        contracts.update(filter(None, [view.input_contract, view.primary_contract, view.output_contract, view.configuration_contract]))
     frozen = ModuleCatalog(None)
     frozen._views = MappingProxyType({r: catalog.get(r) for r in resources})
     frozen._artifacts = MappingProxyType({r: catalog.artifact(r) for r in resources})

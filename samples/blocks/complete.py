@@ -31,6 +31,7 @@ from typing import Literal
 from pydantic import Field, field_validator
 from agent_platform.blocks import BlockAPI, BlockContext, block
 from agent_platform.contracts.base import StrictModel
+from agent_platform.contracts.node_input import NodeInput
 from agent_platform.contracts.errors import ErrorResponse, PlatformError
 from agent_platform.contracts.files import TaskFile
 
@@ -64,7 +65,7 @@ class Input(StrictModel):
 
         平台在调用入口前执行此校验，失败不会请求 API。跨字段约束可使用
         model_validator；自定义校验不能完整表达为 JSON Schema，会影响静态契约
-        兼容性，因此教学服务直接使用本块导出的 inputContract。
+        兼容性，因此教学服务直接使用本块导出的 primaryContract。
         """
         if not value.strip():
             raise ValueError('查询文本不能只有空白')
@@ -111,7 +112,7 @@ def normalize_text(original: str, options: Options) -> str:
 
 @block(
     id='sample-normalize',
-    version='1.1.0',  # 相同 id/version 不能对应不同源码；归档也不会释放版本号。
+    version='2.0.0',  # 相同 id/version 不能对应不同源码；归档也不会释放版本号。
     name='API 查询与文本整理',
     description='演示 API 响应校验、嵌套选项、可选附件、进度上报、文本处理与明确失败。',
     api=True,  # 需要 async 入口与关键字参数 api: BlockAPI；连接和路径在节点配置。
@@ -120,7 +121,7 @@ def normalize_text(original: str, options: Options) -> str:
     dependencySources=[],  # 可声明单一 HTTPS 索引，或含 package/url/sha256 的 wheel 来源。
     models=[],  # 模型声明字段为 name/version/url/sha256/filename；不得填写猜测的摘要。
 )
-async def normalize(value: Input, *, api: BlockAPI, context: BlockContext) -> Output:
+async def normalize(value: NodeInput[Input, tuple[()]], *, api: BlockAPI, context: BlockContext) -> Output:
     """唯一执行入口：附件检查 → API 查询 → 文本整理 → 严格输出。
 
     输入：value 已通过平台入口校验；api/context 由平台注入，不能写进业务 JSON。
@@ -137,10 +138,10 @@ async def normalize(value: Input, *, api: BlockAPI, context: BlockContext) -> Ou
     """
     # 未知总量的阶段只上报消息，不虚构百分比或随时间推进进度。
     context.progress('检查任务附件')
-    if value.attachment is not None:
+    if value.primary.attachment is not None:
         # 平台验证引用归属与摘要，返回任务副本；不要相信用户传来的本机路径。
         # 用 with 展示文件句柄清理：只读文件头，不在这个文本模板内解析 PDF/DOCX。
-        path = context.file(value.attachment)
+        path = context.file(value.primary.attachment)
         with path.open('rb') as attachment_file:
             attachment_file.read(16)
         context.progress('附件已检查')
@@ -154,10 +155,10 @@ async def normalize(value: Input, *, api: BlockAPI, context: BlockContext) -> Ou
     context.progress('等待 API 响应')
     # GET 的 payload 是查询参数；POST/PUT/PATCH/DELETE 的 payload 是 JSON 请求体。
     # response_type 必填，返回值已通过严格校验；块不自行拼地址或添加认证 Header。
-    response = await api.request('GET', {'query': value.query}, response_type=APIResponse)
+    response = await api.request('GET', {'query': value.primary.query}, response_type=APIResponse)
     context.progress('API 响应已校验', current=1, total=3)
 
-    text = normalize_text(response.text, value.options)
+    text = normalize_text(response.text, value.primary.options)
     context.progress('文本整理已完成', current=2, total=3)
     result = Output(text=text, character_count=len(text), changed=text != response.text)
 

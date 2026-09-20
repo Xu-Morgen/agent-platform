@@ -85,8 +85,10 @@ async def main():
                 from ..registry.catalog import ContractResource
                 result = {direction: ContractResource(adapter, request['digest'] + ':' + direction).schema
                           for direction, adapter in [('input', artifact.input_adapter), ('output', artifact.output_adapter)]}
+                if artifact.primary_adapter is not None:
+                    result['primary'] = ContractResource(artifact.primary_adapter, request['digest'] + ':primary').schema
             elif action == 'validate':
-                adapter = artifact.input_adapter if request['direction'] == 'input' else artifact.output_adapter
+                adapter = getattr(artifact, request['direction'] + '_adapter')
                 result = plain(adapter.validate_python(request['value'], strict=True))
             elif action == 'invoke':
                 result = plain(await artifact.invoke(request['value'], api=RemoteAPI() if artifact.metadata.uses_api else None,

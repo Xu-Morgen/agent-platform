@@ -1,9 +1,9 @@
 {
   "packageId": "sample-minimal-chat",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "最小 Prompt 包",
   "contractRefs": {
-    "input": "models:Text",
+    "input": "models:Entry",
     "output": "models:Text"
   }
 }

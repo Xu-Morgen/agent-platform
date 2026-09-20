@@ -4,6 +4,8 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 from agent_platform.contracts.base import StrictModel
+from agent_platform.contracts.node_input import NodeInput
+from agent_platform.contracts.files import TaskFile
 
 NonBlank = Annotated[str, Field(min_length=1, pattern=r'\S')]
 
@@ -75,3 +77,11 @@ class Output(StrictModel):
         if [question.type for question in self.questions] != ['essay', 'single_choice', 'fill_blank']:
             raise ValueError('必须依次包含论述题、单选题、填空题各一道')
         return self
+
+
+class DocumentSource(StrictModel):
+    document: TaskFile
+
+
+class Entry(NodeInput[Input, tuple[DocumentSource]]):
+    """默认参考为读取节点的主输入；Prompt 仅声明使用 primary 中的正文。"""

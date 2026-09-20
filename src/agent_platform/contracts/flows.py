@@ -69,6 +69,15 @@ class ModuleNode(StrictModel):
     node_id: Identifier
     kind: Literal['block', 'package']
     artifact_ref: ResourceId
+    references: list[PortReference] | None = None
+
+    @model_validator(mode='after')
+    def unique_references(self):
+        if self.references is not None:
+            keys = [(ref.kind, ref.node_id) for ref in self.references]
+            if len(keys) != len(set(keys)):
+                raise ValueError('参考列表不得重复绑定同一来源')
+        return self
 
 
 class Branch(StrictModel):
@@ -79,10 +88,16 @@ class Branch(StrictModel):
 class IfNode(StrictModel):
     node_id: Identifier
     kind: Literal['if']
-    condition: PortReference
+    condition: ModuleNode
     output_contract: ResourceId
     then_branch: Branch
     else_branch: Branch
+
+    @model_validator(mode='after')
+    def boolean_block(self):
+        if self.condition.kind != 'block':
+            raise ValueError('if 条件必须是通用块')
+        return self
 
 
 class LoopCarry(StrictModel):
@@ -124,6 +139,7 @@ def walk_nodes(nodes, prefix=('flow',)):
         path = (*prefix, index)
         yield node, path
         if isinstance(node, IfNode):
+            yield node.condition, (*path, 'condition')
             for branch in ('then_branch', 'else_branch'):
                 yield from walk_nodes(getattr(node, branch).nodes, (*path, 'thenBranch' if branch == 'then_branch' else 'elseBranch', 'nodes'))
         elif isinstance(node, (RepeatNode, WhileNode)):

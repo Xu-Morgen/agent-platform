@@ -23,6 +23,7 @@ class CatalogResource(StrictModel):
     version: str
     digest: str
     input_contract: str | None = None
+    primary_contract: str | None = None
     output_contract: str | None = None
     configuration_contract: str | None = None
     schemas: dict[str, JsonValue] = Field(default_factory=dict)

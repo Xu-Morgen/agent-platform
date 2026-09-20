@@ -103,3 +103,7 @@ LangGraph 继续执行配置者定义的图，当前 `checkpointer=None`。本�
 后续需补：备份恢复工具、日志与历史保留/引用安全清理、数据库迁移及跨主版本升级、平台安装包。当前启动加载全部资源和任务，分页仅限制 API 返回量；单后端、单 worker，尚无多用户或大规模容量承诺。应用停止且确认数据库已关闭后可复制整个 storage 目录作离线备份；不要直接复制运行中的数据库目录作为一致性备份。
 
 实现依据：[PostgreSQL 启停](https://www.postgresql.org/docs/current/app-pg-ctl.html)、[初始化](https://www.postgresql.org/docs/current/app-initdb.html)、[Psycopg 事务](https://www.psycopg.org/psycopg3/docs/basic/transactions.html)、[Fernet](https://cryptography.io/en/latest/fernet/)。
+
+## flow-5 协议升级
+
+恢复时先检查 compilerVersion；旧实例保留原始 flow 和摘要，不用新协议解析，也不阻止历史列表或数据库启动。旧版本禁止执行与回退，页面提示重新加载升级资源并保存新实例；新实例包含 NodeInput 声明、参考模式与完整条件源码的资源快照。2026-09-20 在隔离 PostgreSQL 16 数据目录验证了新快照运行、停库重启、源码字节恢复、旧历史只读与升级保存，原历史文档保持不变。块验证使用已有 Python 环境及真实子进程通信，没有重新安装依赖。

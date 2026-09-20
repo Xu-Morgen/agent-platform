@@ -219,6 +219,7 @@ def _create_app(store) -> FastAPI:
 
     @app.post('/api/v1/services/{service_id}/versions/{instance_id}/draft', response_model=DraftDocument, status_code=201)
     async def copy_historical_draft(service_id: str, instance_id: str):
+        app.state.services.require_supported(instance_id)
         history = app.state.services.historical(service_id, instance_id)
         content = history.flow.model_dump(mode='json', by_alias=True)
         content.pop('draftId', None)

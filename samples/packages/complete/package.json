@@ -1,9 +1,9 @@
 {
   "packageId": "sample-complete-chat",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "可配置摘要 Prompt 包",
   "contractRefs": {
-    "input": "models:Input",
+    "input": "models:Entry",
     "output": "models:Output",
     "configuration": "models:Config"
   },

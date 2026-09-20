@@ -27,3 +27,7 @@
 包资料不足时允许返回平台保留对象 `{"error":"INSUFFICIENT_INPUT"}`，记账后以 PACKAGE_INPUT_INSUFFICIENT 失败，不作为格式错误重试。成功业务 Schema 不包含该对象。完整 Prompt 和正文始终原样发送，平台没有统一 tokenizer 预检；供应商明确返回 context_length_exceeded、context_window_exceeded 或 max_context_length_exceeded 时映射为 MODEL_CONTEXT_EXCEEDED，不回显上游原文。其他 HTTP 错误保持原有状态与传输语义。
 
 DeepSeek 地址、模型与额度配置见 [文档出题的线上接入说明](../../examples/document-question-generation/README.md#线上模型与-deepseek)。桌面输入 api.deepseek.com 地址时自动使用 max_tokens；其他服务的参数可以通过 HTTP 环境配置显式指定。
+
+## 节点输入与 Prompt
+
+包入口为 NodeInput[P, tuple[...]]。Prompt 使用 `{{input.primary.field}}`、`{{input.references[0].field}}` 或 `{{parameters.field}}`；加载时验证字段及固定索引，禁止表达式和动态索引。只发送占位符明确使用的数据，不自动把参考数组附加到消息。输入与参考在模型请求前严格校验；参考或完整入口跨字段错误不触发上游重放。

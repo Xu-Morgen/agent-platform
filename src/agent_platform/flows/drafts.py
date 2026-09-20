@@ -62,6 +62,12 @@ def preflight(content, catalog, environments):
                 input_contract.adapter.validate_python(example.input, strict=True)
             except ValidationError as exc:
                 issues.extend(issues_from_errors(exc.errors(), stage='flow.example', prefix=['examples', index, 'input']))
+            except PlatformError as exc:
+                # 子进程适配器投影后的校验错误仍须定位到当前示例，不能当资源缺失忽略。
+                projected = exc.error.issues or [ValidationIssue(reason=exc.error.message,
+                    field_path=exc.error.field_path or [])]
+                issues.extend(issue.model_copy(update={'stage': 'flow.example',
+                    'field_path': ['examples', index, 'input', *issue.field_path]}) for issue in projected)
     except PlatformError:
         pass  # 资源错误已经由端口检查记录，避免重复。
     return ValidationResult(valid=not issues, issues=issues)

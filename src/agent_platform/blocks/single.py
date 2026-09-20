@@ -41,7 +41,7 @@ def strict_adapter(annotation):
         elif origin is Literal:
             if not all(type(v) in (str, int, bool, float, type(None)) for v in args):
                 raise TypeError('枚举值必须是 JSON 标量')
-        elif origin in (list, dict, Union, types.UnionType):
+        elif origin in (list, dict, tuple, Union, types.UnionType):
             if origin is dict and args[0] is not str:
                 raise TypeError('对象键必须是字符串')
             for item in args:

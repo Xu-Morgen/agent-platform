@@ -15,16 +15,16 @@
 
 ```text
 请使用 {{parameters.style.language}} 概括以下文本：
-{{input.text}}
+{{input.primary.text}}
 ```
 
-- input 指已通过契约校验的本次节点输入。
+- input 指已通过契约校验的 NodeInput，包含 primary 和固定位置 references。
 - parameters 指已验证并补默认值的节点业务参数。
-- 路径使用对外 JSON 字段名，例如 {{input.sourceText}}；支持嵌套对象字段。
+- 路径使用对外 JSON 字段名，例如 {{input.primary.sourceText}}；支持嵌套对象字段，以及固定元组索引，例如 {{input.references[0].text}}。
 - {{input}} 或 {{parameters}} 可插入整个对象。
 - 字符串原样填入；对象、数组、数字、布尔和 null 采用 JSON 表示。
 - 只替换一次，输入文本中出现的占位符不会再次执行。
-- 不支持表达式、函数、过滤器、数组索引或条件模板；单个 JSON 花括号可直接书写，双花括号保留给占位符。
+- 不支持表达式、函数、过滤器、动态数组索引或条件模板；单个 JSON 花括号可直接书写，双花括号保留给占位符。
 - 加载时检查模板语法及契约字段。可空/联合类型的内部字段不能直接访问，可插入整个值，或用上游通用块准备确定结构。
 
 字符数计算、清洗、拆分、排序、外部查询和结构转换都由通用块完成，再通过接线传入包。包契约只定义和验证数据结构，不承担数据加工。
@@ -37,6 +37,6 @@ Prompt 文件丢失、占位符错误在加载时报 CONFIGURATION_ERROR；业�
 
 资料不足时允许返回保留的失败对象 `{"error":"INSUFFICIENT_INPUT"}`（必须完全相同，不加字段）。这是平台失败协议，不属于业务输出契约：平台在记录实际模型用量后以 PACKAGE_INPUT_INSUFFICIENT 终止，不触发格式重试，不把错误对象返回为成功结果。完整模板 Prompt 已包含此用法。
 
-全文与 Prompt 均原样发送，不能静默截断。平台当前没有统一的模型 tokenizer 或上下文容量预检；模型输出额度和累计 token 预算不等于上下文容量。供应商返回已识别的上下文超限机器码时报告 MODEL_CONTEXT_EXCEEDED，其他错误保留 HTTP 状态和原有传输语义，不回显供应商原文。线上 API 配置见 [文档出题实例](../../examples/document-question-generation/README.md#线上模型与-deepseek)。
+只发送 Prompt 占位符明确引用的数据，不自动附加 references；声明引用的全文与 Prompt 均原样发送，不能静默截断。平台当前没有统一的模型 tokenizer 或上下文容量预检；模型输出额度和累计 token 预算不等于上下文容量。供应商返回已识别的上下文超限机器码时报告 MODEL_CONTEXT_EXCEEDED，其他错误保留 HTTP 状态和原有传输语义，不回显供应商原文。线上 API 配置见 [文档出题实例](../../examples/document-question-generation/README.md#线上模型与-deepseek)。
 
 包不维护运行钩子、检查点或取消处理。主动取消等待当前模型传输结束；传输错误优先记失败；关闭应用立即停止本地传输。平台在各执行边界统一检查。

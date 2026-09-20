@@ -6,15 +6,19 @@ from ..contracts.models import ModelRequest
 from ..contracts.errors import ErrorResponse, PlatformError
 from .validation import validate
 
-_PLACEHOLDER = re.compile(r'\{\{\s*((?:input|parameters)(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\}\}')
+_PLACEHOLDER = re.compile(r'\{\{\s*((?:input|parameters)(?:\.[A-Za-z_][A-Za-z0-9_]*|\[[0-9]+\])*)\s*\}\}')
+
+
+def prompt_path(path):
+    return [int(index) if index else name for name, index in re.findall(r'([A-Za-z_][A-Za-z0-9_]*)|\[([0-9]+)\]', path)]
 
 
 def prompt_fields(prompt):
-    """只支持命名空间与对象字段路径，不求值表达式、过滤器或索引。"""
+    """只支持对象字段与固定数组索引，不求值表达式或过滤器。"""
     remainder = _PLACEHOLDER.sub('', prompt)
     if '{{' in remainder or '}}' in remainder:
-        raise ValueError('Prompt 占位符只支持 {{input.field}} 或 {{parameters.field}}')
-    return [match.group(1).split('.') for match in _PLACEHOLDER.finditer(prompt)]
+        raise ValueError('Prompt 占位符只支持 {{input.primary.field}}、{{input.references[0]}} 或 {{parameters.field}}')
+    return [prompt_path(match.group(1)) for match in _PLACEHOLDER.finditer(prompt)]
 
 
 def render_prompt(prompt, value, parameters):
@@ -22,7 +26,7 @@ def render_prompt(prompt, value, parameters):
             'parameters': parameters.model_dump(mode='json', by_alias=True)}
     def substitute(match):
         item = data
-        for key in match.group(1).split('.'):
+        for key in prompt_path(match.group(1)):
             item = item[key]
         return item if isinstance(item, str) else json.dumps(item, ensure_ascii=False, separators=(',', ':'))
     return _PLACEHOLDER.sub(substitute, prompt)
@@ -32,7 +36,10 @@ async def invoke_prompt(runtime, node_id, artifact, value):
     stage = 'packages.' + node_id
     manifest = artifact.manifest
     config = runtime.snapshot.draft.node_configurations[node_id]
-    parsed = validate(artifact.content.load(manifest.contract_refs.input), value, stage + '.input')
+    from ..contracts.node_input import require_node_input
+    input_model = artifact.content.load(manifest.contract_refs.input)
+    require_node_input(input_model)
+    parsed = validate(input_model, value, stage + '.input')
     parameter_model = (artifact.content.load(manifest.contract_refs.configuration)
                        if manifest.contract_refs.configuration else StrictModel)
     parameters = validate(parameter_model, config.parameters, stage + '.configuration')

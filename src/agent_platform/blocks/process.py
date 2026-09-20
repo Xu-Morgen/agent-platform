@@ -37,6 +37,7 @@ class ProcessBlock:
             self._preparation = None
         self.input_adapter = RemoteAdapter(self, 'input', schemas['input'])
         self.output_adapter = RemoteAdapter(self, 'output', schemas['output'])
+        self.primary_adapter = RemoteAdapter(self, 'primary', schemas['primary']) if 'primary' in schemas else None
 
     @property
     def metadata(self):

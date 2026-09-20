@@ -6,6 +6,7 @@
 
 | 归档内容 | 保留原因 |
 | --- | --- |
+| [节点输入机制与 Python 条件块](2026-09-20/node-input-and-python-conditions-plan.md) | flow-5 实施、samples 2.0.0 适配、轻量验收与升级边界 |
 | [平台文件与依赖改造计划](2026-09-20/platform-files-and-dependencies-plan.md) | 实现已交付，日常使用转入平台运行说明 |
 | [文档出题实施计划](2026-09-20/document-question-generation-plan.md) | 保留原始需求与实现记录，当前操作和待验收事项转入实例说明 |
 | [文档读取与出题验收记录](2026-09-20/document-validation-record.md) | 保存当时的验证结果与边界；一次性脚本已删除，原文件可从 Git 提交 6fb84d3 查看 |

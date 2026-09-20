@@ -35,14 +35,15 @@
 ```python
 from agent_platform.blocks import block, BlockContext
 from agent_platform.contracts.base import StrictModel
+from agent_platform.contracts.node_input import NodeInput
 from agent_platform.contracts.files import TaskFile
 
 class Input(StrictModel):
     document: TaskFile
 
-@block(id='file-size', version='1.0.0', name='任务文件大小')
-def run(value: Input, *, context: BlockContext) -> int:
-    return context.file(value.document).stat().st_size
+@block(id='file-size', version='2.0.0', name='任务文件大小')
+def run(value: NodeInput[Input, tuple[()]], *, context: BlockContext) -> int:
+    return context.file(value.primary.document).stat().st_size
 ```
 
 `TaskFile` 导出 `x-platform-file` 标注，页面根据标注生成 PDF/DOCX 控件。输入契约仅包含文件字段（含固定嵌套对象）时，只显示文件控件，自动组装提交数据，隐藏 JSON 编辑区与样例按钮。包含其他字段、可空分支或数组结构时保留 JSON 输入；嵌套对象、可空字段和 JSON 中已有的数组项均支持。保存成功才允许提交，平台生成包含 `fileId`、`originalName`、`format`、`size`、`sha256` 的引用。字段内无本机路径。

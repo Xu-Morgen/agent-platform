@@ -8,11 +8,11 @@
 my-package/
 ├── package.json   # 身份、版本、输入输出契约引用
 ├── models.py      # 输入输出 StrictModel；按需添加 Config
-└── prompt.txt     # 含 {{input.text}} 等占位符的 Prompt
+└── prompt.txt     # 含 {{input.primary.text}} 等占位符的 Prompt
 ```
 
 1. 复制 [minimal/](minimal/README.md)，修改 packageId/name。
-2. 在 models.py 声明输入输出结构和验证规则，并在 package.json 的 contractRefs 中引用。
+2. 在 models.py 声明业务 Input/Output，以及继承 NodeInput[Input, tuple[...]] 的 Entry；contractRefs.input 引用 models:Entry，output 引用业务输出。零参考使用 tuple[()]。
 3. 在 prompt.txt 编写任务指令和输入占位符。
 4. 加载整个目录，将包插入服务，接线并选择模型连接；配置节点与任务预算后保存。
 
@@ -29,3 +29,5 @@ my-package/
 移除 entry、runtimeRequirements、requiredCapabilities，以及 entry.py；把 Prompt 写入 prompt.txt。Config 改为继承 StrictModel，并移出预算字段。把前后处理和 API/块调用迁到独立通用块节点。节点将 capabilities.chat 改为 model，仅保留 environmentId/connectionId；单次输出限额改由节点 maxOutputTokens 配置。
 
 旧清单和旧节点配置会被严格校验拒绝，不自动猜测迁移。修改同一会话已加载的包内容后，需由维护者更新包版本，或在新会话加载。代码、Prompt、README 等目录内容都参与版本摘要。
+
+当前模板版本为 2.0.0。旧裸输入包须改为 NodeInput，并把 Prompt 改用 input.primary / input.references[0] 路径；重新加载后从服务页保存新实例，旧快照仅供查看。

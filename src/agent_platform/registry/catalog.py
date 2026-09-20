@@ -102,6 +102,13 @@ class ModuleCatalog:
         candidate = ModuleCatalog(PackageRegistry())
         candidate.blocks.manager = self.blocks.manager
         view = candidate._load(request, operation=operation)
+        if request.kind != 'contract':
+            from ..contracts.node_input import input_schemas
+            try:
+                input_schemas(view.schemas['input'])
+            except ValueError as exc:
+                candidate.close()
+                raise invalid(str(exc), ['input']) from None
         if view.resource_id in self._views:
             for source in candidate._sources.values():
                 source.close()
@@ -176,6 +183,13 @@ class ModuleCatalog:
                                    for key, ref in meta.contract_refs.model_dump().items()}
                 else:
                     annotations = {'input': artifact.input_adapter, 'output': artifact.output_adapter}
+                if request.kind == 'package':
+                    from ..contracts.node_input import NodeInput, require_node_input, primary_annotation
+                    if issubclass(annotations['input'], NodeInput):
+                        require_node_input(annotations['input'])
+                        annotations['primary'] = primary_annotation(annotations['input'])
+                elif artifact.primary_adapter is not None:
+                    annotations['primary'] = artifact.primary_adapter
                 for direction, annotation in annotations.items():
                     ref = resource_id + ':' + direction
                     contract = ContractResource(annotation, ref) if isinstance(annotation, TypeAdapter) else ContractResource(strict_adapter(annotation), ref)

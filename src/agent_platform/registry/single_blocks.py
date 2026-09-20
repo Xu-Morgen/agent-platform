@@ -25,6 +25,14 @@ class SingleBlockArtifact:
     output_adapter: object
 
     @property
+    def primary_adapter(self):
+        from ..contracts.node_input import NodeInput, primary_annotation
+        annotation = get_type_hints(self.entry, include_extras=True)[next(iter(inspect.signature(self.entry).parameters))]
+        if isinstance(annotation, type) and issubclass(annotation, NodeInput):
+            return strict_adapter(primary_annotation(annotation))
+        return None
+
+    @property
     def metadata(self):
         from ..blocks.single import BlockMetadata
         return BlockMetadata.model_validate_json(self.metadata_json)
@@ -32,6 +40,8 @@ class SingleBlockArtifact:
     async def invoke(self, value, *, api=None, context=None):
         from pydantic import ValidationError
         from ..validation_issues import validation_exception
+        if self.primary_adapter is None:
+            raise invalid('旧裸输入资源不可执行；请升级为 NodeInput 并重新加载', ['input'])
         try:
             parsed = self.input_adapter.validate_python(value, strict=True)
         except ValidationError as exc:
@@ -140,6 +150,10 @@ class SingleBlockRegistry:
                     raise invalid('能力参数须为无默认值的关键字参数 api: BlockAPI 或 context: BlockContext', ['entry'])
             if metadata.uses_api and not inspect.iscoroutinefunction(fn):
                 raise invalid('API 块须为 async 函数', ['entry'])
+            from ..contracts.node_input import NodeInput, require_node_input
+            annotation = hints[parameters[0].name]
+            if isinstance(annotation, type) and issubclass(annotation, NodeInput):
+                require_node_input(annotation)
             artifact = SingleBlockArtifact(metadata.model_dump_json(), content, fn,
                 strict_adapter(hints[parameters[0].name]), strict_adapter(hints['return']))
             key = (metadata.id, metadata.version)

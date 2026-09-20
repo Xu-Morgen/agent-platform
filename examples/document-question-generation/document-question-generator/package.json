@@ -1,9 +1,15 @@
 {
   "packageId": "document-question-generator",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "文档出题",
   "description": "根据完整资料生成论述、四选一单选和填空题各一道及参考答案。",
-  "contractRefs": {"input": "models:Input", "output": "models:Output"},
+  "contractRefs": {
+    "input": "models:Entry",
+    "output": "models:Output"
+  },
   "prompt": "prompt.txt",
-  "budgetDefaults": {"loopLimit": 3, "tokenLimit": 131072}
+  "budgetDefaults": {
+    "loopLimit": 3,
+    "tokenLimit": 131072
+  }
 }

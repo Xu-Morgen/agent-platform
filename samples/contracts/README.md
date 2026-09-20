@@ -101,3 +101,7 @@ Python 自定义校验器和 `allow_inf_nan=False` 会使目录契约带有运�
 ## 任务文件字段
 
 从 `agent_platform.contracts.files` 导入 `TaskFile`，用 `attachment: TaskFile` 声明必填附件，或像完整模板一样使用 `attachment: TaskFile | None = None` 声明可选附件。Schema 的 `x-platform-file` 标注驱动文件控件；引用包含 fileId、originalName、format、size、sha256，不含本机路径。文件保存、摘要验证和任务归属由平台负责。
+
+## 节点封装与业务端口
+
+服务仍接收本页业务 Input、返回业务 Output。完整文件另提供 `ReviewInput`，从同一声明派生 `NodeInput[Output, tuple[Input]]`，展示审查节点以处理结果为 primary、以原始批次为 references[0] 的入口。它供包或块声明入口时参考，不能作为服务输入让用户手填封装。参考元组在 JSON 中为数组，平台只转换数组容器，严格元素类型、未知字段及自定义校验继续生效。

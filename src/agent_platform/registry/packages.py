@@ -44,9 +44,10 @@ class PackageRegistry:
                 for key in path[1:]:
                     if '$ref' in current:
                         current = schema['$defs'][current['$ref'].split('/')[-1]]
-                    current = current.get('properties', {}).get(key)
+                    current = (current.get('prefixItems', [])[key] if isinstance(key, int) and key < len(current.get('prefixItems', []))
+                               else current.get('properties', {}).get(key) if isinstance(key, str) else None)
                     if current is None:
-                        raise invalid('Prompt 字段不存在或不是可直接访问的对象字段：' + '.'.join(path), ['prompt'])
+                        raise invalid('Prompt 字段不存在或不是可直接访问的对象字段：' + '.'.join(map(str, path)), ['prompt'])
             key = (manifest.package_id, manifest.version)
             existing = self._items.get(key)
             if existing:

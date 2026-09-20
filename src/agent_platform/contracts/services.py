@@ -43,7 +43,9 @@ class ActivateRequest(StrictModel):
 
 class FlowHistory(StrictModel):
     version: VersionView
-    flow: FlowDraft
+    flow: FlowDraft | dict[str, JsonValue]
+    executable: bool = True
+    upgrade_message: str | None = None
     compiler_version: str
     input: dict[str, JsonValue]
     output: dict[str, JsonValue]
