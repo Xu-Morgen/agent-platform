@@ -22,7 +22,7 @@
 
 ## 最完整实现
 
-[complete.py](complete.py) 在一个块内展示 API 能力、响应契约、嵌套输入、默认值、枚举和输出统计。执行顺序为查询 API → 严格验证响应 → 去掉首尾空白 → 合并空白 → 大小写转换 → 添加前缀 → 计算统计。
+[complete.py](complete.py)（`1.1.0`）在一个块内展示 API 能力、响应契约、嵌套输入、默认值、枚举、自定义字段校验、可选任务附件、进度上报、显式业务错误与输出统计。执行顺序为检查附件 → 查询 API → 严格验证响应 → 整理正文并检查 requireContent → 添加前缀 → 构造输出。源码包含分区中文讲解；模型文件接入为注释示范，默认不下载或运行模型。
 
 运行前须在节点上绑定 API 连接并填写请求路径；本例在平台节点配置中填 `/lookup`，具体步骤见下方“完整块的 API 配置”。服务输入示例：
 
@@ -52,12 +52,14 @@
 
 | 输入配置 | 默认值/约束 | 作用 |
 | --- | --- | --- |
-| `query` | 必填，1～10000 字符 | 发送给 API 的查询文本 |
+| `query` | 必填，1～10000 字符且不能全为空白 | 发送给 API 的查询文本 |
 | `options` | 可省略，生成 Options 默认实例 | 此次执行选项；不是节点 parameters |
 | `options.trimEdges` | true | 去掉首尾空白 |
 | `options.collapseSpaces` | true | 连续空白含换行合并为一个空格 |
 | `options.letterCase` | preserve；可选 lower/upper | 转换字母大小写 |
 | `options.prefix` | 空字符串，最长 20 字符 | 在其他处理完成后添加前缀 |
+| `options.requireContent` | false | 开启后，整理后的正文必须含非空白字符；前缀不能代替正文 |
+| `attachment` | null，可省略 | 平台生成的 PDF/DOCX 文件引用，示例检查并只读文件头 |
 
 | 出口字段 | 类型 | 含义 |
 | --- | --- | --- |
@@ -67,14 +69,14 @@
 
 APIResponse 要求响应为仅包含 text 的对象，text 长度为 1～10000 字符；响应外壳需按实际接口调整。本例在校验通过后才处理文本，接口失败或响应不合法会直接使步骤失败。
 
-例如只传 `{"query":"example"}`，若 API 返回 `{"text":" A  B "}`，使用默认选项输出 `{"text":"A B","characterCount":3,"changed":true}`。传 `{"query":12}` 或 `{"query":"x","unknown":true}` 会在发起请求前被入口校验拒绝。纯空白响应经整理后允许输出空字符串。
+例如只传 `{"query":"example"}`，若 API 返回 `{"text":" A  B "}`，使用默认选项输出 `{"text":"A B","characterCount":3,"changed":true}`。传 `{"query":12}` 或 `{"query":"x","unknown":true}` 会在发起请求前被入口校验拒绝。纯空白响应默认允许整理为空字符串；若开启 `options.requireContent`，则以 `CONTRACT_VALIDATION_ERROR`、`block.sample_normalize` 和 `options.requireContent` 字段位置明确失败，不添加前缀伪装为有效正文。
 
 ## @block 的全部配置
 
 | 参数 | 是否必填/默认 | 作用 |
 | --- | --- | --- |
 | `id` | 必填 | 资源身份，以英文字母开头，仅字母、数字、下划线、连字符 |
-| `version` | 必填 | `1.0.0` 或 `1.0.0-alpha` 格式；同会话内同 id/version 不允许内容不同 |
+| `version` | 必填 | `1.0.0` 或 `1.0.0-alpha` 格式；同 id/version 不允许内容不同，归档后也不释放版本号 |
 | `name` | 必填，非空 | 页面展示名称 |
 | `description` | 默认空字符串 | 用途说明，不影响执行 |
 | `api` | 默认 false | 声明需要 API 连接；必须使用 async 函数并接收关键字参数 api: BlockAPI |
@@ -82,7 +84,7 @@ APIResponse 要求响应为仅包含 text 的对象，text 长度为 1～10000 �
 | `dependencySources` | 默认空列表 | 单一 HTTPS 索引或指定包的 HTTPS wheel URL 与 SHA-256 |
 | `models` | 默认空列表 | 独立模型文件的 name/version/url/sha256/filename 清单 |
 
-标准库、agent_platform 和 pydantic 无需在块的 dependencies 中额外声明。其他第三方导入必须声明；平台在独立环境中解析并安装 wheel，保存直接及传递依赖的版本、来源和摘要。不支持源码构建或安装脚本；PEP 508 中不直接填写 URL，指定下载源请使用 dependencySources。加载前用 AST 读取 @block 的字面量参数，不接受变量、函数调用或参数展开。修改文件任意内容都会影响摘要，包括注释；同会话重新加载修改版时应更新 version。
+标准库、agent_platform 和 pydantic 无需在块的 dependencies 中额外声明。其他第三方导入必须声明；平台在独立环境中解析并安装 wheel，保存直接及传递依赖的版本、来源和摘要。不支持源码构建或安装脚本；PEP 508 中不直接填写 URL，指定下载源请使用 dependencySources。加载前用 AST 读取 @block 的字面量参数，不接受变量、函数调用或参数展开。修改文件任意内容都会影响摘要，包括注释；重新加载修改版时必须更新 version。
 
 ## 可以使用的函数与校验钩子
 
@@ -144,6 +146,16 @@ response = await api.request('GET', {'query': value.query}, response_type=APIRes
 
 ## 文件与模型
 
-完整示例的可选 `attachment: TaskFile | None` 会在任务页生成 PDF/DOCX 控件。保存完成后平台自动补入引用；手写本机路径不能替代文件上传。示例仅检查附件可用性，未实现文档解析或 OCR。其他业务字段仍填写 JSON。
+完整示例的可选 `attachment: TaskFile | None` 会在任务页生成 PDF/DOCX 控件。保存完成后平台自动补入引用；手写本机路径不能替代文件上传。示例检查附件可用性并用 with 只读前 16 字节，未实现文档解析或 OCR。其他业务字段仍填写 JSON。
 
 下载声明的准确字段、来源约束、缓存和超时说明见 [平台运行文件与依赖](../../docs/platform-runtime-files.md)。完整模板的依赖来源、模型清单为空，因此加载模板不会触发第三方包安装或模型下载。需要模型的块必须填写经过核验的真实地址与摘要，并把 `context.model(name)` 返回的路径显式传给推理库，禁止在任务函数中安装包或隐式下载模型。
+
+## 进度与教学边界
+
+完整块实际调用 `context.progress`：附件检查和 API 等待阶段只发送消息；API 响应校验后上报 `1 / 3`，文本整理后上报 `2 / 3`，输出构造成功后上报 `3 / 3`。任务页按相同通用协议显示，不需要针对块另写前端适配。API 或业务校验失败时不会报告后续阶段完成。
+
+进度不是输出，也不是完整日志：平台保存步骤的最新进度，页面不保证展示每条短暂消息；`3 / 3` 仅表示块内处理完成，平台还会校验出口并运行后续节点。不能用 progress 代替逐框 OCR 诊断、审计事件或任务成功状态。
+
+Input 使用 `field_validator` 演示纯空白查询校验。此校验无法完全表达为 JSON Schema，服务开始端口优先选本块导出的 inputContract；与其他类型接线时仍以平台校验为准。源码说明了 model_validator 的适用场景、同步/异步入口、模型路径接入、全部装饰器参数、资源清理及取消/重试边界；没有声明或实现额外生命周期钩子。
+
+本次教学示例验证使用已有依赖与临时本地 HTTP 服务：静态声明、严格输入、实际块子进程/API/附件调用、输出契约、成功进度、空白正文失败与非法 API 响应均通过。测试资料与运行缓存已清理；没有安装新依赖、调用线上模型或进行完整桌面人工验收。

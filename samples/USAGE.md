@@ -129,7 +129,9 @@ PY
 
 替换为实际 API 环境和连接 ID；path 必填，为该连接 Base URL 下的请求路径。环境保存 Base URL、凭据和超时，节点保存路径；方法、请求参数和响应契约由块定义。该片段不是完整的服务保存请求。只有通用块时不需要模型连接或任务预算。
 
-输入示例为 `{"query":"greeting"}`，可另带 options。块使用 `api.request('GET', {'query': value.query}, response_type=APIResponse)`，请求节点配置的路径。若 Base URL 是 `https://example.com/api`，实际请求为 `https://example.com/api/lookup?query=greeting`；这是配置示意，项目不提供此远端服务。响应要求及选项见 [完整块说明](blocks/README.md#最完整实现)。
+输入示例为 `{"query":"greeting"}`（query 不能全为空白），可另带 options 和可选任务附件；`options.requireContent=true` 时拒绝整理后为空白的正文。块使用 `api.request('GET', {'query': value.query}, response_type=APIResponse)`，请求节点配置的路径。若 Base URL 是 `https://example.com/api`，实际请求为 `https://example.com/api/lookup?query=greeting`；这是配置示意，项目不提供此远端服务。响应要求及选项见 [完整块说明](blocks/README.md#最完整实现)。
+
+完整块会上报 API 等待消息及三个处理阶段的实际进度；进度不加入业务输出，不代表整个任务成功。
 
 修改路径后保存实例版本即可生效，无需修改块源码；已提交任务继续使用原路径，历史回退恢复历史节点路径。旧 API 节点配置需补充 api.path，旧块的 api.request 调用需移除路径参数。
 
