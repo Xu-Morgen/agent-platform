@@ -8,16 +8,16 @@
 
 | 资源 | 版本 | 职责 |
 | --- | --- | --- |
-| [read_document.py](read_document.py) | 2.0.0 | PDF/DOCX 全文读取；读取算法未变 |
-| [document-question-planner](document-question-planner/package.json) | 1.0.0 | 判断资料充分性，规划三个考点、目标、难度、依据 |
-| [document-question-generator](document-question-generator/package.json) | 3.0.0 | 初稿和重新出题共用包，独立节点配置 |
-| [document-question-reviewer](document-question-reviewer/package.json) | 1.0.0 | 独立审题，逐题 findings 和总体 verdict |
-| [document-question-reviser](document-question-reviser/package.json) | 1.0.0 | 只修订被 findings 指出的题目 |
-| [quality-blocks](quality-blocks/) | 每块 1.0.0 | 规划核验、输入转换、状态维护、条件、最终验收 |
+| [read_document.py](read_document.py) | 3.0.0 | PDF/DOCX 全文读取并生成显式行号索引；读取算法未变 |
+| [document-question-planner](document-question-planner/package.json) | 2.0.0 | 判断资料充分性，规划三个考点、目标、难度、依据 |
+| [document-question-generator](document-question-generator/package.json) | 4.0.0 | 初稿和重新出题共用包，独立节点配置 |
+| [document-question-reviewer](document-question-reviewer/package.json) | 2.0.0 | 独立审题，逐题 findings 和总体 verdict |
+| [document-question-reviser](document-question-reviser/package.json) | 2.0.0 | 只修订被 findings 指出的题目 |
+| [quality-blocks](quality-blocks/) | 每块 2.0.0 | 规划核验、输入转换、状态维护、条件、最终验收 |
 | [quality_contracts.py](quality_contracts.py) | 源码随资源版本固定 | 权威契约和确定性规则 |
 | [quality-schemas.json](quality-schemas.json)、[contract-examples.json](contract-examples.json) | 派生交付说明 | 公开 Schema 与通过权威契约校验的合成示例 |
 
-入口均为 `NodeInput[P, tuple[...]]`。服务调用者只提交业务数据。所有模型使用 StrictModel，不接受额外字段或隐式类型转换。读取块输入为 `{document: TaskFile}`，输出为 `{fileName, text}`；任务页上传文件后获得真正的 TaskFile，不能使用占位引用。
+入口均为 `NodeInput[P, tuple[...]]`。服务调用者只提交业务数据。所有模型使用 StrictModel，不接受额外字段或隐式类型转换。读取块输入为 `{document: TaskFile}`，输出为 `{fileName, text, numberedText}`；任务页上传文件后获得真正的 TaskFile，不能使用占位引用。
 
 单文件块快照不能相对导入外部业务文件，因此资源中嵌入生成的契约。只编辑 `quality_contracts.py`，再在仓库根目录运行：
 
@@ -34,7 +34,7 @@ PYTHONDONTWRITEBYTECODE=1 .venv/bin/python examples/document-question-generation
 
 QuestionState 必须含 document、已确认 sufficient 的 plan、current、review 和 revisionRounds。review 使用 `awaiting_review`/`reviewed` 严格联合，缺失审题不以 null 或空字典表示。模型不能输出原文副本或改轮数；每次状态更新从可信参考恢复资料和规划，Python 增加轮数。
 
-Evidence 的 startLine/endLine 从读取结果 `text.splitlines()` 的第 1 行计数，含空行；quote 必须逐字存在于声明范围。PDF 原页码保留在正文中，DOCX 行定位不等于页码。Python 检查存在性，审题模型检查语义支持。审题 findings 必须引用三题中的 ID；跨题问题分别记录。
+读取块保留原始 text，并由 Python 生成 numberedText（`行号: 原始行内容`，空行也编号）。模型直接读取编号填写 Evidence.startLine/endLine，不根据 JSON 排版、展示换行或 PDF 页码自行数行。quote 不含编号前缀，仍必须逐字存在于原始 text 的声明范围；Python 同时核对编号索引与正文一致性。PDF 原页码保留在正文中，DOCX 行定位不等于页码。Python 检查存在性，审题模型检查语义支持。审题 findings 必须引用三题中的 ID；跨题问题分别记录。
 
 | 情况 | 平台结果 |
 | --- | --- |
@@ -110,3 +110,11 @@ prepare_generation 是显式转换块：把初稿的规划或重新出题的完�
 真实验收采用自制 DOCX、现有 ds 连接，对照旧一次出题基线，并保存实际模型响应、计量和流程终态；共完成 10 次调用，实际发生一次定向修订，最终流程通过；详见[验收记录](../../docs/document-question-quality-validation.md)。用户已确认人工评审通过；随后通过实际 Electron 页面保存正式服务“文档出题质量 · ds”（版本 1.0，serviceId=svc_e8c711863f8a4e54a197f60d2b55913d），重启后恢复及预检通过。正式实例未额外调用模型。其配置为 retryLimit=0、任务 loopLimit=7/tokenLimit=524288，单次节点 loopLimit=1、重复节点 loopLimit=2。新建其他服务可按上述步骤配置。
 
 历史 OCR 验证仍见[文档验收记录](../../docs/archive/2026-09-20/document-validation-record.md)。此前《从市场营销到社会营销》两页读取通过；另一份保险商业智能 PDF 的空识别框仍明确失败，复杂表格、双栏、倾斜和低清晰度资料未完成质量验收。本轮不扩大读取范围，也不把简单文档成功解释为复杂 OCR 已通过。
+
+## 行号引用修复（2026-09-20）
+
+真实长文任务曾在 node_6 失败：两道题引用了原文真实存在的句子，但把它们指向第 84 行（该行实际是标题）。初版 Prompt 要求模型对未编号的全文自行数行，短文验收没有暴露这个问题。当前版本增加显式编号，优先复用规划中已经核验的依据；错误会给出题目 ID、第几条依据、声明范围和 fieldPath，不再只有通用提示。
+
+不搜索全文后自动重定位错误引文，不放宽逐字匹配，不静默修改失败任务。新增 numberedText 属于资源契约升级，读取块、四个包及九个质量块须成套重新加载并保存新实例；单改源码不会改变现有快照。通用 samples 无需加入此业务字段。
+
+当前“文档出题质量 · ds”已通过实际服务页升级到版本 **2.0**，实例 `ins_3a0741d599264b14b9f6e303f8b64ac5`，参考配置、ds 连接、任务预算和 retryLimit 保持原值。新提交使用新实例，历史失败任务保持原记录。此次修复只做历史数据离线复现、资源/接线与页面校验，未追加线上调用，尚未进行新版本真实模型再验收。显式编号降低数行错误，但不保证模型永远不会引用错误；严格校验仍会拒绝不正确的依据。

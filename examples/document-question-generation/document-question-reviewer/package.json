@@ -1,6 +1,6 @@
 {
   "packageId": "document-question-reviewer",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "name": "独立审题",
   "description": "完整文档出题质量流程的声明式模型环节。",
   "contractRefs": {

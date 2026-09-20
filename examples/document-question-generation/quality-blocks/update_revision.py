@@ -15,6 +15,7 @@ QuestionType = Literal['essay', 'single_choice', 'fill_blank']
 class Document(StrictModel):
     file_name: NonBlank
     text: NonBlank
+    numbered_text: NonBlank
 
 
 class Evidence(StrictModel):
@@ -176,24 +177,30 @@ class StateEntry(NodeInput[QuestionState, tuple[()]]):
     pass
 
 
-def quality_fail(message, *, insufficient=False):
+def quality_fail(message, *, insufficient=False, field_path=None):
     from agent_platform.contracts.errors import ErrorResponse, PlatformError
     raise PlatformError(ErrorResponse(
         code='PACKAGE_INPUT_INSUFFICIENT' if insufficient else 'CONTRACT_VALIDATION_ERROR',
-        stage='block.question_quality', message=message,
+        stage='block.question_quality', message=message, field_path=field_path,
     ))
 
 
-def verify_evidence(document, evidence):
+def verify_evidence(document, evidence, *, owner, field_path):
     lines = document.text.splitlines()
-    for item in evidence:
+    for index, item in enumerate(evidence):
+        path = [*field_path, index]
+        location = f'{owner} 的第 {index + 1} 条依据（声明第 {item.start_line}–{item.end_line} 行）'
         if item.end_line < item.start_line or item.end_line > len(lines):
-            quality_fail('原文依据行号无效')
+            quality_fail(location + f'：行号无效，原文共 {len(lines)} 行', field_path=path)
         if item.quote not in '\n'.join(lines[item.start_line - 1:item.end_line]):
-            quality_fail('原文依据不在声明的行号范围内')
+            quality_fail(location + '：引文不在声明范围内；请根据 numberedText 的显式编号核对，不要自行数行',
+                         field_path=path)
 
 
 def verify_plan(document, plan):
+    expected = '\n'.join(f'{index}: {line}' for index, line in enumerate(document.text.splitlines(), 1))
+    if document.numbered_text != expected:
+        quality_fail('原文行号索引与正文不一致', field_path=['document', 'numberedText'])
     if [(item.question_id, item.type) for item in plan.items] != [
         ('essay-1', 'essay'), ('choice-1', 'single_choice'), ('blank-1', 'fill_blank')
     ]:
@@ -201,8 +208,9 @@ def verify_plan(document, plan):
     points = [item.knowledge_point.strip().casefold() for item in plan.items]
     if len(set(points)) != 3:
         quality_fail('规划必须选择三个不同知识点')
-    for item in plan.items:
-        verify_evidence(document, item.evidence)
+    for index, item in enumerate(plan.items):
+        verify_evidence(document, item.evidence, owner='规划 ' + item.question_id,
+                        field_path=['plan', 'items', index, 'evidence'])
 
 
 def verify_state(state):
@@ -213,17 +221,19 @@ def verify_state(state):
             check_review(state.review)
     except ValueError as exc:
         quality_fail(str(exc))
-    for question in state.current.questions:
-        verify_evidence(state.document, question.evidence)
+    for index, question in enumerate(state.current.questions):
+        verify_evidence(state.document, question.evidence, owner='题目 ' + question.question_id,
+                        field_path=['current', 'questions', index, 'evidence'])
     if isinstance(state.review, Review):
-        for finding in state.review.findings:
-            verify_evidence(state.document, finding.evidence)
+        for index, finding in enumerate(state.review.findings):
+            verify_evidence(state.document, finding.evidence, owner='审题 ' + finding.question_id,
+                            field_path=['review', 'findings', index, 'evidence'])
     return state
 # END GENERATED CONTRACTS
 
 from agent_platform.blocks import block
 
-@block(id='question-update-revision', version='1.0.0', name='采纳定向修订并计轮')
+@block(id='question-update-revision', version='2.0.0', name='采纳定向修订并计轮')
 def run(value: NodeInput[Questions, tuple[QuestionState]]) -> QuestionState:
     previous = verify_state(value.references[0])
     if not isinstance(previous.review, Review) or previous.review.verdict != 'revise':

@@ -173,6 +173,8 @@ async function pollTask(runId, generation) {
     taskResultPlaceholder('暂时无法读取任务','请检查任务 ID 或重新查询。');return;
   }
   const run = response.data;
+  const nodeNames = await taskNodeNames.load(run, window.agentPlatform);
+  if (generation !== taskQueryGeneration) return;
   setTaskStatus(runStatusNames[run.status] || run.status,run.status);
   document.querySelector('#task-detail-hint').textContent=({queued:'任务已提交，等待开始执行。',running:'任务正在执行，状态和步骤将自动更新。',completed:'任务已完成，可查看返回结果和每一步的输出。',failed:'任务执行失败，请查看错误信息与执行步骤。',cancelled:'任务已停止，已执行的步骤保留在下方。'})[run.status];
   const metadata=document.querySelector('#task-metadata');metadata.hidden=false;metadata.replaceChildren();
@@ -184,7 +186,7 @@ async function pollTask(runId, generation) {
   document.querySelector('#task-cancel-status').textContent = run.cancelRequested
     ? (run.status === 'failed' ? '取消等待失败，请查看原始错误' : run.status === 'cancelled' ? '已取消'
       : run.cancelPhase === 'waiting_transport' ? '取消已受理，等待当前模型传输结束' : '取消已受理，等待停止执行') : '';
-  showUsage(run.usage);
+  showUsage(run.usage, nodeNames);
   document.querySelector('#task-loop-count').textContent=run.usage.loops?.global ?? 0;
   const token=run.usage.tokens?.global;
   document.querySelector('#task-token-count').textContent=token ? token.totalTokens ?? '未知' : '—';
@@ -196,9 +198,9 @@ async function pollTask(runId, generation) {
   run.steps.forEach((step,index)=>{
     const item=taskElement('li','','step-record');item.dataset.status=step.status;item.append(taskElement('span','','step-dot'));
     const heading=taskElement('div','','step-heading');const badge=taskElement('span',runStatusNames[step.status] || step.status,'run-status');badge.dataset.status=step.status;
-    heading.append(taskElement('strong',step.stepId==='nodes.output'?'服务返回':step.stepId.replace(/^nodes\./,'')),badge);item.append(heading);
+    heading.append(taskElement('strong',taskNodeNames.step(step,nodeNames)),badge);item.append(heading);
     const kindNames={node:'节点',block:'通用块',package:'业务包',model:'模型调用',step:'执行步骤'};
-    const caption=`${kindNames[step.kind] || step.kind} · 尝试 ${step.attempt}${step.packageBindingId ? ' · 包 '+step.packageBindingId : ''}${step.executionPath?.length ? ' · '+step.executionPath.join(' / ') : ''}`;
+    const caption=`${kindNames[step.kind] || step.kind} · 尝试 ${step.attempt}${step.executionPath?.length ? ' · '+step.executionPath.map(path=>taskNodeNames.path(path,nodeNames)).join(' / ') : ''}`;
     item.append(taskElement('p',caption,'step-caption'));
     if(step.error)item.append(taskElement('p',taskFailure(step.error),'task-error'));
     if(step.progress && Object.keys(step.progress).length)item.append(taskElement('p',
@@ -268,14 +270,14 @@ document.querySelector('#task-query-form').addEventListener('submit', event => {
 });
 window.addEventListener('beforeunload', () => { clearTimeout(taskPollTimer); taskQueryGeneration++; });
 
-function showUsage(usage) {
+function showUsage(usage, nodeNames) {
   const qualities = {exact: '供应商报告', unsupported: '未知'};
   const lines = [];
   const bindings = new Set([...Object.keys(usage.loops?.bindings || {}), ...Object.keys(usage.tokens?.bindings || {})]);
   for (const binding of [null, ...bindings]) {
     const loop = binding === null ? usage.loops?.global : usage.loops?.bindings[binding];
     const token = binding === null ? usage.tokens?.global : usage.tokens?.bindings[binding];
-    lines.push(`${binding === null ? '任务总量' : '包 ' + binding}：loop ${loop ?? 0}` + (token
+    lines.push(`${binding === null ? '任务总量' : '包 ' + taskNodeNames.node(binding,nodeNames)}：loop ${loop ?? 0}` + (token
       ? `；token ${token.totalTokens ?? '未知'}（输入 ${token.inputTokens ?? '未知'}，输出 ${token.outputTokens ?? '未知'}；${qualities[token.quality]}；来源 ${token.sources.join('、')}）`
       : '；尚无模型用量'));
   }

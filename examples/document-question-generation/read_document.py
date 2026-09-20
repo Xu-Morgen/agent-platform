@@ -28,6 +28,7 @@ class Input(StrictModel):
 class Output(StrictModel):
     file_name: NonBlank
     text: NonBlank
+    numbered_text: NonBlank
 
 
 def fail(reason, page=None, code='DOCUMENT_READ_ERROR'):
@@ -176,7 +177,7 @@ def read_docx(path, context, deadline):
 
 
 @block(
-    id='read-document', version='2.0.0', name='读取完整文档',
+    id='read-document', version='3.0.0', name='读取完整文档',
     description='读取 PDF/DOCX 正文；扫描及混合 PDF 本地 OCR，全文一次性输出。',
     dependencies=['rapidocr-onnxruntime==1.4.4', 'onnxruntime==1.23.2', 'PyMuPDF==1.26.7', 'python-docx==1.2.0'],
     dependencySources=[{'kind': 'index', 'url': 'https://pypi.org/simple'}],
@@ -202,4 +203,5 @@ def read_document(value: NodeInput[Input, tuple[()]], *, context: BlockContext) 
     check(deadline)
     if not text.strip():
         fail('文档正文为空，不能生成题目')
-    return Output(file_name=value.primary.document.original_name, text=text)
+    return Output(file_name=value.primary.document.original_name, text=text,
+                  numbered_text='\n'.join(f'{index}: {line}' for index, line in enumerate(text.splitlines(), 1)))

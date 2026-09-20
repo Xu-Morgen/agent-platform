@@ -13,11 +13,18 @@
         "pattern": "\\S",
         "title": "Text",
         "type": "string"
+      },
+      "numberedText": {
+        "minLength": 1,
+        "pattern": "\\S",
+        "title": "Numberedtext",
+        "type": "string"
       }
     },
     "required": [
       "fileName",
-      "text"
+      "text",
+      "numberedText"
     ],
     "title": "Document",
     "type": "object"
@@ -755,11 +762,18 @@
             "pattern": "\\S",
             "title": "Text",
             "type": "string"
+          },
+          "numberedText": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Numberedtext",
+            "type": "string"
           }
         },
         "required": [
           "fileName",
-          "text"
+          "text",
+          "numberedText"
         ],
         "title": "Document",
         "type": "object"
@@ -1300,11 +1314,18 @@
             "pattern": "\\S",
             "title": "Text",
             "type": "string"
+          },
+          "numberedText": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Numberedtext",
+            "type": "string"
           }
         },
         "required": [
           "fileName",
-          "text"
+          "text",
+          "numberedText"
         ],
         "title": "Document",
         "type": "object"
@@ -1361,11 +1382,18 @@
             "pattern": "\\S",
             "title": "Text",
             "type": "string"
+          },
+          "numberedText": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Numberedtext",
+            "type": "string"
           }
         },
         "required": [
           "fileName",
-          "text"
+          "text",
+          "numberedText"
         ],
         "title": "Document",
         "type": "object"
@@ -1971,11 +1999,18 @@
             "pattern": "\\S",
             "title": "Text",
             "type": "string"
+          },
+          "numberedText": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Numberedtext",
+            "type": "string"
           }
         },
         "required": [
           "fileName",
-          "text"
+          "text",
+          "numberedText"
         ],
         "title": "Document",
         "type": "object"
