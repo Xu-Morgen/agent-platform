@@ -1,6 +1,6 @@
 # 文档导航
 
-节点输入与 Python 条件块已完成并[归档](archive/2026-09-20/node-input-and-python-conditions-plan.md)，当前用法见 [samples/USAGE](../samples/USAGE.md)。下一开发入口为[文档出题质量与自主修订](document-question-quality-plan.md)；总体路线见 [Agent 平台定位与分步计划](agent-platform-roadmap.md)，存储能力见 [桌面 PostgreSQL 持久化与验证](persistence.md)。
+节点输入与 Python 条件块已完成并[归档](archive/2026-09-20/node-input-and-python-conditions-plan.md)，当前用法见 [samples/USAGE](../samples/USAGE.md)。文档出题质量目标已[完成归档](archive/2026-09-20/document-question-quality-plan.md)，当前使用见[实例手册](../examples/document-question-generation/README.md)与[验收记录](document-question-quality-validation.md)；总体路线见 [Agent 平台定位与分步计划](agent-platform-roadmap.md)，存储能力见 [桌面 PostgreSQL 持久化与验证](persistence.md)。
 
 更新日期：2026-09-20。顶层只保留当前需求、架构、未完成计划和资源使用入口；已完成交付与过时设计集中保存在归档区。
 
@@ -10,11 +10,12 @@
 | --- | --- |
 | [产品需求](product-requirements.md) | 确认当前范围、职责边界与产品行为 |
 | [架构设计](architecture-design.md) | 修改流程、契约、快照、版本、预算或任务控制 |
-| [文档出题质量与自主修订计划](document-question-quality-plan.md) | 平台目标完成后扩展规划、审题、选择修订分支和有限循环，查看真实模型验收前提 |
+| [文档出题质量与自主修订计划](archive/2026-09-20/document-question-quality-plan.md) | 已完成的规划、审题、有限修订实施及验收记录 |
 | [产品细化计划](product-refinement.md) | 选择后续 R1–R4 工作，查看优先级与验收目标 |
 | [三类资源专项计划](resource-plan.md) | 推进通用块、Prompt 业务包和独立契约的体验改进 |
 | [资源指导手册](resource-guide.md) | 查找模板、配置说明、加载、接线和调用步骤 |
 | [平台运行文件与依赖](platform-runtime-files.md) | 依赖声明、独立环境、任务文件上传与运行上下文 |
+| [文档出题质量验收记录](document-question-quality-validation.md) | 10 次 ds 真实调用、基线对照、真实修订、人工通过及正式页面保存 |
 | [文档出题实例使用说明](../examples/document-question-generation/README.md) | 加载块、包与契约，配置线上模型，查看尚未完成的验收事项 |
 
 启动和使用见 [项目入口](../readme.md)，开发约定见 [AGENTS.md](../AGENTS.md)。模型接入与桌面进程通信按需查看 [模型协议](protocols/model.md) 和 [控制协议](protocols/control.md)。
@@ -33,4 +34,4 @@
 
 新增文档优先补充现有主题；已完成记录或被替代的方案移入 `archive/日期/`，保留原文与归档说明，并同步修复引用。协议细节继续放在 `protocols/`，顶层导航仅链接仍需维护的内容。
 
-2026-09-20 较早一轮的平台改造、文档读取与一次出题实施方案及本地验收记录已移入[历史归档](archive/README.md)，本轮节点输入与 Python 条件块也已完成并归档，文档出题质量计划仍为当前待开发入口。此前开发验收脚本与回归测试均已清理；后续遵循 [AGENTS.md](../AGENTS.md) 中的测试和任务计划生命周期规则。
+2026-09-20 较早一轮的平台改造、文档读取与一次出题实施方案及本地验收记录已移入[历史归档](archive/README.md)，本轮节点输入与 Python 条件块也已完成并归档，文档出题质量资源已实现并完成授权真实调用，质量计划也已通过人工评审和正式页面验证并归档。此前开发验收脚本与回归测试均已清理；后续遵循 [AGENTS.md](../AGENTS.md) 中的测试和任务计划生命周期规则。

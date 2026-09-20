@@ -221,5 +221,11 @@ def verify_state(state):
     return state
 # END GENERATED CONTRACTS
 
-Entry = GeneratorEntry
-Output = GeneratedQuestions
+from agent_platform.blocks import block
+
+@block(id='question-needs-regeneration', version='1.0.0', name='是否需要重新出题')
+def run(value: NodeInput[QuestionState, tuple[()]]) -> bool:
+    state = verify_state(value.primary)
+    if not isinstance(state.review, Review) or state.review.verdict not in ('revise', 'regenerate'):
+        quality_fail('分支条件要求修订或重新出题状态')
+    return state.review.verdict == 'regenerate'

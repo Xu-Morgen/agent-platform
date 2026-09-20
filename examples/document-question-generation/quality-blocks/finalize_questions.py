@@ -221,5 +221,15 @@ def verify_state(state):
     return state
 # END GENERATED CONTRACTS
 
-Entry = GeneratorEntry
-Output = GeneratedQuestions
+from agent_platform.blocks import block
+
+@block(id='question-finalize-questions', version='1.0.0', name='最终验收三题')
+def run(value: NodeInput[QuestionState, tuple[()]]) -> GeneratedQuestions:
+    state = verify_state(value.primary)
+    if not isinstance(state.review, Review):
+        quality_fail('最终验收缺少审题意见')
+    if state.review.verdict == 'insufficient_source':
+        quality_fail('资料不足：' + state.review.rationale, insufficient=True)
+    if state.review.verdict != 'pass':
+        quality_fail('题目未通过最终审题')
+    return GeneratedQuestions.model_validate(state.current.model_dump())

@@ -221,5 +221,5 @@ def verify_state(state):
     return state
 # END GENERATED CONTRACTS
 
-Entry = GeneratorEntry
-Output = GeneratedQuestions
+Entry = StateEntry
+Output = ReviewResult

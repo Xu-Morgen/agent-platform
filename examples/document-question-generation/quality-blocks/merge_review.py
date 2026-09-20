@@ -221,5 +221,14 @@ def verify_state(state):
     return state
 # END GENERATED CONTRACTS
 
-Entry = GeneratorEntry
-Output = GeneratedQuestions
+from agent_platform.blocks import block
+
+@block(id='question-merge-review', version='1.0.0', name='合并审题并校验')
+def run(value: NodeInput[Review, tuple[QuestionState]]) -> QuestionState:
+    previous = value.references[0]
+    verify_state(previous)
+    if not isinstance(previous.review, AwaitingReview):
+        quality_fail('合并审题要求待审状态')
+    state = QuestionState(document=previous.document, plan=previous.plan, current=previous.current,
+                          review=value.primary, revision_rounds=previous.revision_rounds)
+    return verify_state(state)

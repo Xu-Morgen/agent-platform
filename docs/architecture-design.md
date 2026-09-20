@@ -2,7 +2,7 @@
 
 更新日期：2026-09-18。本页保留当前运行结构和实现约束；产品范围见 [当前需求](product-requirements.md)，开发优先级见 [产品细化计划](product-refinement.md)。旧设计、查重算法和迁移记录见 [归档原文](archive/2026-09-18/architecture-design.md)。
 
-2026-09-20 已实现 flow-5 节点输入协议：资源入口为 NodeInput[primary, references]，简单/高级参考及 if/while 内置 Python 条件见[使用说明](../samples/USAGE.md)。源码、编辑器、快照与模板已同步，验证记录见[实施记录](archive/2026-09-20/node-input-and-python-conditions-plan.md)。后续业务接入见[文档出题扩展计划](document-question-quality-plan.md)。
+2026-09-20 已实现 flow-5 节点输入协议：资源入口为 NodeInput[primary, references]，简单/高级参考及 if/while 内置 Python 条件见[使用说明](../samples/USAGE.md)。源码、编辑器、快照与模板已同步，验证记录见[实施记录](archive/2026-09-20/node-input-and-python-conditions-plan.md)。业务接入已完成，见[文档出题实例手册](../examples/document-question-generation/README.md)及[归档实施计划](archive/2026-09-20/document-question-quality-plan.md)。
 
 ## 1. 设计目标与选择
 

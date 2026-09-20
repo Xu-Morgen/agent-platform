@@ -1,33 +1,87 @@
-# 文档出题实例
+# 文档出题与有限修订
 
-2026-09-20 新增[质量与自主修订开发计划](../../docs/document-question-quality-plan.md)，依赖[节点输入与 Python 条件块计划](../../docs/archive/2026-09-20/node-input-and-python-conditions-plan.md)。平台输入协议已完成，本例读取块和出题包已升级为 2.0.0；质量扩展仍待开发；下文继续说明当前“读取 → 一次出题”的已交付资源，不表示已有规划、审题或修订循环。
+当前资源实现“全文读取 → 规划 → 初稿 → 独立审题 → 最多两轮定向修订/重新出题 → 最终验收”。平台执行协议为 flow-5；模型仅输出声明的数据，Python 块维护原文、轮次和分支判断。实施计划已[完成归档](../../docs/archive/2026-09-20/document-question-quality-plan.md)，实际结果见[验收记录](../../docs/document-question-quality-validation.md)。真实调用仅在用户明确授权的连接和总次数范围内进行。
 
-每次保存一份 PDF 或 DOCX，执行“读取完整文档 → 出题包”，成功时返回论述题、四选一单选题、填空题各一道及参考答案。扫描 PDF 在本地用 RapidOCR 识别；正文一次性传给包，不逐页出题。旧版 DOC 不支持。
+成功返回 `questions`，顺序固定为论述题、四选一单选题、填空题各一道。每题含稳定 `questionId`、原文 `evidence` 和参考答案；填空题另含每空的 `acceptedAnswers`。格式、引用存在性通过不代表语义或教学质量已经合格，必须经过独立审题和最终验收。
 
-本次按用户要求暂不调用线上模型。已交付源码、契约、服务页配置说明并完成本地离线验收；离线模型响应只验证平台协议与重试，不能证明真实题目质量。真实模型业务验收仍需配置连接后进行。
+## 资源、版本与契约
 
-## 资源与契约
-
-| 文件 | 用途 |
-| --- | --- |
-| [read_document.py](read_document.py) | 唯一通用块；文件输入、资料输出及全部读取逻辑 |
-| [document-question-generator/](document-question-generator/package.json) | 声明式业务包，只含清单、契约、Prompt |
-| [contract-examples.json](contract-examples.json) | 文件引用、资料、合法题目及非法题目示例 |
-
-文件输入为 `{document: TaskFile}`，使用平台已有格式限制和文件控件。示例中的零值摘要和 ID 只演示结构，不能作为实际任务输入；必须先由任务页或上传接口获得引用。
-
-资料为 `{fileName, text}`，两项均非空且非纯空白。读取块出口与包入口独立声明兼容结构；路径与 OCR 模型信息不进入资料。PDF 保留原始页码，空白页进度单独记录；DOCX 没有伪造分页。
-
-题目输出固定为 `{questions: [...]}`，题型顺序由 Python 校验，Schema 的 minItems/maxItems/prefixItems 同步表达。选项为严格 A/B/C/D 对象，文本去除无关空白并忽略大小写比较后不能重复。填空标记只能是四个连续下划线，每空对应一个非空答案。所有模型继承 StrictModel，禁止未知字段和隐式转换。
-
-服务端口直接使用块/包加载后提供的 primaryContract/outputContract。可单独加载 read_document.py 的 Input/Output、包 models.py 的 Input/Output 查看契约；自定义题目校验依赖契约身份，服务返回应选择包自己的输出契约，不以另载文件的相似 Schema 代替。
-
-| 契约用途 | Python 文件 | 加载时填写的 symbol |
+| 资源 | 版本 | 职责 |
 | --- | --- | --- |
-| 文件输入 | [read_document.py](read_document.py) | Input |
-| 全文资料（读取块输出） | [read_document.py](read_document.py) | Output |
-| 全文资料（业务包输入） | [models.py](document-question-generator/models.py) | Input |
-| 三种题目与参考答案 | [models.py](document-question-generator/models.py) | Output |
+| [read_document.py](read_document.py) | 2.0.0 | PDF/DOCX 全文读取；读取算法未变 |
+| [document-question-planner](document-question-planner/package.json) | 1.0.0 | 判断资料充分性，规划三个考点、目标、难度、依据 |
+| [document-question-generator](document-question-generator/package.json) | 3.0.0 | 初稿和重新出题共用包，独立节点配置 |
+| [document-question-reviewer](document-question-reviewer/package.json) | 1.0.0 | 独立审题，逐题 findings 和总体 verdict |
+| [document-question-reviser](document-question-reviser/package.json) | 1.0.0 | 只修订被 findings 指出的题目 |
+| [quality-blocks](quality-blocks/) | 每块 1.0.0 | 规划核验、输入转换、状态维护、条件、最终验收 |
+| [quality_contracts.py](quality_contracts.py) | 源码随资源版本固定 | 权威契约和确定性规则 |
+| [quality-schemas.json](quality-schemas.json)、[contract-examples.json](contract-examples.json) | 派生交付说明 | 公开 Schema 与通过权威契约校验的合成示例 |
+
+入口均为 `NodeInput[P, tuple[...]]`。服务调用者只提交业务数据。所有模型使用 StrictModel，不接受额外字段或隐式类型转换。读取块输入为 `{document: TaskFile}`，输出为 `{fileName, text}`；任务页上传文件后获得真正的 TaskFile，不能使用占位引用。
+
+单文件块快照不能相对导入外部业务文件，因此资源中嵌入生成的契约。只编辑 `quality_contracts.py`，再在仓库根目录运行：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python examples/document-question-generation/sync_contracts.py
+PYTHONDONTWRITEBYTECODE=1 .venv/bin/python examples/document-question-generation/sync_contracts.py --check
+```
+
+该工具只同步契约源码/Schema 和核验公开示例，不加载服务、安装依赖、创建实例或访问模型。修改共享契约会改变所有嵌入资源的内容，发布前逐一递增受影响包/块版本并重新加载，不能以原版本覆盖已有快照。
+
+消费端声明完整结构类型；模型输出端的 GeneratedQuestions/ReviewResult 额外执行题序、选项唯一、填空对应、审题覆盖及 pass/阻断矛盾校验。自定义 validator 不能跨资源假称同一契约身份；Python 状态块再次执行关系校验和依据检查，最终服务输出直接选择 finalize_questions 的出口契约。
+
+## 状态与错误边界
+
+QuestionState 必须含 document、已确认 sufficient 的 plan、current、review 和 revisionRounds。review 使用 `awaiting_review`/`reviewed` 严格联合，缺失审题不以 null 或空字典表示。模型不能输出原文副本或改轮数；每次状态更新从可信参考恢复资料和规划，Python 增加轮数。
+
+Evidence 的 startLine/endLine 从读取结果 `text.splitlines()` 的第 1 行计数，含空行；quote 必须逐字存在于声明范围。PDF 原页码保留在正文中，DOCX 行定位不等于页码。Python 检查存在性，审题模型检查语义支持。审题 findings 必须引用三题中的 ID；跨题问题分别记录。
+
+| 情况 | 平台结果 |
+| --- | --- |
+| 规划 insufficient_source 或最终审题 insufficient_source | PACKAGE_INPUT_INSUFFICIENT，明确失败 |
+| 模型保留对象 `{"error":"INSUFFICIENT_INPUT"}` | 平台失败协议，不作为业务状态或成功题目 |
+| 非法枚举、题目格式错误、pass 同时携带 blocking | OUTPUT_VALIDATION_ERROR，按 retryLimit 重试该生产包 |
+| 无效原文引用、规划顺序/考点重复、非法状态、定向修订改动无关题目 | CONTRACT_VALIDATION_ERROR，立即终止，不让模型 pass 覆盖 |
+| 两轮后仍 revise/regenerate | LOOP_ITERATION_LIMIT，不返回未通过题目 |
+| 未审或非 pass 状态进入最终验收 | 明确失败，不把 while 停止视为成功 |
+
+## 服务页拼接
+
+通过平台页面加载上表所有包/块。服务输入选读取块 primaryContract，返回选 finalize_questions outputContract。下表节点 ID 为操作说明，均可在服务页填写；不提供另一套流程导入文件或长期自动组装脚本。
+
+| 顺序/位置 | 节点 ID → 资源 | 参考配置（高级列表按位置填写） |
+| --- | --- | --- |
+| 顶层 1 | read → read_document | 简单，首步零参考 |
+| 顶层 2 | plan → document-question-planner | 高级空列表 |
+| 顶层 3 | verify → verify_plan | 简单：规划包当次 primary，即全文 |
+| 顶层 4 | prepare → prepare_generation | 高级空列表 |
+| 顶层 5 | draft → document-question-generator | 高级：read 完整输出、verify 完整输出 |
+| 顶层 6 | init → initialize_state | 高级：read 完整输出、verify 完整输出 |
+| 顶层 7 | review → document-question-reviewer | 高级空列表 |
+| 顶层 8 | merge → merge_review | 简单：审题当次完整状态 |
+| 顶层 9 | revisions → while | maxIterations=2；见下方 |
+| 顶层 10 | final → finalize_questions | 高级空列表 |
+
+while 的 carry.contract 选 init 的出口；initial 引 merge 完整输出；update 引循环体末尾 merge_again 完整输出。条件 continue 使用 needs_revision，高级空参考。while 内部依次为 strategy（if）、review_again（审题包，高级空参考）、merge_again（合并块，简单参考）。
+
+if 条件 regenerate_condition 使用 needs_regeneration，高级空参考；if 输出契约选择 init 出口。两个分支：
+
+| 分支 | 节点序列 | 分支出口 |
+| --- | --- | --- |
+| then：重新出题 | prepare_again（prepare_generation，高级空参考）→ regenerate（出题包，高级参考 read、verify）→ update_regenerated（update_regeneration，简单参考） | update_regenerated 完整输出 |
+| else：定向修订 | revise（修订包，高级空参考）→ update_revised（update_revision，简单参考） | update_revised 完整输出 |
+
+prepare_generation 是显式转换块：把初稿的规划或重新出题的完整状态封装为 GenerationInput，让同一出题包用于两个独立节点。update_regeneration 的默认参考是该包当次 GenerationInput，块从 context 取原状态；update_revision 默认参考是原 QuestionState。两个分支出口和循环 carry 均为 QuestionState。不得从循环外引用内部节点或上一轮残留。
+
+## 模型连接和预算
+
+包节点独立绑定连接，审题节点可另选模型；同模型独立调用可作为首版，不代表独立人工评审。将完整正文发送给绑定的模型服务商。无需在本机运行大语言模型。
+
+正式使用可从 retryLimit=2、任务 loopLimit=21、tokenLimit=524288 开始；规划/初稿/首次审题各节点 loopLimit=3，循环内重出题/修订/再审各节点 loopLimit=6，节点 tokenLimit=262144；maxOutputTokens=8192。这些是可调整的操作起点，不是费用或容量保证。7×(retryLimit+1)=21 为最长技术尝试规划上界；互斥分支的节点预算不能当作全局额度相加。
+
+本次真实验收按用户限制使用 ds，所有基线、失败尝试和质量路径合计最多 10 次；retryLimit=0，while 上限仍为 2，实际配置与计量以验收记录为准。包清单 budgetDefaults 只作初始化建议，服务页按单次或重复节点分别调整。
+
+模型上下文容量和累计任务预算不同。平台按供应商 usage 记账，未知用量明确失败，不用文档字符数估算精确 token。正文不截断、分块或摘要，超出上下文应换连接或较小完整资料。取消、关闭应用与 APPLICATION_INTERRUPTED 沿用平台语义。
 
 ## 准备与运行限制
 
@@ -49,43 +103,10 @@
 
 取消由平台父进程持续检查并终止本地工作进程；用户在模型调用中取消仍沿用“等当前请求结束”的语义。任何页面失败都不发布已提取的部分正文为成功结果。
 
-## 在任务页调用
+## 验收范围
 
-1. 环境页配置模型连接，或使用已有连接。只获取模型列表不会执行出题；“测试连接”会发送模型请求并可能计费。暂不调用模型时跳过测试和提交任务。
-2. 服务页加载 read_document.py，等待依赖和模型准备完成；再加载 document-question-generator 目录。
-3. “开始”选择读取块主数据输入契约（primaryContract）；先添加读取块，再添加出题包。两节点保持简单模式：读取块零参考；出题包 primary 接收正文，references[0] 接收读取块此次的文件输入。Prompt 只读取 primary，不把文件引用隐式发送给模型。
-4. 包节点选择模型连接；初始输出额度 4096，节点和任务各 loopLimit=3、tokenLimit=131072，服务 retryLimit=2。返回只选择包输出契约，静态校验通过后保存实例。
-5. 任务页选择文件，等到显示保存成功后提交。查看读取步骤页数进度、出题步骤和最终 questions。文件/页码错误与出题失败会分别定位。
-6. 当前读取块和出题包均为 `2.0.0`（读取算法沿用 1.0.2 的修复）；后续更新源码必须递增 `@block` 的 version，再重新加载资源，并在服务页为已有服务保存新实例版本，使后续任务使用新代码；仅重启应用不会替换已有实例快照。每个任务固定实例版本和文件副本。移动原文件不影响任务；持久化模式保留跨重启历史，`--memory` 模式仅供会话验证。
+实现后的离线验证覆盖首轮 pass、定向修订、重新出题、两轮混合、达到上限、资料不足、非法引用/ID、矛盾 pass 和技术重试计数。替身只验证协议和确定性规则，不证明真实出题质量。
 
-## 线上模型与 DeepSeek
+真实验收采用自制 DOCX、现有 ds 连接，对照旧一次出题基线，并保存实际模型响应、计量和流程终态；共完成 10 次调用，实际发生一次定向修订，最终流程通过；详见[验收记录](../../docs/document-question-quality-validation.md)。用户已确认人工评审通过；随后通过实际 Electron 页面保存正式服务“文档出题质量 · ds”（版本 1.0，serviceId=svc_e8c711863f8a4e54a197f60d2b55913d），重启后恢复及预检通过。正式实例未额外调用模型。其配置为 retryLimit=0、任务 loopLimit=7/tokenLimit=524288，单次节点 loopLimit=1、重复节点 loopLimit=2。新建其他服务可按上述步骤配置。
 
-可以采用“本地解析/OCR + 线上 API 出题”：不需要在本机运行大语言模型，出题时会把文件名与全文发送给服务商。当前平台支持 OpenAI 兼容 Chat Completions，不会把 PDF 原文件直接传给多模态接口。
-
-截至 2026-09-20 核对的 [DeepSeek 官方模型表](https://api-docs.deepseek.com/quick_start/pricing/)，当前模型名为 deepseek-flash、deepseek-v4-pro，标注上下文为 1M。以账户实时获取的列表和官方定义为准，避免硬编码旧模型名。线上模型并非已经在本项目实测通过。
-
-| 平台设置 | DeepSeek 配置 |
-| --- | --- |
-| kind | model |
-| baseUrl | `https://api.deepseek.com`（平台追加 /chat/completions） |
-| model | 从“获取模型”结果选择，例如 deepseek-flash |
-| credential | 在环境页填写自己的 API Key，不写入包或示例文件 |
-| outputTokenParameter | max_tokens |
-| jsonMode | true |
-| timeoutSeconds | 可从 180 开始，长文按实际调用调整 |
-
-[DeepSeek Chat Completions 文档](https://api-docs.deepseek.com/api/create-chat-completion/)定义了 max_tokens 和 JSON output；当前桌面在输入 api.deepseek.com 地址时已自动选择 max_tokens。其他兼容服务的该参数可通过环境 HTTP API 显式配置。DeepSeek 当前默认思考模式，4096 输出额度可能包含思考消耗；若 finish_reason=length，需要增大包节点 maxOutputTokens 和相应预算。平台不会将截断响应作为成功题目，也不会静默改用其他模型。
-
-平台当前没有统一 tokenizer/模型容量目录，因此不使用字符数估算 token，不宣称做了精确容量预检。全文、Prompt、输出额度均计入模型容量；供应商明确的上下文超限机器码转为 MODEL_CONTEXT_EXCEEDED，其他格式保留 HTTP 状态和传输错误。出现超限请选择容量更大的模型或更小的完整文档；不自动截断、摘要、分块或重做 OCR。
-
-预算是累计供应商实际 token 的上限，不是模型上下文容量，也不等于人民币费用。131072 的初始预算无法覆盖 1M 上下文的满量请求；长文需相应提高节点和任务预算，并为最多三次包调用留余量。没有可用 usage 时平台明确失败。资料不足时包返回保留对象 `{"error":"INSUFFICIENT_INPUT"}`，平台记账后以 PACKAGE_INPUT_INSUFFICIENT 终止；它不是成功题目且不触发格式重试。
-
-## 验证与待办
-
-`1.0.2` 方向策略验证：使用桌面已有运行环境与 ONNX 文件，确认 PDF 识别不执行方向分类器，识别结果过滤阈值仍为 0，未提前隐藏低分框。《从市场营销到社会营销》2 页完成读取，输出 5401 字符。第二份保险商业智能 PDF 的两处长文本行不再被误翻转；仍有一个栏间空识别框未被空白规则排除，整页继续明确失败，尚未完成读取验收。本次未增加平台逐框诊断记录或展示，也未调用线上模型。
-
-2026-09-20 文件读取修复：使用用户指定的《从市场营销到社会营销》PDF 和已有本地 OCR 模型，完成 2 页读取，输出 5401 字符并通过输出契约校验；未调用线上模型。另以合成数据检查普通 PDF、无需打开密码的权限加密 PDF、需密码 PDF、损坏文件，以及空白 OCR 框与真实墨迹边界；临时数据已删除。本次通过不代表复杂排版阅读顺序或出题质量的人工验收完成。
-
-历史本地 OCR 与任务链路验收见[归档记录](../../docs/archive/2026-09-20/document-validation-record.md)。开发验收脚本、样本生成器及回归测试已按项目规则删除；服务组装辅助脚本也已清理，服务统一通过平台页面配置；业务包、读取块与契约示例继续保留。
-
-正式服务尚未绑定用户选定的模型连接。真实线上出题、答案正确性、单选唯一性、复杂排版/低清晰度资料质量及桌面人工走查仍待验收，按用户要求暂不调用线上模型。后续配置模型连接、保存正式服务，再使用自制或授权文档逐项核对；JSON 合法不能代替业务验收。
+历史 OCR 验证仍见[文档验收记录](../../docs/archive/2026-09-20/document-validation-record.md)。此前《从市场营销到社会营销》两页读取通过；另一份保险商业智能 PDF 的空识别框仍明确失败，复杂表格、双栏、倾斜和低清晰度资料未完成质量验收。本轮不扩大读取范围，也不把简单文档成功解释为复杂 OCR 已通过。

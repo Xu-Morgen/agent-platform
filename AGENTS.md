@@ -8,7 +8,7 @@
 - 主项目是通用 Agent 服务平台；首期曾交付标准模板与最小查重业务包。2026-09-17 用户进一步要求清空 samples 并重建为三类资源开发模板，当前不再分发查重产品。
 - 2026-09-18 新需求开始落地 Agent 产品定位和持久化：桌面自动管理应用专用本地 PostgreSQL，启动即持久化，并提供任务历史列表。已在 Ubuntu 24.04 / PostgreSQL 16.15 上验证数据库、凭据与桌面生命周期；Python 依赖纳入 uv.lock。当前实施入口为 `docs/agent-platform-roadmap.md` 与 `docs/persistence.md`。
 - 最新明确的用户指令优先于本文档。已确认需求见 `docs/product-requirements.md`，项目状态见 `readme.md`。
-- 2026-09-20 用户确认新开发目标：先按 `docs/archive/2026-09-20/node-input-and-python-conditions-plan.md` 实现节点主数据/参考输入与 if 内置 Python 条件块，再按 `docs/document-question-quality-plan.md` 扩展文档出题规划、审题和有限修订循环。平台节点输入目标已完成实现与轻量验收；出题质量扩展仍未实施，真实模型质量验收未开始。平台计划已归档，当前下一开发入口为出题质量计划。
+- 2026-09-20 用户确认新开发目标：先按 `docs/archive/2026-09-20/node-input-and-python-conditions-plan.md` 实现节点主数据/参考输入与 if 内置 Python 条件块，再按 `docs/archive/2026-09-20/document-question-quality-plan.md` 扩展文档出题规划、审题和有限修订循环。平台节点输入目标已完成实现与轻量验收；出题质量扩展已实现并完成离线闭环；按本次授权使用 ds 完成 10 次真实调用，定向修订与最终流程通过。用户人工评审、正式页面保存及重启恢复已通过，验收记录见 `docs/document-question-quality-validation.md`。平台计划已归档，出题质量计划已完成并归档。
 - 2026-09-17 用户已确认当前最小产品验证完成。当前唯一实例入口为服务页拼图（FlowDraft），不保留旧手写实例加载/执行协议。
 - 当前文档入口见 `docs/README.md`，细化事项见 `docs/product-refinement.md`，三类资源计划及手册见 `docs/resource-plan.md`、`docs/resource-guide.md`。历史任务及交付集中在 `docs/archive/`，只作参考，不按过时阻塞状态限制后续开发。
 - 按用户要求移除旧测试脚本、测试数据和旧入口，保留 artifact。samples 下的三类资源与控制流教学样例属于产品指导交付；不恢复历史验收数据集或替身套件。

@@ -221,5 +221,18 @@ def verify_state(state):
     return state
 # END GENERATED CONTRACTS
 
-Entry = GeneratorEntry
-Output = GeneratedQuestions
+from agent_platform.blocks import block
+
+@block(id='question-update-revision', version='1.0.0', name='采纳定向修订并计轮')
+def run(value: NodeInput[Questions, tuple[QuestionState]]) -> QuestionState:
+    previous = verify_state(value.references[0])
+    if not isinstance(previous.review, Review) or previous.review.verdict != 'revise':
+        quality_fail('定向修订要求 revise 状态')
+    targeted = {finding.question_id for finding in previous.review.findings}
+    for old, new in zip(previous.current.questions, value.primary.questions):
+        if old.question_id not in targeted and old.model_dump() != new.model_dump():
+            quality_fail('定向修订不得改变未被审题指出的题目')
+    if previous.revision_rounds >= 2:
+        quality_fail('不能超过两轮修订')
+    return verify_state(QuestionState(document=previous.document, plan=previous.plan, current=value.primary,
+        review=AwaitingReview(phase='awaiting_review'), revision_rounds=previous.revision_rounds + 1))

@@ -1,82 +1,127 @@
 {
-  "fileInput": {
-    "document": {
-      "fileId": "file_00000000000000000000000000000000",
-      "originalName": "example.pdf",
-      "format": "pdf",
-      "size": 123,
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
-    }
+  "document": {
+    "fileName": "合成资料.txt",
+    "text": "雨水收集可减少自来水消耗。\n过滤去除悬浮颗粒。\n储水箱应加盖以防杂物进入。"
   },
-  "material": {
-    "fileName": "example.pdf",
-    "text": "液态水蒸发成为水蒸气。水蒸气冷却凝结成液态水。降水使水回到地面。"
-  },
-  "validOutput": {
-    "questions": [
-      {
-        "type": "essay",
-        "stem": "说明蒸发的过程。",
-        "referenceAnswer": "液态水变为水蒸气。",
-        "scoringPoints": [
-          "液态变为气态"
-        ]
-      },
-      {
-        "type": "single_choice",
-        "stem": "水蒸气冷却后形成哪种状态的水？",
-        "options": {
-          "A": "液态",
-          "B": "等离子态",
-          "C": "保持气态",
-          "D": "无法确定"
-        },
-        "referenceAnswer": "A",
-        "explanation": "资料指出水蒸气冷却凝结为液态水。"
-      },
-      {
-        "type": "fill_blank",
-        "stem": "水循环中液态水转变为水蒸气的过程叫____。",
-        "referenceAnswers": [
-          "蒸发"
-        ]
-      }
-    ]
-  },
-  "invalidOutputs": [
-    {
-      "questions": []
-    },
-    {
-      "questions": [
+  "planning": {
+    "decision": {
+      "status": "sufficient",
+      "items": [
         {
-          "type": "fill_blank",
-          "stem": "水循环中液态水转变为水蒸气的过程叫____。",
-          "referenceAnswers": [
-            "蒸发"
+          "questionId": "essay-1",
+          "type": "essay",
+          "knowledgePoint": "节水",
+          "objective": "依据原文解释",
+          "difficulty": "easy",
+          "evidence": [
+            {
+              "startLine": 1,
+              "endLine": 1,
+              "quote": "雨水收集可减少自来水消耗。"
+            }
           ]
         },
         {
+          "questionId": "choice-1",
           "type": "single_choice",
-          "stem": "水蒸气冷却后形成哪种状态的水？",
-          "options": {
-            "A": "液态",
-            "B": "等离子态",
-            "C": "保持气态",
-            "D": "无法确定"
-          },
-          "referenceAnswer": "A",
-          "explanation": "资料指出水蒸气冷却凝结为液态水。"
+          "knowledgePoint": "过滤",
+          "objective": "依据原文解释",
+          "difficulty": "easy",
+          "evidence": [
+            {
+              "startLine": 2,
+              "endLine": 2,
+              "quote": "过滤去除悬浮颗粒。"
+            }
+          ]
         },
         {
-          "type": "essay",
-          "stem": "说明蒸发的过程。",
-          "referenceAnswer": "液态水变为水蒸气。",
-          "scoringPoints": [
-            "液态变为气态"
+          "questionId": "blank-1",
+          "type": "fill_blank",
+          "knowledgePoint": "加盖",
+          "objective": "依据原文解释",
+          "difficulty": "easy",
+          "evidence": [
+            {
+              "startLine": 3,
+              "endLine": 3,
+              "quote": "储水箱应加盖以防杂物进入。"
+            }
           ]
         }
       ]
     }
-  ]
+  },
+  "questions": {
+    "questions": [
+      {
+        "questionId": "essay-1",
+        "type": "essay",
+        "stem": "雨水收集有何益处？",
+        "referenceAnswer": "减少自来水消耗。",
+        "scoringPoints": [
+          "减少自来水消耗"
+        ],
+        "evidence": [
+          {
+            "startLine": 1,
+            "endLine": 1,
+            "quote": "雨水收集可减少自来水消耗。"
+          }
+        ]
+      },
+      {
+        "questionId": "choice-1",
+        "type": "single_choice",
+        "stem": "过滤去除什么？",
+        "options": {
+          "A": "悬浮颗粒",
+          "B": "水箱",
+          "C": "水盖",
+          "D": "进水口"
+        },
+        "referenceAnswer": "A",
+        "explanation": "资料明确去除悬浮颗粒。",
+        "evidence": [
+          {
+            "startLine": 2,
+            "endLine": 2,
+            "quote": "过滤去除悬浮颗粒。"
+          }
+        ]
+      },
+      {
+        "questionId": "blank-1",
+        "type": "fill_blank",
+        "stem": "储水箱应____以防杂物进入。",
+        "referenceAnswers": [
+          "加盖"
+        ],
+        "acceptedAnswers": [
+          [
+            "加盖",
+            "盖好盖子"
+          ]
+        ],
+        "evidence": [
+          {
+            "startLine": 3,
+            "endLine": 3,
+            "quote": "储水箱应加盖以防杂物进入。"
+          }
+        ]
+      }
+    ]
+  },
+  "review": {
+    "phase": "reviewed",
+    "verdict": "pass",
+    "checkedQuestionIds": [
+      "essay-1",
+      "choice-1",
+      "blank-1"
+    ],
+    "findings": [],
+    "rationale": "逐项审查完毕"
+  }
 }

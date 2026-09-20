@@ -1,0 +1,2524 @@
+{
+  "Document": {
+    "additionalProperties": false,
+    "properties": {
+      "fileName": {
+        "minLength": 1,
+        "pattern": "\\S",
+        "title": "Filename",
+        "type": "string"
+      },
+      "text": {
+        "minLength": 1,
+        "pattern": "\\S",
+        "title": "Text",
+        "type": "string"
+      }
+    },
+    "required": [
+      "fileName",
+      "text"
+    ],
+    "title": "Document",
+    "type": "object"
+  },
+  "Planning": {
+    "$defs": {
+      "Evidence": {
+        "additionalProperties": false,
+        "properties": {
+          "startLine": {
+            "minimum": 1,
+            "title": "Startline",
+            "type": "integer"
+          },
+          "endLine": {
+            "minimum": 1,
+            "title": "Endline",
+            "type": "integer"
+          },
+          "quote": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startLine",
+          "endLine",
+          "quote"
+        ],
+        "title": "Evidence",
+        "type": "object"
+      },
+      "InsufficientPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "insufficient_source",
+            "title": "Status",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reason"
+        ],
+        "title": "InsufficientPlan",
+        "type": "object"
+      },
+      "PlanItem": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "enum": [
+              "essay-1",
+              "choice-1",
+              "blank-1"
+            ],
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "essay",
+              "single_choice",
+              "fill_blank"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "knowledgePoint": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Knowledgepoint",
+            "type": "string"
+          },
+          "objective": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Objective",
+            "type": "string"
+          },
+          "difficulty": {
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "knowledgePoint",
+          "objective",
+          "difficulty",
+          "evidence"
+        ],
+        "title": "PlanItem",
+        "type": "object"
+      },
+      "SufficientPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "sufficient",
+            "title": "Status",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/PlanItem"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "items"
+        ],
+        "title": "SufficientPlan",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "decision": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SufficientPlan"
+          },
+          {
+            "$ref": "#/$defs/InsufficientPlan"
+          }
+        ],
+        "title": "Decision"
+      }
+    },
+    "required": [
+      "decision"
+    ],
+    "title": "Planning",
+    "type": "object"
+  },
+  "SufficientPlan": {
+    "$defs": {
+      "Evidence": {
+        "additionalProperties": false,
+        "properties": {
+          "startLine": {
+            "minimum": 1,
+            "title": "Startline",
+            "type": "integer"
+          },
+          "endLine": {
+            "minimum": 1,
+            "title": "Endline",
+            "type": "integer"
+          },
+          "quote": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startLine",
+          "endLine",
+          "quote"
+        ],
+        "title": "Evidence",
+        "type": "object"
+      },
+      "PlanItem": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "enum": [
+              "essay-1",
+              "choice-1",
+              "blank-1"
+            ],
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "essay",
+              "single_choice",
+              "fill_blank"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "knowledgePoint": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Knowledgepoint",
+            "type": "string"
+          },
+          "objective": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Objective",
+            "type": "string"
+          },
+          "difficulty": {
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "knowledgePoint",
+          "objective",
+          "difficulty",
+          "evidence"
+        ],
+        "title": "PlanItem",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "status": {
+        "const": "sufficient",
+        "title": "Status",
+        "type": "string"
+      },
+      "items": {
+        "items": {
+          "$ref": "#/$defs/PlanItem"
+        },
+        "maxItems": 3,
+        "minItems": 3,
+        "title": "Items",
+        "type": "array"
+      }
+    },
+    "required": [
+      "status",
+      "items"
+    ],
+    "title": "SufficientPlan",
+    "type": "object"
+  },
+  "GeneratedQuestions": {
+    "$defs": {
+      "Essay": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "essay-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "essay",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Stem",
+            "type": "string"
+          },
+          "referenceAnswer": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Referenceanswer",
+            "type": "string"
+          },
+          "scoringPoints": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Scoringpoints",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "referenceAnswer",
+          "scoringPoints",
+          "evidence"
+        ],
+        "title": "Essay",
+        "type": "object"
+      },
+      "Evidence": {
+        "additionalProperties": false,
+        "properties": {
+          "startLine": {
+            "minimum": 1,
+            "title": "Startline",
+            "type": "integer"
+          },
+          "endLine": {
+            "minimum": 1,
+            "title": "Endline",
+            "type": "integer"
+          },
+          "quote": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startLine",
+          "endLine",
+          "quote"
+        ],
+        "title": "Evidence",
+        "type": "object"
+      },
+      "FillBlank": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "blank-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "fill_blank",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "____",
+            "title": "Stem",
+            "type": "string"
+          },
+          "referenceAnswers": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Referenceanswers",
+            "type": "array"
+          },
+          "acceptedAnswers": {
+            "items": {
+              "items": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "minItems": 1,
+            "title": "Acceptedanswers",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "referenceAnswers",
+          "acceptedAnswers",
+          "evidence"
+        ],
+        "title": "FillBlank",
+        "type": "object"
+      },
+      "Options": {
+        "additionalProperties": false,
+        "properties": {
+          "A": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "A",
+            "type": "string"
+          },
+          "B": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "B",
+            "type": "string"
+          },
+          "C": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "C",
+            "type": "string"
+          },
+          "D": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "D",
+            "type": "string"
+          }
+        },
+        "required": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "title": "Options",
+        "type": "object"
+      },
+      "SingleChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "choice-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "single_choice",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Stem",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/$defs/Options"
+          },
+          "referenceAnswer": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Referenceanswer",
+            "type": "string"
+          },
+          "explanation": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "options",
+          "referenceAnswer",
+          "explanation",
+          "evidence"
+        ],
+        "title": "SingleChoice",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "questions": {
+        "items": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Essay"
+            },
+            {
+              "$ref": "#/$defs/SingleChoice"
+            },
+            {
+              "$ref": "#/$defs/FillBlank"
+            }
+          ]
+        },
+        "maxItems": 3,
+        "minItems": 3,
+        "title": "Questions",
+        "type": "array"
+      }
+    },
+    "required": [
+      "questions"
+    ],
+    "title": "GeneratedQuestions",
+    "type": "object"
+  },
+  "ReviewResult": {
+    "$defs": {
+      "Evidence": {
+        "additionalProperties": false,
+        "properties": {
+          "startLine": {
+            "minimum": 1,
+            "title": "Startline",
+            "type": "integer"
+          },
+          "endLine": {
+            "minimum": 1,
+            "title": "Endline",
+            "type": "integer"
+          },
+          "quote": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startLine",
+          "endLine",
+          "quote"
+        ],
+        "title": "Evidence",
+        "type": "object"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "enum": [
+              "essay-1",
+              "choice-1",
+              "blank-1"
+            ],
+            "title": "Questionid",
+            "type": "string"
+          },
+          "code": {
+            "enum": [
+              "unsupported",
+              "incorrect_answer",
+              "ambiguous",
+              "weak_distractor",
+              "unscorable",
+              "coverage",
+              "difficulty",
+              "answer_leak",
+              "other"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "blocking",
+              "advisory"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "suggestion": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Suggestion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "questionId",
+          "code",
+          "severity",
+          "reason",
+          "evidence",
+          "suggestion"
+        ],
+        "title": "Finding",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "phase": {
+        "const": "reviewed",
+        "title": "Phase",
+        "type": "string"
+      },
+      "verdict": {
+        "enum": [
+          "pass",
+          "revise",
+          "regenerate",
+          "insufficient_source"
+        ],
+        "title": "Verdict",
+        "type": "string"
+      },
+      "checkedQuestionIds": {
+        "items": {
+          "enum": [
+            "essay-1",
+            "choice-1",
+            "blank-1"
+          ],
+          "type": "string"
+        },
+        "maxItems": 3,
+        "minItems": 3,
+        "title": "Checkedquestionids",
+        "type": "array"
+      },
+      "findings": {
+        "items": {
+          "$ref": "#/$defs/Finding"
+        },
+        "title": "Findings",
+        "type": "array"
+      },
+      "rationale": {
+        "minLength": 1,
+        "pattern": "\\S",
+        "title": "Rationale",
+        "type": "string"
+      }
+    },
+    "required": [
+      "phase",
+      "verdict",
+      "checkedQuestionIds",
+      "findings",
+      "rationale"
+    ],
+    "title": "ReviewResult",
+    "type": "object"
+  },
+  "QuestionState": {
+    "$defs": {
+      "AwaitingReview": {
+        "additionalProperties": false,
+        "properties": {
+          "phase": {
+            "const": "awaiting_review",
+            "title": "Phase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phase"
+        ],
+        "title": "AwaitingReview",
+        "type": "object"
+      },
+      "Document": {
+        "additionalProperties": false,
+        "properties": {
+          "fileName": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Filename",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "text"
+        ],
+        "title": "Document",
+        "type": "object"
+      },
+      "Essay": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "essay-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "essay",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Stem",
+            "type": "string"
+          },
+          "referenceAnswer": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Referenceanswer",
+            "type": "string"
+          },
+          "scoringPoints": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Scoringpoints",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "referenceAnswer",
+          "scoringPoints",
+          "evidence"
+        ],
+        "title": "Essay",
+        "type": "object"
+      },
+      "Evidence": {
+        "additionalProperties": false,
+        "properties": {
+          "startLine": {
+            "minimum": 1,
+            "title": "Startline",
+            "type": "integer"
+          },
+          "endLine": {
+            "minimum": 1,
+            "title": "Endline",
+            "type": "integer"
+          },
+          "quote": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startLine",
+          "endLine",
+          "quote"
+        ],
+        "title": "Evidence",
+        "type": "object"
+      },
+      "FillBlank": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "blank-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "fill_blank",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "____",
+            "title": "Stem",
+            "type": "string"
+          },
+          "referenceAnswers": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Referenceanswers",
+            "type": "array"
+          },
+          "acceptedAnswers": {
+            "items": {
+              "items": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "minItems": 1,
+            "title": "Acceptedanswers",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "referenceAnswers",
+          "acceptedAnswers",
+          "evidence"
+        ],
+        "title": "FillBlank",
+        "type": "object"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "enum": [
+              "essay-1",
+              "choice-1",
+              "blank-1"
+            ],
+            "title": "Questionid",
+            "type": "string"
+          },
+          "code": {
+            "enum": [
+              "unsupported",
+              "incorrect_answer",
+              "ambiguous",
+              "weak_distractor",
+              "unscorable",
+              "coverage",
+              "difficulty",
+              "answer_leak",
+              "other"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "blocking",
+              "advisory"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "suggestion": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Suggestion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "questionId",
+          "code",
+          "severity",
+          "reason",
+          "evidence",
+          "suggestion"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "Options": {
+        "additionalProperties": false,
+        "properties": {
+          "A": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "A",
+            "type": "string"
+          },
+          "B": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "B",
+            "type": "string"
+          },
+          "C": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "C",
+            "type": "string"
+          },
+          "D": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "D",
+            "type": "string"
+          }
+        },
+        "required": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "title": "Options",
+        "type": "object"
+      },
+      "PlanItem": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "enum": [
+              "essay-1",
+              "choice-1",
+              "blank-1"
+            ],
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "essay",
+              "single_choice",
+              "fill_blank"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "knowledgePoint": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Knowledgepoint",
+            "type": "string"
+          },
+          "objective": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Objective",
+            "type": "string"
+          },
+          "difficulty": {
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "knowledgePoint",
+          "objective",
+          "difficulty",
+          "evidence"
+        ],
+        "title": "PlanItem",
+        "type": "object"
+      },
+      "Questions": {
+        "additionalProperties": false,
+        "properties": {
+          "questions": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Essay"
+                },
+                {
+                  "$ref": "#/$defs/SingleChoice"
+                },
+                {
+                  "$ref": "#/$defs/FillBlank"
+                }
+              ]
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questions"
+        ],
+        "title": "Questions",
+        "type": "object"
+      },
+      "Review": {
+        "additionalProperties": false,
+        "properties": {
+          "phase": {
+            "const": "reviewed",
+            "title": "Phase",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "pass",
+              "revise",
+              "regenerate",
+              "insufficient_source"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "checkedQuestionIds": {
+            "items": {
+              "enum": [
+                "essay-1",
+                "choice-1",
+                "blank-1"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Checkedquestionids",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/$defs/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "rationale": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phase",
+          "verdict",
+          "checkedQuestionIds",
+          "findings",
+          "rationale"
+        ],
+        "title": "Review",
+        "type": "object"
+      },
+      "SingleChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "choice-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "single_choice",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Stem",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/$defs/Options"
+          },
+          "referenceAnswer": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Referenceanswer",
+            "type": "string"
+          },
+          "explanation": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "options",
+          "referenceAnswer",
+          "explanation",
+          "evidence"
+        ],
+        "title": "SingleChoice",
+        "type": "object"
+      },
+      "SufficientPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "sufficient",
+            "title": "Status",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/PlanItem"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "items"
+        ],
+        "title": "SufficientPlan",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "document": {
+        "$ref": "#/$defs/Document"
+      },
+      "plan": {
+        "$ref": "#/$defs/SufficientPlan"
+      },
+      "current": {
+        "$ref": "#/$defs/Questions"
+      },
+      "review": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/AwaitingReview"
+          },
+          {
+            "$ref": "#/$defs/Review"
+          }
+        ],
+        "title": "Review"
+      },
+      "revisionRounds": {
+        "maximum": 2,
+        "minimum": 0,
+        "title": "Revisionrounds",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "document",
+      "plan",
+      "current",
+      "review",
+      "revisionRounds"
+    ],
+    "title": "QuestionState",
+    "type": "object"
+  },
+  "PlannerEntry": {
+    "$defs": {
+      "Document": {
+        "additionalProperties": false,
+        "properties": {
+          "fileName": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Filename",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "text"
+        ],
+        "title": "Document",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "primary": {
+        "$ref": "#/$defs/Document"
+      },
+      "references": {
+        "maxItems": 0,
+        "minItems": 0,
+        "title": "References",
+        "type": "array"
+      }
+    },
+    "required": [
+      "primary",
+      "references"
+    ],
+    "title": "PlannerEntry",
+    "type": "object",
+    "x-node-input-version": 1
+  },
+  "GeneratorEntry": {
+    "$defs": {
+      "AwaitingReview": {
+        "additionalProperties": false,
+        "properties": {
+          "phase": {
+            "const": "awaiting_review",
+            "title": "Phase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phase"
+        ],
+        "title": "AwaitingReview",
+        "type": "object"
+      },
+      "Document": {
+        "additionalProperties": false,
+        "properties": {
+          "fileName": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Filename",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "text"
+        ],
+        "title": "Document",
+        "type": "object"
+      },
+      "Essay": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "essay-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "essay",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Stem",
+            "type": "string"
+          },
+          "referenceAnswer": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Referenceanswer",
+            "type": "string"
+          },
+          "scoringPoints": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Scoringpoints",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "referenceAnswer",
+          "scoringPoints",
+          "evidence"
+        ],
+        "title": "Essay",
+        "type": "object"
+      },
+      "Evidence": {
+        "additionalProperties": false,
+        "properties": {
+          "startLine": {
+            "minimum": 1,
+            "title": "Startline",
+            "type": "integer"
+          },
+          "endLine": {
+            "minimum": 1,
+            "title": "Endline",
+            "type": "integer"
+          },
+          "quote": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startLine",
+          "endLine",
+          "quote"
+        ],
+        "title": "Evidence",
+        "type": "object"
+      },
+      "FillBlank": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "blank-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "fill_blank",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "____",
+            "title": "Stem",
+            "type": "string"
+          },
+          "referenceAnswers": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Referenceanswers",
+            "type": "array"
+          },
+          "acceptedAnswers": {
+            "items": {
+              "items": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "minItems": 1,
+            "title": "Acceptedanswers",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "referenceAnswers",
+          "acceptedAnswers",
+          "evidence"
+        ],
+        "title": "FillBlank",
+        "type": "object"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "enum": [
+              "essay-1",
+              "choice-1",
+              "blank-1"
+            ],
+            "title": "Questionid",
+            "type": "string"
+          },
+          "code": {
+            "enum": [
+              "unsupported",
+              "incorrect_answer",
+              "ambiguous",
+              "weak_distractor",
+              "unscorable",
+              "coverage",
+              "difficulty",
+              "answer_leak",
+              "other"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "blocking",
+              "advisory"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "suggestion": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Suggestion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "questionId",
+          "code",
+          "severity",
+          "reason",
+          "evidence",
+          "suggestion"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "GenerationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "context": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/SufficientPlan"
+              },
+              {
+                "$ref": "#/$defs/QuestionState"
+              }
+            ],
+            "title": "Context"
+          }
+        },
+        "required": [
+          "context"
+        ],
+        "title": "GenerationInput",
+        "type": "object"
+      },
+      "Options": {
+        "additionalProperties": false,
+        "properties": {
+          "A": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "A",
+            "type": "string"
+          },
+          "B": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "B",
+            "type": "string"
+          },
+          "C": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "C",
+            "type": "string"
+          },
+          "D": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "D",
+            "type": "string"
+          }
+        },
+        "required": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "title": "Options",
+        "type": "object"
+      },
+      "PlanItem": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "enum": [
+              "essay-1",
+              "choice-1",
+              "blank-1"
+            ],
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "essay",
+              "single_choice",
+              "fill_blank"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "knowledgePoint": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Knowledgepoint",
+            "type": "string"
+          },
+          "objective": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Objective",
+            "type": "string"
+          },
+          "difficulty": {
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "knowledgePoint",
+          "objective",
+          "difficulty",
+          "evidence"
+        ],
+        "title": "PlanItem",
+        "type": "object"
+      },
+      "QuestionState": {
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "$ref": "#/$defs/Document"
+          },
+          "plan": {
+            "$ref": "#/$defs/SufficientPlan"
+          },
+          "current": {
+            "$ref": "#/$defs/Questions"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AwaitingReview"
+              },
+              {
+                "$ref": "#/$defs/Review"
+              }
+            ],
+            "title": "Review"
+          },
+          "revisionRounds": {
+            "maximum": 2,
+            "minimum": 0,
+            "title": "Revisionrounds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document",
+          "plan",
+          "current",
+          "review",
+          "revisionRounds"
+        ],
+        "title": "QuestionState",
+        "type": "object"
+      },
+      "Questions": {
+        "additionalProperties": false,
+        "properties": {
+          "questions": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Essay"
+                },
+                {
+                  "$ref": "#/$defs/SingleChoice"
+                },
+                {
+                  "$ref": "#/$defs/FillBlank"
+                }
+              ]
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questions"
+        ],
+        "title": "Questions",
+        "type": "object"
+      },
+      "Review": {
+        "additionalProperties": false,
+        "properties": {
+          "phase": {
+            "const": "reviewed",
+            "title": "Phase",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "pass",
+              "revise",
+              "regenerate",
+              "insufficient_source"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "checkedQuestionIds": {
+            "items": {
+              "enum": [
+                "essay-1",
+                "choice-1",
+                "blank-1"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Checkedquestionids",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/$defs/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "rationale": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phase",
+          "verdict",
+          "checkedQuestionIds",
+          "findings",
+          "rationale"
+        ],
+        "title": "Review",
+        "type": "object"
+      },
+      "SingleChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "choice-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "single_choice",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Stem",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/$defs/Options"
+          },
+          "referenceAnswer": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Referenceanswer",
+            "type": "string"
+          },
+          "explanation": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "options",
+          "referenceAnswer",
+          "explanation",
+          "evidence"
+        ],
+        "title": "SingleChoice",
+        "type": "object"
+      },
+      "SufficientPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "sufficient",
+            "title": "Status",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/PlanItem"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "items"
+        ],
+        "title": "SufficientPlan",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "primary": {
+        "$ref": "#/$defs/GenerationInput"
+      },
+      "references": {
+        "maxItems": 2,
+        "minItems": 2,
+        "prefixItems": [
+          {
+            "$ref": "#/$defs/Document"
+          },
+          {
+            "$ref": "#/$defs/SufficientPlan"
+          }
+        ],
+        "title": "References",
+        "type": "array"
+      }
+    },
+    "required": [
+      "primary",
+      "references"
+    ],
+    "title": "GeneratorEntry",
+    "type": "object",
+    "x-node-input-version": 1
+  },
+  "StateEntry": {
+    "$defs": {
+      "AwaitingReview": {
+        "additionalProperties": false,
+        "properties": {
+          "phase": {
+            "const": "awaiting_review",
+            "title": "Phase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phase"
+        ],
+        "title": "AwaitingReview",
+        "type": "object"
+      },
+      "Document": {
+        "additionalProperties": false,
+        "properties": {
+          "fileName": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Filename",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fileName",
+          "text"
+        ],
+        "title": "Document",
+        "type": "object"
+      },
+      "Essay": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "essay-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "essay",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Stem",
+            "type": "string"
+          },
+          "referenceAnswer": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Referenceanswer",
+            "type": "string"
+          },
+          "scoringPoints": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Scoringpoints",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "referenceAnswer",
+          "scoringPoints",
+          "evidence"
+        ],
+        "title": "Essay",
+        "type": "object"
+      },
+      "Evidence": {
+        "additionalProperties": false,
+        "properties": {
+          "startLine": {
+            "minimum": 1,
+            "title": "Startline",
+            "type": "integer"
+          },
+          "endLine": {
+            "minimum": 1,
+            "title": "Endline",
+            "type": "integer"
+          },
+          "quote": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "startLine",
+          "endLine",
+          "quote"
+        ],
+        "title": "Evidence",
+        "type": "object"
+      },
+      "FillBlank": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "blank-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "fill_blank",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "____",
+            "title": "Stem",
+            "type": "string"
+          },
+          "referenceAnswers": {
+            "items": {
+              "minLength": 1,
+              "pattern": "\\S",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Referenceanswers",
+            "type": "array"
+          },
+          "acceptedAnswers": {
+            "items": {
+              "items": {
+                "minLength": 1,
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "minItems": 1,
+            "title": "Acceptedanswers",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "referenceAnswers",
+          "acceptedAnswers",
+          "evidence"
+        ],
+        "title": "FillBlank",
+        "type": "object"
+      },
+      "Finding": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "enum": [
+              "essay-1",
+              "choice-1",
+              "blank-1"
+            ],
+            "title": "Questionid",
+            "type": "string"
+          },
+          "code": {
+            "enum": [
+              "unsupported",
+              "incorrect_answer",
+              "ambiguous",
+              "weak_distractor",
+              "unscorable",
+              "coverage",
+              "difficulty",
+              "answer_leak",
+              "other"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "blocking",
+              "advisory"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "reason": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Reason",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "suggestion": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Suggestion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "questionId",
+          "code",
+          "severity",
+          "reason",
+          "evidence",
+          "suggestion"
+        ],
+        "title": "Finding",
+        "type": "object"
+      },
+      "Options": {
+        "additionalProperties": false,
+        "properties": {
+          "A": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "A",
+            "type": "string"
+          },
+          "B": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "B",
+            "type": "string"
+          },
+          "C": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "C",
+            "type": "string"
+          },
+          "D": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "D",
+            "type": "string"
+          }
+        },
+        "required": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "title": "Options",
+        "type": "object"
+      },
+      "PlanItem": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "enum": [
+              "essay-1",
+              "choice-1",
+              "blank-1"
+            ],
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "essay",
+              "single_choice",
+              "fill_blank"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "knowledgePoint": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Knowledgepoint",
+            "type": "string"
+          },
+          "objective": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Objective",
+            "type": "string"
+          },
+          "difficulty": {
+            "enum": [
+              "easy",
+              "medium",
+              "hard"
+            ],
+            "title": "Difficulty",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "knowledgePoint",
+          "objective",
+          "difficulty",
+          "evidence"
+        ],
+        "title": "PlanItem",
+        "type": "object"
+      },
+      "QuestionState": {
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "$ref": "#/$defs/Document"
+          },
+          "plan": {
+            "$ref": "#/$defs/SufficientPlan"
+          },
+          "current": {
+            "$ref": "#/$defs/Questions"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/AwaitingReview"
+              },
+              {
+                "$ref": "#/$defs/Review"
+              }
+            ],
+            "title": "Review"
+          },
+          "revisionRounds": {
+            "maximum": 2,
+            "minimum": 0,
+            "title": "Revisionrounds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document",
+          "plan",
+          "current",
+          "review",
+          "revisionRounds"
+        ],
+        "title": "QuestionState",
+        "type": "object"
+      },
+      "Questions": {
+        "additionalProperties": false,
+        "properties": {
+          "questions": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Essay"
+                },
+                {
+                  "$ref": "#/$defs/SingleChoice"
+                },
+                {
+                  "$ref": "#/$defs/FillBlank"
+                }
+              ]
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questions"
+        ],
+        "title": "Questions",
+        "type": "object"
+      },
+      "Review": {
+        "additionalProperties": false,
+        "properties": {
+          "phase": {
+            "const": "reviewed",
+            "title": "Phase",
+            "type": "string"
+          },
+          "verdict": {
+            "enum": [
+              "pass",
+              "revise",
+              "regenerate",
+              "insufficient_source"
+            ],
+            "title": "Verdict",
+            "type": "string"
+          },
+          "checkedQuestionIds": {
+            "items": {
+              "enum": [
+                "essay-1",
+                "choice-1",
+                "blank-1"
+              ],
+              "type": "string"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Checkedquestionids",
+            "type": "array"
+          },
+          "findings": {
+            "items": {
+              "$ref": "#/$defs/Finding"
+            },
+            "title": "Findings",
+            "type": "array"
+          },
+          "rationale": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phase",
+          "verdict",
+          "checkedQuestionIds",
+          "findings",
+          "rationale"
+        ],
+        "title": "Review",
+        "type": "object"
+      },
+      "SingleChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "questionId": {
+            "const": "choice-1",
+            "title": "Questionid",
+            "type": "string"
+          },
+          "type": {
+            "const": "single_choice",
+            "title": "Type",
+            "type": "string"
+          },
+          "stem": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Stem",
+            "type": "string"
+          },
+          "options": {
+            "$ref": "#/$defs/Options"
+          },
+          "referenceAnswer": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ],
+            "title": "Referenceanswer",
+            "type": "string"
+          },
+          "explanation": {
+            "minLength": 1,
+            "pattern": "\\S",
+            "title": "Explanation",
+            "type": "string"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/$defs/Evidence"
+            },
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questionId",
+          "type",
+          "stem",
+          "options",
+          "referenceAnswer",
+          "explanation",
+          "evidence"
+        ],
+        "title": "SingleChoice",
+        "type": "object"
+      },
+      "SufficientPlan": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "sufficient",
+            "title": "Status",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/$defs/PlanItem"
+            },
+            "maxItems": 3,
+            "minItems": 3,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status",
+          "items"
+        ],
+        "title": "SufficientPlan",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "primary": {
+        "$ref": "#/$defs/QuestionState"
+      },
+      "references": {
+        "maxItems": 0,
+        "minItems": 0,
+        "title": "References",
+        "type": "array"
+      }
+    },
+    "required": [
+      "primary",
+      "references"
+    ],
+    "title": "StateEntry",
+    "type": "object",
+    "x-node-input-version": 1
+  }
+}

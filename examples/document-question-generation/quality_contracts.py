@@ -1,4 +1,3 @@
-# BEGIN GENERATED CONTRACTS
 """出题质量权威契约；由 sync_contracts.py 原样嵌入自包含资源，勿手改副本。"""
 import re
 from typing import Annotated, Literal
@@ -219,7 +218,3 @@ def verify_state(state):
         for finding in state.review.findings:
             verify_evidence(state.document, finding.evidence)
     return state
-# END GENERATED CONTRACTS
-
-Entry = GeneratorEntry
-Output = GeneratedQuestions

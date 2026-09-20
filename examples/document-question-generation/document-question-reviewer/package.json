@@ -1,7 +1,7 @@
 {
-  "packageId": "document-question-generator",
-  "version": "3.0.0",
-  "name": "依据规划出题",
+  "packageId": "document-question-reviewer",
+  "version": "1.0.0",
+  "name": "独立审题",
   "description": "完整文档出题质量流程的声明式模型环节。",
   "contractRefs": {
     "input": "models:Entry",

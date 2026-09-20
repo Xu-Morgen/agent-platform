@@ -221,5 +221,13 @@ def verify_state(state):
     return state
 # END GENERATED CONTRACTS
 
-Entry = GeneratorEntry
-Output = GeneratedQuestions
+from agent_platform.blocks import block
+
+@block(id='question-prepare-generation', version='1.0.0', name='准备出题上下文')
+def run(value: NodeInput[SufficientPlan | QuestionState, tuple[()]]) -> GenerationInput:
+    context = value.primary
+    if isinstance(context, QuestionState):
+        verify_state(context)
+        if not isinstance(context.review, Review) or context.review.verdict != 'regenerate':
+            quality_fail('重新出题要求 regenerate 审题状态')
+    return GenerationInput(context=context)

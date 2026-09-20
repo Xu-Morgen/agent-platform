@@ -221,5 +221,17 @@ def verify_state(state):
     return state
 # END GENERATED CONTRACTS
 
-Entry = GeneratorEntry
-Output = GeneratedQuestions
+from agent_platform.blocks import block
+
+@block(id='question-update-regeneration', version='1.0.0', name='采纳重新出题并计轮')
+def run(value: NodeInput[Questions, tuple[GenerationInput]]) -> QuestionState:
+    previous = value.references[0].context
+    if not isinstance(previous, QuestionState):
+        quality_fail('重新出题更新缺少原状态')
+    verify_state(previous)
+    if not isinstance(previous.review, Review) or previous.review.verdict != 'regenerate':
+        quality_fail('重新出题要求 regenerate 状态')
+    if previous.revision_rounds >= 2:
+        quality_fail('不能超过两轮修订')
+    return verify_state(QuestionState(document=previous.document, plan=previous.plan, current=value.primary,
+        review=AwaitingReview(phase='awaiting_review'), revision_rounds=previous.revision_rounds + 1))

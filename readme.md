@@ -34,7 +34,7 @@ Electron 自动启动后端；页面顶部显示实际地址。需要图形会�
 
 完整操作和可复制样例见 [三类资源指导手册](docs/resource-guide.md)、[样例入口](samples/README.md)。模型连接选项见 [模型协议](docs/protocols/model.md)。
 
-文档业务实例见 [文档出题](examples/document-question-generation/README.md)：本地读取 PDF/DOCX 与扫描件 OCR，按完整资料生成三种题目。已完成本地解析及离线协议验证；支持配置 DeepSeek 等线上 API，真实模型质量验收按用户要求暂缓。
+文档业务实例见 [文档出题](examples/document-question-generation/README.md)：本地读取 PDF/DOCX 与扫描件 OCR，按完整资料规划、生成三种题目、独立审题并最多修订两轮。已完成离线协议验证及 ds 环境下 10 次授权调用，真实定向修订和最终流程通过；人工评审与正式页面配置状态见[验收记录](docs/document-question-quality-validation.md)。
 
 2026-09-18 起业务包仅维护输入输出契约、可选参数和 Prompt；平台统一执行模型调用与严格校验。数据转换使用通用块。旧包迁移见 [包开发说明](samples/packages/README.md)。
 
@@ -49,7 +49,7 @@ Electron 自动启动后端；页面顶部显示实际地址。需要图形会�
 
 ## 后续开发与目录
 
-2026-09-20 已交付[节点输入机制与 Python 条件块](docs/archive/2026-09-20/node-input-and-python-conditions-plan.md)：执行协议 flow-5，统一 NodeInput、简单/高级参考、if/while 独立 Python 条件及历史协议隔离。samples 块/包同步升级为 2.0.0。轻量验证涵盖执行边界、实际块/API 子进程、任务闭环、Electron 表单交互和隔离 PostgreSQL 停库重启；没有安装依赖、打包或调用线上模型。下一目标为[文档出题质量与自主修订](docs/document-question-quality-plan.md)，规划、审题、有限修订及真实模型质量验收仍待开展。
+2026-09-20 已交付[节点输入机制与 Python 条件块](docs/archive/2026-09-20/node-input-and-python-conditions-plan.md)：执行协议 flow-5，统一 NodeInput、简单/高级参考、if/while 独立 Python 条件及历史协议隔离。samples 块/包同步升级为 2.0.0。轻量验证涵盖执行边界、实际块/API 子进程、任务闭环、Electron 表单交互和隔离 PostgreSQL 停库重启；没有安装依赖、打包或调用线上模型。[文档出题质量与自主修订](docs/archive/2026-09-20/document-question-quality-plan.md)已完成资源实现、有限修订离线验证及授权真实模型调用；人工评审、正式页面保存及重启恢复已通过，计划已完成归档。
 
 从 [文档导航](docs/README.md) 查看当前需求、架构和使用手册。[Agent 平台分步计划](docs/agent-platform-roadmap.md)定义本轮定位、已实现内容和后续步骤；[产品细化计划](docs/product-refinement.md)保留其他体验优化项；[三类资源优化计划](docs/resource-plan.md)分别定义通用块、业务包和契约的改进。已完成交付、清理记录和旧方案见 [历史归档](docs/archive/README.md)。
 

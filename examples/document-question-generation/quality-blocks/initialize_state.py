@@ -221,5 +221,10 @@ def verify_state(state):
     return state
 # END GENERATED CONTRACTS
 
-Entry = GeneratorEntry
-Output = GeneratedQuestions
+from agent_platform.blocks import block
+
+@block(id='question-initialize-state', version='1.0.0', name='初始化题目状态')
+def run(value: NodeInput[Questions, tuple[Document, SufficientPlan]]) -> QuestionState:
+    state = QuestionState(document=value.references[0], plan=value.references[1],
+                          current=value.primary, review=AwaitingReview(phase='awaiting_review'), revision_rounds=0)
+    return verify_state(state)

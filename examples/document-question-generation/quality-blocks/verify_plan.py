@@ -221,5 +221,12 @@ def verify_state(state):
     return state
 # END GENERATED CONTRACTS
 
-Entry = GeneratorEntry
-Output = GeneratedQuestions
+from agent_platform.blocks import block
+
+@block(id='question-verify-plan', version='1.0.0', name='核验出题规划')
+def run(value: NodeInput[Planning, tuple[Document]]) -> SufficientPlan:
+    decision = value.primary.decision
+    if isinstance(decision, InsufficientPlan):
+        quality_fail('资料不足：' + decision.reason, insufficient=True)
+    verify_plan(value.references[0], decision)
+    return decision
