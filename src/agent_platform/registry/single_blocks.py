@@ -29,7 +29,7 @@ class SingleBlockArtifact:
         from ..blocks.single import BlockMetadata
         return BlockMetadata.model_validate_json(self.metadata_json)
 
-    async def invoke(self, value, *, api=None):
+    async def invoke(self, value, *, api=None, context=None):
         from pydantic import ValidationError
         from ..validation_issues import validation_exception
         try:
@@ -38,7 +38,11 @@ class SingleBlockArtifact:
             raise validation_exception(exc, stage='block.input') from None
         if self.metadata.uses_api and api is None:
             raise invalid('API 通用块需要节点连接配置及任务上下文', ['api'])
-        result = self.entry(parsed, api=api) if self.metadata.uses_api else self.entry(parsed)
+        kwargs = {'api': api} if self.metadata.uses_api else {}
+        if 'context' in inspect.signature(self.entry).parameters:
+            from ..blocks.context import BlockContext
+            kwargs['context'] = context or BlockContext()
+        result = self.entry(parsed, **kwargs)
         if inspect.isawaitable(result):
             result = await result
         try:
@@ -59,14 +63,33 @@ def capture_file(path):
 
 
 class SingleBlockRegistry:
-    def __init__(self):
+    def __init__(self, *, local=False, manager=None):
         self._items = {}
+        self.local = local
+        self.manager = manager
 
     def load(self, path):
         return self.load_content(capture_file(path))
 
-    def load_content(self, content):
+    def load_content(self, content, *, locked=None, operation=None):
         try:
+            from .declarations import read_declaration
+            declaration = read_declaration(content.files['block.py'])
+            if not self.local:
+                from ..preparation.manager import RuntimeManager
+                from ..blocks.process import ProcessBlock
+                self.manager = self.manager or RuntimeManager()
+                environment = self.manager.prepare(declaration, locked=locked, operation=operation)
+                artifact = ProcessBlock(content, declaration, self.manager, environment, operation=operation)
+                key = (declaration.id, declaration.version)
+                existing = self._items.get(key)
+                if existing:
+                    if existing.content.digest != content.digest:
+                        raise invalid('同一块版本已有不同内容', ['version'], code='VERSION_CONFLICT')
+                    content.close()
+                    return existing
+                self._items[key] = artifact
+                return artifact
             tree = ast.parse(content.files['block.py'])
             imports = set()
             for node in ast.walk(tree):
@@ -86,12 +109,14 @@ class SingleBlockRegistry:
                 raise invalid('单文件必须恰有一个注册业务函数', ['entry'])
             fn = next(iter(functions.values()))
             metadata = fn.__block_metadata__
+            if metadata != declaration:
+                raise invalid('导入后的声明与静态声明不一致', ['entry'])
             declared = set()
             for raw in metadata.dependencies:
                 requirement = Requirement(raw)
                 if requirement.marker and not requirement.marker.evaluate():
                     continue
-                if requirement.url or requirement.extras or version(requirement.name) not in requirement.specifier:
+                if requirement.url or version(requirement.name) not in requirement.specifier:
                     raise invalid(f'依赖版本不满足：{requirement.name}', ['dependencies'], code='DEPENDENCY_ERROR')
                 declared.add(requirement.name.lower().replace('_', '-'))
             for module_name in imports - sys.stdlib_module_names - {'agent_platform', 'pydantic'}:
@@ -100,15 +125,21 @@ class SingleBlockRegistry:
             parameters = list(inspect.signature(fn).parameters.values())
             hints = get_type_hints(fn, include_extras=True)
             from ..blocks.api import BlockAPI
-            expected = 2 if metadata.uses_api else 1
+            from ..blocks.context import BlockContext
+            capabilities = ({'api': BlockAPI} if metadata.uses_api else {})
+            if 'context' in hints:
+                capabilities['context'] = BlockContext
+            expected = 1 + len(capabilities)
             if (len(parameters) != expected or parameters[0].kind not in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
                     or parameters[0].default is not inspect.Parameter.empty
-                    or set(hints) != {parameters[0].name, 'return', *(['api'] if metadata.uses_api else [])}):
+                    or set(hints) != {parameters[0].name, 'return', *capabilities}):
                 raise invalid('块须有一个无默认值的输入参数及返回注解；API 块另声明关键字参数 api: BlockAPI', ['entry'])
-            if metadata.uses_api and (parameters[1].name != 'api' or parameters[1].kind != inspect.Parameter.KEYWORD_ONLY
-                    or parameters[1].default is not inspect.Parameter.empty or hints['api'] is not BlockAPI
-                    or not inspect.iscoroutinefunction(fn)):
-                raise invalid('API 块须为 async 函数并声明无默认值的关键字参数 api: BlockAPI', ['entry'])
+            for parameter in parameters[1:]:
+                if (parameter.name not in capabilities or parameter.kind != inspect.Parameter.KEYWORD_ONLY
+                        or parameter.default is not inspect.Parameter.empty or hints[parameter.name] is not capabilities[parameter.name]):
+                    raise invalid('能力参数须为无默认值的关键字参数 api: BlockAPI 或 context: BlockContext', ['entry'])
+            if metadata.uses_api and not inspect.iscoroutinefunction(fn):
+                raise invalid('API 块须为 async 函数', ['entry'])
             artifact = SingleBlockArtifact(metadata.model_dump_json(), content, fn,
                 strict_adapter(hints[parameters[0].name]), strict_adapter(hints['return']))
             key = (metadata.id, metadata.version)

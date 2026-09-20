@@ -1,0 +1,166 @@
+{
+  "$defs": {
+    "IndexSource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "index",
+          "title": "Kind",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "url"
+      ],
+      "title": "IndexSource",
+      "type": "object"
+    },
+    "ModelFile": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "filename": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Filename",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "url",
+        "sha256",
+        "filename"
+      ],
+      "title": "ModelFile",
+      "type": "object"
+    },
+    "WheelSource": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "wheel",
+          "title": "Kind",
+          "type": "string"
+        },
+        "package": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+          "title": "Package",
+          "type": "string"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "package",
+        "url",
+        "sha256"
+      ],
+      "title": "WheelSource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "dependencies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Dependencies",
+      "type": "array"
+    },
+    "dependencySources": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "index": "#/$defs/IndexSource",
+            "wheel": "#/$defs/WheelSource"
+          },
+          "propertyName": "kind"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/IndexSource"
+          },
+          {
+            "$ref": "#/$defs/WheelSource"
+          }
+        ]
+      },
+      "title": "Dependencysources",
+      "type": "array"
+    },
+    "models": {
+      "items": {
+        "$ref": "#/$defs/ModelFile"
+      },
+      "title": "Models",
+      "type": "array"
+    },
+    "id": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[A-Za-z0-9.-]+)?$",
+      "title": "Version",
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "usesApi": {
+      "default": false,
+      "title": "Usesapi",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "name"
+  ],
+  "title": "BlockMetadata",
+  "type": "object"
+}

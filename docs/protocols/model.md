@@ -23,3 +23,7 @@
 依据：[OpenAI Chat Completions API](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)。默认发送 `max_completion_tokens`；兼容服务仅支持旧参数时，环境显式设置 `outputTokenParameter: "max_tokens"`。默认 `jsonMode: true` 发送 `response_format: {"type":"json_object"}`；不支持该参数的端点可以显式设为 false，平台仍要求响应内容为合法 JSON。不会自动重试或更换参数。
 
 仅接受单个 choice、finish_reason=stop、assistant 文本，拒绝截断、工具调用、拒绝回答和非法 JSON。prompt_tokens 和 completion_tokens 必须为非负整数；total_tokens 若提供则必须与两者之和相等。推理 token 明细不再重复累计。exact 表示采用供应商报告计数，不代表已验证远程计费。缺少 usage 返回 unsupported，预算策略明确失败。请求前限制单次输出，响应后累计检查节点和全局额度；单次请求可能超额，不提供严格上界保证。
+
+包资料不足时允许返回平台保留对象 `{"error":"INSUFFICIENT_INPUT"}`，记账后以 PACKAGE_INPUT_INSUFFICIENT 失败，不作为格式错误重试。成功业务 Schema 不包含该对象。完整 Prompt 和正文始终原样发送，平台没有统一 tokenizer 预检；供应商明确返回 context_length_exceeded、context_window_exceeded 或 max_context_length_exceeded 时映射为 MODEL_CONTEXT_EXCEEDED，不回显上游原文。其他 HTTP 错误保持原有状态与传输语义。
+
+DeepSeek 地址、模型与额度配置见 [文档出题的线上接入说明](../../examples/document-question-generation/README.md#线上模型与-deepseek)。桌面输入 api.deepseek.com 地址时自动使用 max_tokens；其他服务的参数可以通过 HTTP 环境配置显式指定。

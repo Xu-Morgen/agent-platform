@@ -496,7 +496,21 @@ const flowEditor = (() => {
     controls.forEach(control=>control.disabled=true);
     loadStatus('loading','正在读取并校验'+kindNames[body.kind]+'…\n路径：'+body.path);
     try {
-      const response = await window.agentPlatform.loadResource(body);
+      let response = await window.agentPlatform.prepareResource(body);
+      if (response.ok) {
+        const jobId = response.data.jobId;
+        $('load-cancel').hidden = false;
+        $('load-cancel').onclick = () => window.agentPlatform.cancelPreparation(jobId);
+        const phases = {check:'检查声明与依赖',download:'下载',install:'安装',verify:'验证',ready:'就绪',failed:'失败',cancelled:'已取消'};
+        while (response.ok && !['ready','failed','cancelled'].includes(response.data.phase)) {
+          const state = response.data;
+          loadStatus('loading',(phases[state.phase] || state.phase) + (state.source ? '\n来源：'+state.source : '') +
+            (state.downloadedBytes !== undefined ? '\n已下载 '+state.downloadedBytes+' 字节'+(state.totalBytes !== null && state.totalBytes !== undefined ? ' / '+state.totalBytes+' 字节' : '') : ''));
+          await new Promise(resolve=>setTimeout(resolve,350));
+          response = await window.agentPlatform.preparationStatus(jobId);
+        }
+        if (response.ok) response = response.data.phase === 'ready' ? {ok:true,data:response.data.resource} : {ok:false,error:response.data.error};
+      }
       if (!response.ok) {
         loadStatus('error','加载失败：'+loadError(response.error)+'\n路径：'+body.path);return;
       }
@@ -512,6 +526,7 @@ const flowEditor = (() => {
     } catch {
       loadStatus('error','未能确认加载结果：桌面与后端通信失败，请重试加载（相同资源不会重复录入）。\n路径：'+body.path);
     } finally {
+      $('load-cancel').hidden = true;
       controls.forEach((control,index)=>control.disabled=disabled[index]);
       loadingResource = false;
     }

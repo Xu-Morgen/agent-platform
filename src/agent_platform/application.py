@@ -1,6 +1,6 @@
 """后端应用及就绪生命周期。"""
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from .contracts.environments import Environment, EnvironmentWrite
 from .contracts.connection_tools import ModelListRequest, ModelListResult, ConnectionTestRequest, ConnectionTestResult
 from .contracts.services import ServiceWrite, ServiceView, ServiceSchema, VersionView, ActivateRequest, FlowHistory
@@ -20,10 +20,12 @@ async def lifespan(app: FastAPI):
         app.state.ready = False
         try:
             await app.state.connection_tools.close()
+            await app.state.preparations.close()
             await app.state.worker.stop()
         finally:
             app.state.credentials.clear()
             app.state.catalog.close()
+            app.state.files.close()
             app.state.store.close()
 
 
@@ -58,6 +60,8 @@ def _create_app(store) -> FastAPI:
     from .services import ServiceManager
     app.state.packages = PackageRegistry()
     app.state.catalog = ModuleCatalog(app.state.packages, store)
+    from .preparation.jobs import PreparationJobs
+    app.state.preparations = PreparationJobs(app.state.catalog)
     from .flows.drafts import DraftRepository, preflight
     from .contracts.drafts import DraftWrite, DraftDocument
     app.state.drafts = DraftRepository(store)
@@ -66,10 +70,22 @@ def _create_app(store) -> FastAPI:
     from .repositories.runs import RunRepository
     from .runtime.submission import RunSubmission
     app.state.runs = RunRepository(store)
-    app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs)
+    from .storage.files import TaskFiles
+    from .contracts.files import FileReference
+    import os
+    app.state.files = TaskFiles(store, max_bytes=int(os.environ.get('AGENT_PLATFORM_FILE_MAX_BYTES', 50 * 1024 * 1024)))
+    app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs, app.state.files)
 
     from .runtime.worker import RunWorker
     app.state.worker = RunWorker(app.state.submission)
+
+    @app.post('/api/v1/files', response_model=FileReference, status_code=201)
+    async def upload_file(request: Request, name: str = Query(min_length=1, max_length=255)):
+        return await app.state.files.save(name, request.stream())
+
+    @app.delete('/api/v1/files/{file_id}', status_code=204)
+    async def remove_file(file_id: str):
+        app.state.files.remove(file_id)
 
     @app.get('/api/v1/platform')
     async def platform_info():
@@ -101,7 +117,14 @@ def _create_app(store) -> FastAPI:
 
     @app.post('/api/v1/runs', response_model=Run, status_code=202)
     async def submit_run(value: RunSubmit):
-        return app.state.submission.submit(value)
+        import asyncio
+        from .flows.execution import checked
+        snapshot = app.state.services.resolve_current(value.service_id)
+        request = value.model_copy(deep=True)
+        if request.expected_instance_id is None:
+            request.expected_instance_id = snapshot.instance_id
+        parsed = await asyncio.to_thread(checked, snapshot.catalog.contract(snapshot.draft.input_contract), value.input, 'runs.input')
+        return app.state.submission.submit(request, validated_input=parsed)
 
     @app.post('/api/v1/drafts', response_model=DraftDocument, status_code=201)
     async def create_draft(value: DraftWrite):
@@ -138,7 +161,29 @@ def _create_app(store) -> FastAPI:
 
     @app.post('/api/v1/catalog/load', response_model=CatalogResource)
     async def catalog_load(value: CatalogLoad):
-        return app.state.catalog.load(value)
+        import asyncio
+        job = app.state.preparations.start(value)
+        try:
+            await asyncio.shield(app.state.preparations.tasks[job['jobId']])
+        except asyncio.CancelledError:
+            app.state.preparations.cancel(job['jobId'])
+            raise
+        result = app.state.preparations.get(job['jobId'])
+        if result['error']:
+            raise PlatformError(ErrorResponse.model_validate(result['error']), 422)
+        return result['resource']
+
+    @app.post('/api/v1/preparations', status_code=202)
+    async def prepare_resource(value: CatalogLoad):
+        return app.state.preparations.start(value)
+
+    @app.get('/api/v1/preparations/{job_id}')
+    async def preparation_status(job_id: str):
+        return app.state.preparations.get(job_id)
+
+    @app.post('/api/v1/preparations/{job_id}/cancel')
+    async def cancel_preparation(job_id: str):
+        return app.state.preparations.cancel(job_id)
 
     @app.get('/api/v1/catalog', response_model=list[CatalogResource])
     async def catalog_list():

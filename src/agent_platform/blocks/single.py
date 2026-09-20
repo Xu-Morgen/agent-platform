@@ -5,20 +5,21 @@ from pydantic import BaseModel, TypeAdapter, JsonValue
 from ..contracts.base import StrictModel
 from ..contracts.packages import Identifier, Version
 from pydantic import Field
+from ..contracts.dependencies import RuntimeDeclaration
 
 
-class BlockMetadata(StrictModel):
+class BlockMetadata(RuntimeDeclaration):
     id: Identifier
     version: Version
     name: str = Field(min_length=1)
     description: str = ''
-    dependencies: list[str] = Field(default_factory=list)
     uses_api: bool = False
 
 
-def block(*, id, version, name, description='', dependencies=(), api=False):
+def block(*, id, version, name, description='', dependencies=(), dependencySources=(), models=(), api=False):
     metadata = BlockMetadata(id=id, version=version, name=name, description=description,
-                             dependencies=list(dependencies), uses_api=api)
+                             dependencies=list(dependencies), dependency_sources=list(dependencySources),
+                             models=list(models), uses_api=api)
     def register(function):
         function.__block_metadata__ = metadata
         return function

@@ -46,11 +46,17 @@ class ModuleCatalog:
         self._sources = {}
         from ..storage.sources import decode_source
         from ..contracts.catalog import CatalogLoad
+        sealed = []
         for resource_id, document in self.store.read('resources').items():
             request = CatalogLoad(kind=document['kind'], path='<stored-source>', symbol=document.get('symbol'))
-            view = self._load(request, decode_source(document))
+            view = self._load(request, decode_source(document), locked=document.get('runtimeLock'))
             if view.resource_id != resource_id:
                 raise ValueError('持久资源标识与源码不一致')
+            if document['kind'] == 'block' and 'runtimeLock' not in document:
+                sealed.append(('resources', resource_id, {**document, 'runtimeLock': self._artifacts[resource_id].runtime_lock}))
+        if sealed:
+            # 旧记录从未保存依赖锁；首次成功恢复时固定当前已验证环境，保留源码及历史身份。
+            self.store.write(sealed)
 
     def close(self):
         for content in self._sources.values():
@@ -79,12 +85,13 @@ class ModuleCatalog:
     def list(self):
         return [self.get(key) for key in sorted(self._views)]
 
-    def load(self, request):
+    def load(self, request, *, operation=None):
         from ..storage.sources import encode_source
         # 先在独立目录校验；持久化失败不得向当前目录发布半成功资源。
         from .packages import PackageRegistry
         candidate = ModuleCatalog(PackageRegistry())
-        view = candidate._load(request)
+        candidate.blocks.manager = self.blocks.manager
+        view = candidate._load(request, operation=operation)
         if view.resource_id in self._views:
             for source in candidate._sources.values():
                 source.close()
@@ -99,7 +106,11 @@ class ModuleCatalog:
                 raise invalid('同一资源版本已有不同内容', ['version'], code='VERSION_CONFLICT')
         content = candidate._sources[view.resource_id]
         document = encode_source(content, request.kind, request.symbol)
+        if artifact and request.kind == 'block':
+            document['runtimeLock'] = artifact.runtime_lock
         try:
+            if operation:
+                operation.check()
             self.store.write([('resources', view.resource_id, document)])
         except Exception:
             content.close()
@@ -113,7 +124,7 @@ class ModuleCatalog:
         self._sources[view.resource_id] = content
         return self.get(view.resource_id)
 
-    def _load(self, request, captured=None):
+    def _load(self, request, captured=None, *, locked=None, operation=None):
         content = None
         try:
             if captured is None:
@@ -141,7 +152,10 @@ class ModuleCatalog:
                 self._contents.append(content)
             else:
                 registry = self.packages if request.kind == 'package' else self.blocks
-                artifact = registry.load_content(captured) if captured else registry.load(request.path)
+                if request.kind == 'block':
+                    artifact = registry.load_content(captured or capture_file(request.path), locked=locked, operation=operation)
+                else:
+                    artifact = registry.load_content(captured) if captured else registry.load(request.path)
                 content = artifact.content
                 meta = artifact.manifest if request.kind == 'package' else artifact.metadata
                 identifier = meta.package_id if request.kind == 'package' else meta.id
@@ -161,6 +175,7 @@ class ModuleCatalog:
                 view = CatalogResource(resource_id=resource_id, kind=request.kind, name=meta.name,
                     description=meta.description, version=meta.version, digest=artifact.content.digest,
                     schemas=schemas, api_required=meta.uses_api if request.kind == 'block' else False,
+                    runtime={'key': artifact.environment['key'], 'lock': artifact.runtime_lock} if request.kind == 'block' else None,
                     budget_defaults=(meta.budget_defaults or NodeBudget()) if request.kind == 'package' else None, **refs)
                 self._artifacts[resource_id] = artifact
             self._sources[resource_id] = content

@@ -1,4 +1,6 @@
 """顺序完整输入与有界重试：真实通用块、记录和预算；模型测试不访问网络。"""
+import json
+from collections.abc import MutableMapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -19,6 +21,20 @@ from agent_platform.runtime.boundary import Boundary, current_boundary
 from agent_platform.runtime.budgets import LoopPolicy, TokenPolicy
 from agent_platform.runtime.context import current_context
 from agent_platform.storage import MemoryStore
+
+
+class ProcessState(MutableMapping):
+    """测试计数写入临时文件，跨子进程观察真实调用次数。"""
+    def __init__(self, path): self.path = path
+    def __getitem__(self, key): return json.loads(self.path.read_text())[key]
+    def __setitem__(self, key, value):
+        data = json.loads(self.path.read_text()); data[key] = value
+        self.path.write_text(json.dumps(data))
+    def __delitem__(self, key):
+        data = json.loads(self.path.read_text()); del data[key]
+        self.path.write_text(json.dumps(data))
+    def __iter__(self): return iter(json.loads(self.path.read_text()))
+    def __len__(self): return len(json.loads(self.path.read_text()))
 
 
 class RetryChecks(unittest.IsolatedAsyncioTestCase):
@@ -46,11 +62,18 @@ def run(value: int) -> int:
 
     def load(self, name, source):
         path = Path(self.directory.name) / (name + '.py')
+        if 'calls = 0' in source:
+            state_path = Path(self.directory.name) / (name + '.state.json')
+            state_path.write_text(json.dumps(dict(calls=0, failures=2, error_code='API_TRANSPORT_ERROR', error_stage='api.transport')))
+            source = source.replace('calls = 0', '').replace('failures = 2', '').replace("error_code = 'API_TRANSPORT_ERROR'", '').replace("error_stage = 'api.transport'", '')
+            prelude = f"import json\nfrom pathlib import Path\n_state_path = Path({str(state_path)!r})\n_state = json.loads(_state_path.read_text())\nglobals().update(_state)\n"
+            source = prelude + source.replace('    calls += 1', '    calls += 1\n    _state.update(calls=calls)\n    _state_path.write_text(json.dumps(_state))')
         path.write_text('from agent_platform.blocks import block\n' + source)
         return self.catalog.load(CatalogLoad(kind='block', path=str(path)))
 
     def globals(self, resource):
-        return self.catalog.artifact(resource.resource_id).entry.__globals__
+        name = self.catalog.artifact(resource.resource_id).metadata.id
+        return ProcessState(Path(self.directory.name) / (name + '.state.json'))
 
     def draft(self, retry=3):
         return FlowDraft.model_validate({

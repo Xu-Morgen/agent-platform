@@ -2,7 +2,7 @@
 
 当前迭代入口：[Agent 平台定位与分步计划](agent-platform-roadmap.md)、[桌面 PostgreSQL 持久化与验证](persistence.md)。
 
-更新日期：2026-09-18。顶层只保留当前需求、架构、未完成计划和资源使用入口；已完成交付与过时设计集中保存在归档区。
+更新日期：2026-09-20。顶层只保留当前需求、架构、未完成计划和资源使用入口；已完成交付与过时设计集中保存在归档区。
 
 ## 当前文档
 
@@ -13,6 +13,9 @@
 | [产品细化计划](product-refinement.md) | 选择后续 R1–R4 工作，查看优先级与验收目标 |
 | [三类资源专项计划](resource-plan.md) | 推进通用块、Prompt 业务包和独立契约的体验改进 |
 | [资源指导手册](resource-guide.md) | 查找模板、配置说明、加载、接线和调用步骤 |
+| [依赖、模型下载和文件输入改造计划](platform-files-and-dependencies-plan.md) | 实施通用块自动准备、独立环境执行和任务文件上传 |
+| [文档出题实例计划](document-question-generation-plan.md) | 实施 RapidOCR 文档通用块、出题业务包及三种契约 |
+| [文档出题实例使用说明](../examples/document-question-generation/README.md) | 加载实例资源、配置 DeepSeek 等线上模型、复现本地 OCR 验收 |
 
 启动和使用见 [项目入口](../readme.md)，开发约定见 [AGENT.md](../AGENT.md)。模型接入与桌面进程通信按需查看 [模型协议](protocols/model.md) 和 [控制协议](protocols/control.md)。
 
@@ -29,3 +32,5 @@
 [历史文档归档](archive/README.md) 保存 I1–I8 任务卡、交付证据、清理记录、旧迭代索引及精简前的需求与架构原文。历史阻塞状态、旧命令和旧协议只用于追溯，不作为当前开发入口。
 
 新增文档优先补充现有主题；已完成记录或被替代的方案移入 `archive/日期/`，保留原文与归档说明，并同步修复引用。协议细节继续放在 `protocols/`，顶层导航仅链接仍需维护的内容。
+
+- [平台运行文件与依赖](platform-runtime-files.md)：静态声明、准备状态、独立执行环境、文件上传与上下文。

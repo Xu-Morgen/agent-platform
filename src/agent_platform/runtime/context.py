@@ -70,6 +70,7 @@ class RunContext:
             raise PlatformError(step.error) from None
         finally:
             steps = self.runs.get(self.run_id).steps
+            step.progress = steps[index].progress
             steps[index] = step
             self.runs.update(self.run_id, steps=steps)
 

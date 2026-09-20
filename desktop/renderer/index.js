@@ -120,14 +120,28 @@ function highlightHistoryTask() {
 function taskFailure(error) {
   return `${error.code} · ${error.stage}：${errorText(error)}`;
 }
-function showTaskService() {
+let taskSchemaGeneration = 0;
+async function showTaskService() {
+  const generation = ++taskSchemaGeneration;
   const selected = services.find(s=>s.serviceId===taskServiceSelect.value);
   document.querySelector('#task-current').textContent = selected
     ? `当前版本 ${selected.current.version} · ${selected.name} · 提交后固定使用该版本执行` : '请选择已保存的服务，或前往服务配置创建一个服务。';
   document.querySelector('#task-submit').disabled=!selected || taskSubmitting;
   document.querySelector('#task-example').disabled=!selected;
   taskInputNotice('');
+  window.taskFiles.setSchema({});
+  if (selected) {
+    document.querySelector('#task-submit').disabled = true;
+    const response = await window.agentPlatform.serviceSchema(selected.serviceId);
+    if (generation !== taskSchemaGeneration) return;
+    if (!response.ok) { taskInputNotice(taskFailure(response.error),true);return; }
+    window.taskFiles.setSchema(response.data.input);
+    document.querySelector('#task-submit').disabled = taskSubmitting || window.taskFiles.pending;
+  }
 }
+window.addEventListener('task-files-change', () => { document.querySelector('#task-submit').disabled = !taskServiceSelect.value || taskSubmitting || window.taskFiles.pending; });
+window.addEventListener('task-files-error', event => taskInputNotice(event.detail, true));
+window.addEventListener('task-files-notice', event => taskInputNotice(event.detail));
 taskServiceSelect.addEventListener('change',showTaskService);
 document.querySelector('#task-example').addEventListener('click', async () => {
   const id=taskServiceSelect.value;
@@ -187,6 +201,8 @@ async function pollTask(runId, generation) {
     const caption=`${kindNames[step.kind] || step.kind} · 尝试 ${step.attempt}${step.packageBindingId ? ' · 包 '+step.packageBindingId : ''}${step.executionPath?.length ? ' · '+step.executionPath.join(' / ') : ''}`;
     item.append(taskElement('p',caption,'step-caption'));
     if(step.error)item.append(taskElement('p',taskFailure(step.error),'task-error'));
+    if(step.progress && Object.keys(step.progress).length)item.append(taskElement('p',
+      (step.progress.message || step.progress.phase || '') + (step.progress.current != null ? ` · ${step.progress.current}${step.progress.total != null ? ' / '+step.progress.total : ''}` : ''),'step-caption'));
     if(step.output!==null || Object.keys(step.usage).length){
       const detail=document.createElement('details');detail.dataset.stepKey=JSON.stringify([index,step.stepId,step.attempt,step.executionPath]);detail.open=opened.has(detail.dataset.stepKey);
       detail.append(taskElement('summary','查看步骤输出与用量'));
@@ -236,14 +252,14 @@ document.querySelector('#task-form').addEventListener('submit', async event => {
   try {
     const selected = services.find(value => value.serviceId === taskServiceSelect.value);
     if (!selected) { taskInputNotice('请先选择已保存的服务',true); return; }
-    const input = JSON.parse(document.querySelector('#task-input').value);
+    const input = window.taskFiles.input(JSON.parse(document.querySelector('#task-input').value));
     const response = await window.agentPlatform.submitRun({ serviceId: selected.serviceId, expectedInstanceId: selected.activeInstanceId, input });
     if (!response.ok) { taskInputNotice(taskFailure(response.error),true); return; }
     taskInputNotice('任务已提交，可在任务详情中查看运行状态。');focusTaskInspection();
     await watchTask(response.data.runId);
     await refreshRunHistory();
   } catch (error) {
-    taskInputNotice(error instanceof SyntaxError ? 'JSON 格式无效，请检查引号、逗号和括号。' : '任务请求失败，请稍后重试。',true);
+    taskInputNotice(error instanceof SyntaxError ? 'JSON 格式无效，请检查引号、逗号和括号。' : error.message || '任务请求失败，请稍后重试。',true);
   } finally { taskSubmitting=false;button.disabled=!taskServiceSelect.value; }
 });
 document.querySelector('#task-query-form').addEventListener('submit', event => {

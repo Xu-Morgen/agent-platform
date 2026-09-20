@@ -3,6 +3,7 @@ import json
 import re
 from ..contracts.base import StrictModel
 from ..contracts.models import ModelRequest
+from ..contracts.errors import ErrorResponse, PlatformError
 from .validation import validate
 
 _PLACEHOLDER = re.compile(r'\{\{\s*((?:input|parameters)(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*\}\}')
@@ -38,9 +39,12 @@ async def invoke_prompt(runtime, node_id, artifact, value):
     prompt = render_prompt(artifact.content.read_resource(manifest.prompt).decode('utf-8'), parsed, parameters)
     output_model = artifact.content.load(manifest.contract_refs.output)
     request = ModelRequest(messages=[
-        {'role': 'system', 'content': '根据用户消息中的任务返回 JSON，不输出 Markdown 或额外说明。输出必须符合以下 JSON Schema：\n'
+        {'role': 'system', 'content': '根据用户消息中的任务返回 JSON，不输出 Markdown 或额外说明。资料不足以完成任务时仅返回 {"error":"INSUFFICIENT_INPUT"}。成功输出必须符合以下 JSON Schema：\n'
          + json.dumps(output_model.model_json_schema(by_alias=True), ensure_ascii=False)},
         {'role': 'user', 'content': prompt},
     ], max_output_tokens=config.max_output_tokens)
     response = await runtime.call_model(node_id, request)
+    if response.output == {'error': 'INSUFFICIENT_INPUT'}:
+        raise PlatformError(ErrorResponse(code='PACKAGE_INPUT_INSUFFICIENT', stage=stage,
+                                          message='输入资料不足以完成本步骤，请补充资料后重新提交'))
     return validate(output_model, response.output, stage + '.output')

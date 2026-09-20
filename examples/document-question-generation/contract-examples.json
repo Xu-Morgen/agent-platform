@@ -1,0 +1,82 @@
+{
+  "fileInput": {
+    "document": {
+      "fileId": "file_00000000000000000000000000000000",
+      "originalName": "example.pdf",
+      "format": "pdf",
+      "size": 123,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "material": {
+    "fileName": "example.pdf",
+    "text": "液态水蒸发成为水蒸气。水蒸气冷却凝结成液态水。降水使水回到地面。"
+  },
+  "validOutput": {
+    "questions": [
+      {
+        "type": "essay",
+        "stem": "说明蒸发的过程。",
+        "referenceAnswer": "液态水变为水蒸气。",
+        "scoringPoints": [
+          "液态变为气态"
+        ]
+      },
+      {
+        "type": "single_choice",
+        "stem": "水蒸气冷却后形成哪种状态的水？",
+        "options": {
+          "A": "液态",
+          "B": "等离子态",
+          "C": "保持气态",
+          "D": "无法确定"
+        },
+        "referenceAnswer": "A",
+        "explanation": "资料指出水蒸气冷却凝结为液态水。"
+      },
+      {
+        "type": "fill_blank",
+        "stem": "水循环中液态水转变为水蒸气的过程叫____。",
+        "referenceAnswers": [
+          "蒸发"
+        ]
+      }
+    ]
+  },
+  "invalidOutputs": [
+    {
+      "questions": []
+    },
+    {
+      "questions": [
+        {
+          "type": "fill_blank",
+          "stem": "水循环中液态水转变为水蒸气的过程叫____。",
+          "referenceAnswers": [
+            "蒸发"
+          ]
+        },
+        {
+          "type": "single_choice",
+          "stem": "水蒸气冷却后形成哪种状态的水？",
+          "options": {
+            "A": "液态",
+            "B": "等离子态",
+            "C": "保持气态",
+            "D": "无法确定"
+          },
+          "referenceAnswer": "A",
+          "explanation": "资料指出水蒸气冷却凝结为液态水。"
+        },
+        {
+          "type": "essay",
+          "stem": "说明蒸发的过程。",
+          "referenceAnswer": "液态水变为水蒸气。",
+          "scoringPoints": [
+            "液态变为气态"
+          ]
+        }
+      ]
+    }
+  ]
+}

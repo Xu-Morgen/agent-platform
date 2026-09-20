@@ -107,6 +107,7 @@
         <p id="load-hint" class="field-hint"></p>
         <label id="load-symbol-label" hidden>契约类名 <input id="load-symbol" placeholder="例如 Text"></label>
         <button id="load-submit">加载资源</button>
+        <button id="load-cancel" type="button" hidden>取消准备</button>
       </form>
       <p id="load-result" role="status"></p>
         </details>
@@ -162,6 +163,7 @@
             <label for="task-input">任务输入 <span class="required-mark">*</span></label>
             <div class="input-tools"><button id="task-example" type="button">填入服务样例</button><button id="task-format" type="button">格式化 JSON</button></div>
             <textarea id="task-input" rows="9" required spellcheck="false" aria-describedby="task-input-notice">{}</textarea>
+            <div id="task-files" aria-live="polite"></div>
             <p id="task-input-notice" class="inline-status" role="status"></p>
             <button id="task-submit" type="submit" class="primary-button">提交并运行</button>
           </form>
@@ -206,6 +208,7 @@
   <script src="router.js"></script>
   <script src="connection-tools.js"></script>
   <script src="flow-editor.js"></script>
+  <script src="task-files.js"></script>
   <script src="index.js"></script>
 </body>
 </html>

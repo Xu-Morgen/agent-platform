@@ -1,0 +1,44 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "fileId": {
+      "pattern": "^file_[a-f0-9]{32}$",
+      "title": "Fileid",
+      "type": "string"
+    },
+    "originalName": {
+      "maxLength": 255,
+      "minLength": 1,
+      "pattern": "^[^/\\\\\\x00-\\x1f]+$",
+      "title": "Originalname",
+      "type": "string"
+    },
+    "format": {
+      "enum": [
+        "pdf",
+        "docx"
+      ],
+      "title": "Format",
+      "type": "string"
+    },
+    "size": {
+      "exclusiveMinimum": 0,
+      "title": "Size",
+      "type": "integer"
+    },
+    "sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "fileId",
+    "originalName",
+    "format",
+    "size",
+    "sha256"
+  ],
+  "title": "FileReference",
+  "type": "object"
+}

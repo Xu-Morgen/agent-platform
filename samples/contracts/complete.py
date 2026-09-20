@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 from agent_platform.contracts.base import StrictModel
+from agent_platform.contracts.files import TaskFile
 
 ItemId = Annotated[str, Field(pattern=r'^[a-z][a-z0-9-]{0,31}$')]
 Score = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
@@ -25,6 +26,7 @@ class Item(StrictModel):
 
 
 class Input(StrictModel):
+    attachment: TaskFile | None = Field(default=None, description='可选已保存任务附件；页面根据契约显示选择控件')
     items: list[Item] = Field(min_length=1, max_length=20, description='待处理条目')
     note: str | None = Field(description='必填但可为 null；没有默认值')
     language: Literal['zh', 'en'] = Field(default='zh', description='输出语言')

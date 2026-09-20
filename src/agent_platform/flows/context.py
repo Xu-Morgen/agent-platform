@@ -19,8 +19,17 @@ class FlowRunContext(RunContext):
         if artifact.metadata.uses_api:
             binding = self.snapshot.draft.node_configurations[node_id].api
             api = BlockAPI(self.connection(binding), self.api_transport, path=binding.path)
+        from ..blocks.context import BlockContext
+        def progress(event):
+            steps = self.runs.get(self.run_id).steps
+            for step in reversed(steps):
+                if step.step_id == 'nodes.' + node_id and step.kind == 'block' and step.status == 'running':
+                    step.progress = event
+                    self.runs.update(self.run_id, steps=steps)
+                    break
+        context = BlockContext(files=getattr(self, 'files', None), run_id=self.run_id, progress=progress)
         return await self.run_step('nodes.' + node_id,
-            lambda: artifact.invoke(value, api=api), kind='block')
+            lambda: artifact.invoke(value, api=api, context=context), kind='block')
 
     async def call_model(self, node_id, value):
         binding = self.snapshot.draft.node_configurations[node_id].model

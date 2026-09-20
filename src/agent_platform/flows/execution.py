@@ -55,6 +55,11 @@ def plain(value):
 def checked(contract, value, stage):
     try:
         return contract.adapter.validate_python(plain(value), strict=True)
+    except PlatformError as exc:
+        if exc.error.code in ('CONTRACT_VALIDATION_ERROR', 'OUTPUT_VALIDATION_ERROR'):
+            exc.error.stage = stage
+            exc.error.code = 'OUTPUT_VALIDATION_ERROR' if stage.endswith('output') else 'CONTRACT_VALIDATION_ERROR'
+        raise
     except ValidationError as exc:
         from ..validation_issues import validation_exception
         raise validation_exception(exc, stage=stage,
@@ -90,7 +95,7 @@ class FlowExecutor:
     graph: object
 
     async def run(self, value, *, recursion_limit=10000):
-        value = checked(self.catalog.contract(self.draft.input_contract), value, 'flow.input')
+        value = await asyncio.to_thread(checked, self.catalog.contract(self.draft.input_contract), value, 'flow.input')
         token = step_counter.set([0, recursion_limit])
         try:
             await boundary('start', 'flow')
@@ -119,7 +124,7 @@ def compile_flow(draft, catalog):
             stage = 'nodes.' + node.node_id
             try:
                 view = catalog.get(node.artifact_ref)
-                value = checked(catalog.contract(view.input_contract), resolve(source, state), stage + '.input')
+                value = await asyncio.to_thread(checked, catalog.contract(view.input_contract), resolve(source, state), stage + '.input')
                 context = current_context.get()
                 if node.kind == 'block':
                     operation = lambda: catalog.artifact(node.artifact_ref).invoke(plain(value))
@@ -128,10 +133,10 @@ def compile_flow(draft, catalog):
                     if context is None:
                         raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage=stage, message='包执行需要任务上下文'))
                     result = await context.invoke_package(node.node_id, plain(value))
-                result = checked(catalog.contract(view.output_contract), result, stage + '.output')
+                result = await asyncio.to_thread(checked, catalog.contract(view.output_contract), result, stage + '.output')
                 if next_contract:
                     try:
-                        checked(catalog.contract(next_contract), result, stage + '.output')
+                        await asyncio.to_thread(checked, catalog.contract(next_contract), result, stage + '.output')
                     except PlatformError as exc:
                         exc.error.source_node_id = node.node_id
                         exc.error.message = ('输出不符合下一步输入契约' if next_node else '输出不符合服务输出契约') + '：' + exc.error.message
@@ -182,7 +187,7 @@ def compile_flow(draft, catalog):
                 def branch_run(node, compiled, bindings):
                     async def run(state):
                         child = await compiled.ainvoke(state.model_dump())
-                        value = checked(catalog.contract(node.output_contract),
+                        value = await asyncio.to_thread(checked, catalog.contract(node.output_contract),
                             bound_value(bindings, FlowState.model_validate(child)), 'nodes.' + node.node_id + '.output')
                         return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(value)}}
                     return run
@@ -201,7 +206,7 @@ def compile_flow(draft, catalog):
                 def loop_run(node, child, condition_graph):
                     async def run(state):
                         contract = catalog.contract(node.carry.contract)
-                        carried = checked(contract, bound_value(node.carry.initial, state), 'nodes.' + node.node_id + '.input')
+                        carried = await asyncio.to_thread(checked, contract, bound_value(node.carry.initial, state), 'nodes.' + node.node_id + '.input')
                         iteration = 0
                         while True:
                             await boundary('node_start', node.node_id)
@@ -231,7 +236,7 @@ def compile_flow(draft, catalog):
                                 updated = await child.ainvoke(inner.model_dump())
                             finally:
                                 execution_path.reset(path_token)
-                            carried = checked(contract, bound_value(node.carry.update, FlowState.model_validate(updated)),
+                            carried = await asyncio.to_thread(checked, contract, bound_value(node.carry.update, FlowState.model_validate(updated)),
                                 'nodes.' + node.node_id + '.output')
                             iteration += 1
                         return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(carried)}}
@@ -249,7 +254,7 @@ def compile_flow(draft, catalog):
     graph.add_node('body', body)
     graph.add_edge(START, 'body')
     async def output(state):
-        result = checked(catalog.contract(draft.output_contract), state.outputs[draft.flow[-1].node_id], 'flow.output')
+        result = await asyncio.to_thread(checked, catalog.contract(draft.output_contract), state.outputs[draft.flow[-1].node_id], 'flow.output')
         return {'result': plain(result)}
 
     graph.add_node('output', guarded('output', output))

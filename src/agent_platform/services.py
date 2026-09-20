@@ -28,7 +28,12 @@ class ServiceManager:
         for instance_id, document in self.store.read('instances').items():
             if document['compilerVersion'] != COMPILER_VERSION:
                 raise ValueError('实例编译器版本不兼容')
-            snapshot = compile_snapshot(FlowDraft.model_validate(document['flow']), self.catalog)
+            snapshot = compile_snapshot(FlowDraft.model_validate(document['flow']), self.catalog,
+                                        include_runtime_identity='runtimeLocks' in document)
+            expected_locks = document.get('runtimeLocks', {})
+            actual_locks = {key: artifact.runtime_lock for key, artifact in snapshot.catalog._artifacts.items() if hasattr(artifact, 'runtime_lock')}
+            if 'runtimeLocks' in document and expected_locks != actual_locks:
+                raise ValueError('实例依赖锁与持久资源不一致')
             if snapshot.content_digest != document['contentDigest']:
                 raise ValueError('实例内容摘要不一致')
             self.snapshots.add(replace(snapshot, instance_id=instance_id))
@@ -77,6 +82,7 @@ class ServiceManager:
         history = [*self._history.get(key, []), view]
         self.store.write([
             ('instances', candidate.instance_id, {'flow': candidate.draft.model_dump(mode='json'),
+                'runtimeLocks': {key: artifact.runtime_lock for key, artifact in candidate.catalog._artifacts.items() if hasattr(artifact, 'runtime_lock')},
                 'compilerVersion': candidate.compiler_version, 'contentDigest': candidate.content_digest}),
             ('services', key, self._document(service, history)),
         ])

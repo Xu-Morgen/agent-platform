@@ -35,4 +35,8 @@
 
 Prompt 文件丢失、占位符错误在加载时报 CONFIGURATION_ERROR；业务输入错误报 CONTRACT_VALIDATION_ERROR；模型响应或业务输出错误报 OUTPUT_VALIDATION_ERROR。预算、取消、传输错误保留平台各自的错误语义，不返回固定成功内容。
 
+资料不足时允许返回保留的失败对象 `{"error":"INSUFFICIENT_INPUT"}`（必须完全相同，不加字段）。这是平台失败协议，不属于业务输出契约：平台在记录实际模型用量后以 PACKAGE_INPUT_INSUFFICIENT 终止，不触发格式重试，不把错误对象返回为成功结果。完整模板 Prompt 已包含此用法。
+
+全文与 Prompt 均原样发送，不能静默截断。平台当前没有统一的模型 tokenizer 或上下文容量预检；模型输出额度和累计 token 预算不等于上下文容量。供应商返回已识别的上下文超限机器码时报告 MODEL_CONTEXT_EXCEEDED，其他错误保留 HTTP 状态和原有传输语义，不回显供应商原文。线上 API 配置见 [文档出题实例](../../examples/document-question-generation/README.md#线上模型与-deepseek)。
+
 包不维护运行钩子、检查点或取消处理。主动取消等待当前模型传输结束；传输错误优先记失败；关闭应用立即停止本地传输。平台在各执行边界统一检查。

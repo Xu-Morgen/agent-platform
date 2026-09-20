@@ -34,6 +34,8 @@ Electron 自动启动后端；页面顶部显示实际地址。需要图形会�
 
 完整操作和可复制样例见 [三类资源指导手册](docs/resource-guide.md)、[样例入口](samples/README.md)。模型连接选项见 [模型协议](docs/protocols/model.md)。
 
+文档业务实例见 [文档出题](examples/document-question-generation/README.md)：本地读取 PDF/DOCX 与扫描件 OCR，按完整资料生成三种题目。已完成本地解析及离线协议验证；支持配置 DeepSeek 等线上 API，真实模型质量验收按用户要求暂缓。
+
 2026-09-18 起业务包仅维护输入输出契约、可选参数和 Prompt；平台统一执行模型调用与严格校验。数据转换使用通用块。旧包迁移见 [包开发说明](samples/packages/README.md)。
 
 ## 当前边界
@@ -62,3 +64,5 @@ Electron 自动启动后端；页面顶部显示实际地址。需要图形会�
 | `artifact/` | 用户保留资料，本轮未改动 |
 
 旧测试脚本、测试数据和旧实例执行入口已移除。2026-09-17 按新要求清空并重建 samples，原查重代码、流程配方和辅助脚本不再保留。历史交接中的旧命令仅作记录，当前入口以本页和手册为准。开发约定见 [AGENT.md](AGENT.md)。
+
+2026-09-20：已交付静态依赖/模型声明、独立块子进程、环境准备和任务文件控件；真实扫描 PDF OCR 与完整缓存离线复用验收通过。规范与限制见 [平台运行文件与依赖](docs/platform-runtime-files.md)。

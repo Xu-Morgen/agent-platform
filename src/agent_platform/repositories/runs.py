@@ -35,10 +35,17 @@ class RunRepository:
         self.store.write([('runs', run.run_id, run.model_dump(mode='json'))])
         self._items[run.run_id] = run
 
-    def create(self, **values):
+    def create(self, *, files=None, references=(), **values):
         with self.lock:
             run = Run(run_id='run_' + uuid4().hex, **values)
-            self._save(run)
+            if files is None:
+                self._save(run)
+            else:
+                with files.lock:
+                    documents = files.bindings(references, run.run_id)
+                    self.store.write([*documents, ('runs', run.run_id, run.model_dump(mode='json'))])
+                    files.accept_bindings(documents)
+                    self._items[run.run_id] = run
             return run.model_copy(deep=True)
 
     def get(self, run_id):

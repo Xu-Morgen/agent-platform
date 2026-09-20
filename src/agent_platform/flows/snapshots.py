@@ -50,7 +50,7 @@ def prepare_flow_snapshot(draft, catalog, environments):
     return compile_snapshot(draft, catalog)
 
 
-def compile_snapshot(draft, catalog):
+def compile_snapshot(draft, catalog, *, include_runtime_identity=True):
     """从已规范化的不可变草稿重建；恢复不依赖当前环境是否仍可调用。"""
     resources = set()
     contracts = {draft.input_contract, draft.output_contract}
@@ -80,6 +80,8 @@ def compile_snapshot(draft, catalog):
               'examples': [e.model_dump(mode='json', by_alias=True) for e in draft.examples]}
     identity = {'draft': draft.model_dump(mode='json', by_alias=True), 'compiler': COMPILER_VERSION,
                 'resources': {r: frozen.get(r).digest for r in resources}, 'schema': schema}
+    if include_runtime_identity:
+        identity['runtimes'] = {r: frozen.artifact(r).runtime_lock for r in resources if frozen.get(r).kind == 'block'}
     digest = sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
     return FlowSnapshot('ins_' + uuid4().hex, draft.model_dump_json(by_alias=True), frozen,
         MappingProxyType(packages), json.dumps(configuration), json.dumps(schema), digest, graph)

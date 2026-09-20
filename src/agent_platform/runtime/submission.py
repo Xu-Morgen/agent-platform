@@ -6,6 +6,8 @@ from ..flows.execution import checked, plain
 from ..flows.configuration import validate_configurations
 from ..contracts.errors import ErrorResponse, PlatformError
 
+_UNVALIDATED = object()
+
 
 @dataclass(frozen=True)
 class PendingRun:
@@ -14,12 +16,13 @@ class PendingRun:
 
 
 class RunSubmission:
-    def __init__(self, services, environments, runs):
+    def __init__(self, services, environments, runs, files=None):
         self.services, self.environments, self.runs = services, environments, runs
+        self.files = files
         self.queue = Queue()
         self.stopping = False
 
-    def submit(self, request):
+    def submit(self, request, *, validated_input=_UNVALIDATED):
         self.runs.store.check()
         if self.stopping:
             raise PlatformError(ErrorResponse(code='APPLICATION_EXIT', stage='runs.submit', message='应用正在退出'), 503)
@@ -29,7 +32,12 @@ class RunSubmission:
                 raise PlatformError(ErrorResponse(code='VERSION_CONFLICT', stage='runs.submit', message='当前实例已变化'), 409)
             snapshot = self.services.resolve_current(request.service_id)
             draft = snapshot.draft
-            value = checked(snapshot.catalog.contract(draft.input_contract), request.input, 'runs.input')
+            value = (checked(snapshot.catalog.contract(draft.input_contract), request.input, 'runs.input')
+                     if validated_input is _UNVALIDATED else validated_input)
+            from ..storage.files import file_references
+            references = file_references(snapshot.catalog.contract(draft.input_contract).schema, plain(value))
+            if references and self.files is None:
+                raise PlatformError(ErrorResponse(code='FILE_NOT_FOUND', stage='runs.input', message='任务文件存储不可用'))
             validation = validate_configurations(draft, snapshot.catalog, self.environments)
             if not validation.valid:
                 raise PlatformError(ErrorResponse(code='CONFIGURATION_ERROR', stage='runs.submit',
@@ -38,6 +46,7 @@ class RunSubmission:
                    for config in draft.node_configurations.values()}
             environments = {key: self.environments.get(key) for key in sorted(ids)}
             run = self.runs.create(service_id=service.service_id, instance_id=snapshot.instance_id,
+                files=self.files, references=references,
                 version=service.current.version, revision=service.current.revision,
                 input=plain(value), environment_snapshot=list(environments.values()))
             self.environments.occupy(environments, run.run_id)

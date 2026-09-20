@@ -64,6 +64,10 @@ module.exports = { registerHealthBridge, registerResourcePathBridge };
 
 // 路由由主进程固定，页面不能指定任意 URL 或 HTTP 方法。
 const operations = {
+  prepareResource: (body) => ['POST', '/preparations', body],
+  preparationStatus: (id) => ['GET', `/preparations/${encodeURIComponent(id)}`],
+  cancelPreparation: (id) => ['POST', `/preparations/${encodeURIComponent(id)}/cancel`],
+  removeTaskFile: (id) => ['DELETE', `/files/${encodeURIComponent(id)}`],
   platformInfo: () => ['GET', '/platform'],
   listRuns: (query = {}) => ['GET', `/runs?${new URLSearchParams(query)}`],
   createDraft: (body) => ['POST', '/drafts', body],
@@ -96,6 +100,32 @@ const operations = {
   updateEnvironment: (id, body) => ['PUT', `/environments/${encodeURIComponent(id)}`, body],
 };
 function registerConfigurationBridge(backend) {
+  ipcMain.removeHandler('platform:selectTaskFile');
+  ipcMain.handle('platform:selectTaskFile', async (event) => {
+    if (event.senderFrame?.url.split('#')[0] !== pageURL || event.senderFrame !== event.sender.mainFrame) {
+      return failure('CONTRACT_VALIDATION_ERROR', '请求来源无效', 'desktop.files');
+    }
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    if (!owner || owner.isDestroyed() || !backend.address) return failure('BACKEND_UNAVAILABLE', '窗口或后端不可用', 'desktop.files');
+    let stream;
+    try {
+      const selection = await dialog.showOpenDialog(owner, {
+        title: '选择任务文件', properties: ['openFile'], filters: [{ name: 'PDF / DOCX', extensions: ['pdf', 'docx'] }],
+      });
+      if (selection.canceled || !selection.filePaths.length) return { ok: true, data: null };
+      const filename = selection.filePaths[0];
+      stream = require('node:fs').createReadStream(filename);
+      const response = await fetch(`${backend.address}/api/v1/files?name=${encodeURIComponent(path.basename(filename))}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/octet-stream' },
+        body: stream, duplex: 'half', signal: AbortSignal.timeout(120000),
+      });
+      const data = await response.json();
+      return response.ok ? { ok: true, data } : validate(errorSchema, data) ? { ok: false, error: data }
+        : failure('FILE_SAVE_FAILED', '文件保存响应无效', 'desktop.files');
+    } catch (error) {
+      return failure('FILE_SAVE_FAILED', ['EACCES', 'ENOENT'].includes(error.code || error.cause?.code) ? '所选文件不可访问' : '文件保存失败，请重试', 'desktop.files');
+    } finally { stream?.destroy(); }
+  });
   for (const [name, route] of Object.entries(operations)) {
     ipcMain.removeHandler(`platform:${name}`);
     ipcMain.handle(`platform:${name}`, async (event, ...args) => {
@@ -114,7 +144,7 @@ function registerConfigurationBridge(backend) {
           method, headers: { 'Content-Type': 'application/json' },
           body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(timeout),
         });
-        const data = await response.json();
+        const data = response.status === 204 ? null : await response.json();
         if (!response.ok) return validate(errorSchema, data) ? { ok: false, error: data } : failure('OUTPUT_VALIDATION_ERROR', '错误响应不符合契约');
         return { ok: true, data };
       } catch {

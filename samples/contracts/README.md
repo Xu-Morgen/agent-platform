@@ -97,3 +97,7 @@ Python 自定义校验器和 `allow_inf_nan=False` 会使目录契约带有运�
 文件只快照自身内容。自有类型应放在同一文件，不导入邻接业务源码；不把包内含相对导入的 models.py 当作独立契约加载。无自定义校验的最小 Text 在三类模板中有意分别定义，以便独立复制；它们按结构兼容。生产共享契约应另行确定唯一权威源及分发流程，修改后同时检查上下游，当前模板不引入生成器。
 
 独立契约没有 id、version、dependencies 清单或执行钩子。资源标识由文件摘要和 symbol 生成，改动文件会产生新身份；已有实例保留旧快照。依赖必须已存在于后端环境。
+
+## 任务文件字段
+
+从 `agent_platform.contracts.files` 导入 `TaskFile`，用 `attachment: TaskFile` 声明必填附件，或像完整模板一样使用 `attachment: TaskFile | None = None` 声明可选附件。Schema 的 `x-platform-file` 标注驱动文件控件；引用包含 fileId、originalName、format、size、sha256，不含本机路径。文件保存、摘要验证和任务归属由平台负责。

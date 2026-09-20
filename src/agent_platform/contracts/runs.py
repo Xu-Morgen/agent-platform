@@ -20,6 +20,7 @@ class StepRecord(StrictModel):
     execution_path: list[str] = Field(default_factory=list)
     output: JsonValue = None
     usage: dict[str, JsonValue] = Field(default_factory=dict)
+    progress: dict[str, JsonValue] = Field(default_factory=dict)
     error: ErrorResponse | None = None
 
 

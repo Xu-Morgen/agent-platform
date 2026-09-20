@@ -78,15 +78,17 @@ APIResponse 要求响应为仅包含 text 的对象，text 长度为 1～10000 �
 | `name` | 必填，非空 | 页面展示名称 |
 | `description` | 默认空字符串 | 用途说明，不影响执行 |
 | `api` | 默认 false | 声明需要 API 连接；必须使用 async 函数并接收关键字参数 api: BlockAPI |
-| `dependencies` | 默认空列表 | 已安装第三方依赖的 PEP 508 版本声明；例如 `['httpx>=0.28,<1']` |
+| `dependencies` | 默认空列表 | PEP 508 包版本约束；交付时固定已验证版本 |
+| `dependencySources` | 默认空列表 | 单一 HTTPS 索引或指定包的 HTTPS wheel URL 与 SHA-256 |
+| `models` | 默认空列表 | 独立模型文件的 name/version/url/sha256/filename 清单 |
 
-标准库、agent_platform 和 pydantic 无需在块的 dependencies 中额外声明。其他第三方导入必须声明且已安装，加载器只检查、不安装；不支持 URL/extras 依赖。修改文件任意内容都会影响摘要，包括注释；同会话重新加载修改版时应更新 version。
+标准库、agent_platform 和 pydantic 无需在块的 dependencies 中额外声明。其他第三方导入必须声明；平台在独立环境中解析并安装 wheel，保存直接及传递依赖的版本、来源和摘要。不支持源码构建或安装脚本；PEP 508 中不直接填写 URL，指定下载源请使用 dependencySources。加载前用 AST 读取 @block 的字面量参数，不接受变量、函数调用或参数展开。修改文件任意内容都会影响摘要，包括注释；同会话重新加载修改版时应更新 version。
 
 ## 可以使用的函数与校验钩子
 
 - 一个文件必须恰好有一个注册函数，可包含未装饰的辅助函数及多个模型。
-- 普通块只接受一个无默认值的位置参数，参数和返回值都必须有类型注解；API 块另接收无默认值的关键字参数 `api: BlockAPI`。不支持 `*args`、`**kwargs` 或任意 context 参数。
-- `def run(value: Input) -> Output` 和 `async def run(value: Input) -> Output` 都可以。平台会等待异步结果；async 本身不会使 CPU 计算可抢占。
+- 普通块只接受一个无默认值的位置参数，参数和返回值都必须有类型注解；API 块另接收无默认值的关键字参数 `api: BlockAPI`。可另声明无默认值的关键字参数 `context: BlockContext`，通过 `context.file(reference)` 访问当前任务附件，通过 `context.model(name)` 获取声明模型路径，通过 `context.progress(message, current=..., total=...)` 报告实际进度。不支持 `*args`、`**kwargs` 或其他任意能力参数。
+- `def run(value: Input) -> Output` 和 `async def run(value: Input) -> Output` 都可以。两者均在对应 Python 子进程中执行；CPU 计算不会占用平台事件循环，取消或超时会终止子进程。每次调用均创建新进程，不依赖模块全局变量跨调用保留状态。
 - 模型可使用 Pydantic `field_validator`、`model_validator`；完整写法见 [契约示例](../contracts/README.md)。入口含自定义校验时，接线会受到契约身份限制。
 - 没有 on_load、before_run、after_run、on_error、on_cancel 注册钩子。前后处理写在函数内；需要局部资源清理时使用 Python `try/finally`。
 
@@ -110,7 +112,7 @@ API 块通过注入的 BlockAPI 向节点配置的路径发起请求，凭据由
 
 ## 完整块的 API 配置
 
-[complete.py](complete.py) 声明 `@block(..., api=True)`，函数签名为 `async def normalize(value: Input, *, api: BlockAPI) -> Output`。最小示例保持无外部依赖的单输入计算函数。
+[complete.py](complete.py) 声明 `@block(..., api=True)`，函数签名为 `async def normalize(value: Input, *, api: BlockAPI, context: BlockContext) -> Output`。最小示例保持无外部依赖的单输入计算函数。
 
 1. 在环境页添加 API 连接，填写 Base URL、可选 Bearer Token 和超时；API 连接不配置模型、不获取模型列表。
 2. 加载 complete.py 并插入节点，点击节点配置选择 API 连接，填写“请求路径”（本例为 `/lookup`）。API 环境也可通过 HTTP 创建：
@@ -139,3 +141,9 @@ response = await api.request('GET', {'query': value.query}, response_type=APIRes
 例如 Base URL 为 `https://example.com/api`、节点 path 为 `/lookup`，请求地址为 `https://example.com/api/lookup`。另一个节点可复用同一完整块，把 path 配成 `/search`；接口须接受相同参数并返回符合 APIResponse 的数据。路径随实例快照保存，修改并保存后生成新实例版本，不改变已提交任务或历史版本。旧节点配置需补充 api.path；旧块调用需去掉 request 的路径参数。
 
 平台固定任务使用的 API 环境，任务排队至结束期间禁止修改所引用环境。请求失败或超时直接报错；输出不满足契约时按服务 retryLimit 重试，次数耗尽后任务失败，错误不回显凭据和原始响应。取消在执行边界生效，应用退出关闭在途本地传输。重试会重新调用该通用块及其外部 API，不撤销已发生的外部操作。
+
+## 文件与模型
+
+完整示例的可选 `attachment: TaskFile | None` 会在任务页生成 PDF/DOCX 控件。保存完成后平台自动补入引用；手写本机路径不能替代文件上传。示例仅检查附件可用性，未实现文档解析或 OCR。其他业务字段仍填写 JSON。
+
+下载声明的准确字段、来源约束、缓存和超时说明见 [平台运行文件与依赖](../../docs/platform-runtime-files.md)。完整模板的依赖来源、模型清单为空，因此加载模板不会触发第三方包安装或模型下载。需要模型的块必须填写经过核验的真实地址与摘要，并把 `context.model(name)` 返回的路径显式传给推理库，禁止在任务函数中安装包或隐式下载模型。

@@ -27,6 +27,18 @@ class JsonTransport:
                 response = await client.request(method, url, headers=headers,
                     **({'params': payload} if method == 'GET' else {'json': payload}))
             if not response.is_success:
+                if kind == 'model' and response.status_code in (400, 413, 422):
+                    # 只保留明确机器错误码，不公开可能包含资料或凭据的供应商原文。
+                    try:
+                        body = response.json()
+                    except ValueError:
+                        body = None
+                    detail = body.get('error') if isinstance(body, dict) else None
+                    if isinstance(detail, dict) and detail.get('code') in (
+                            'context_length_exceeded', 'context_window_exceeded', 'max_context_length_exceeded'):
+                        raise PlatformError(ErrorResponse(code='MODEL_CONTEXT_EXCEEDED', stage='model.transport',
+                            message='完整输入、提示词与输出额度超过模型上下文容量，请选择更大容量模型或更小文档',
+                            details={'httpStatus': response.status_code}), 502)
                 error = upstream_error(kind)
                 error.error.details.http_status = response.status_code
                 raise error

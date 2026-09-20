@@ -1,6 +1,11 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
+  prepareResource: (body) => ipcRenderer.invoke('platform:prepareResource', body),
+  preparationStatus: (id) => ipcRenderer.invoke('platform:preparationStatus', id),
+  cancelPreparation: (id) => ipcRenderer.invoke('platform:cancelPreparation', id),
+  selectTaskFile: () => ipcRenderer.invoke('platform:selectTaskFile'),
+  removeTaskFile: (id) => ipcRenderer.invoke('platform:removeTaskFile', id),
   platformInfo: () => ipcRenderer.invoke('platform:platformInfo'),
   listRuns: (query) => ipcRenderer.invoke('platform:listRuns', query),
   validateFlowPorts: (body) => ipcRenderer.invoke('platform:validateFlowPorts', body),
