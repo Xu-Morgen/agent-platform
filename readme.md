@@ -1,10 +1,20 @@
 # Agent Platform
 
-通过桌面服务页组合 Python 通用块、业务包和独立契约，保存为可调用的服务实例。支持顺序、条件、有限循环、版本回退、任务查询和取消。桌面自动管理本地 PostgreSQL，配置和历史跨重启保留；模型输入输出受严格契约约束，流程由配置者定义，分支与循环条件由脚本块判断。产品路径见 [分步计划](docs/agent-platform-roadmap.md)。
+通过桌面服务页组合 Python 通用块、Prompt 业务包和独立契约，保存为可调用的服务实例。流程由配置者定义，模型在严格输入输出契约内处理数据，Python 条件块控制分支与有限循环；模型不能生成或修改流程、脚本及接线。
+
+技术栈为 FastAPI + Pydantic + LangGraph + PostgreSQL，桌面采用 Electron。桌面自动管理应用专用本地数据库，资源、配置、实例版本和任务历史跨重启保留。
+
+更新日期：2026-09-20。
+
+## 已交付能力
+
+- **服务拼图**：顺序、if/else、固定次数循环和有最大次数限制的条件循环；保存前检查契约兼容性，执行时严格校验输入输出。
+- **统一节点输入**：当前协议为 `flow-5`，块和包通过 `NodeInput` 接收主数据与有序参考；支持默认参考和作用域内的高级参考配置。
+- **模型与 API 接入**：Prompt 包由平台统一调用 OpenAI 兼容模型；Python 通用块负责数据处理和外部 API 请求，节点分别绑定连接与参数。
+- **文件与运行环境**：任务页按契约提供文件上传控件；通用块支持静态依赖和模型文件声明、独立子进程执行、环境准备与缓存复用。详见 [平台运行文件与依赖](docs/platform-runtime-files.md)。
+- **版本与任务管理**：草稿、实例快照、历史回退、任务详情、筛选分页、预算和取消；提交后的任务固定所用实例与环境。
 
 ## 启动
-
-WSL 图形窗口的中文输入需要 Linux 侧输入法；Windows 微软拼音不能视为已接入 WSL 窗口，相关支持见 [WSLg 输入法问题](https://github.com/microsoft/wslg/issues/9)。若拼音候选框完全不出现，应检查 Linux 输入法及图形会话配置。页面会在拼音确认后更新名称和搜索，并在编辑期间延后节点重绘；这些保护不能替代系统输入法。相关开发测试已按项目清理规则删除。
 
 在仓库根目录，使用已有依赖：
 
@@ -22,7 +32,9 @@ Electron 自动启动后端；页面顶部显示实际地址。需要图形会�
 
 新环境需要 Python 3.12+、uv、Node.js/npm 和 PostgreSQL 运行程序；执行 `uv sync --frozen` 与 `npm --prefix desktop ci` 准备依赖。Ubuntu 24.04 可运行 `.venv/bin/python scripts/install_local_postgres.py` 准备用户级数据库程序。当前工作环境已安装并通过真实数据库联调，无需手填数据库连接或主密钥。详见 [持久化说明](docs/persistence.md)。
 
-本机数据目录为 `/home/nemo/.config/Agent Platform/storage/`，其中 `postgresql/` 保存数据库文件，`secrets.json` 保存本机密钥；页面显示实际路径。不要删除密钥文件。
+Linux 默认数据目录为 `~/.config/Agent Platform/storage/`，其中 `postgresql/` 保存数据库文件，`secrets.json` 保存本机密钥，`runtimes/` 保存运行环境与缓存；页面显示实际路径。不要删除密钥文件。
+
+WSL 图形窗口使用中文输入时，需检查 Linux 侧输入法及图形会话配置。页面已处理拼音确认与编辑期间的重绘，但不能替代系统输入法配置。
 
 ## 使用
 
@@ -36,9 +48,17 @@ Electron 自动启动后端；页面顶部显示实际地址。需要图形会�
 
 编写外部资源见 [研发手册：输入、注入与平台能力](docs/external-development-guide.md)，包含注入清单、函数签名、页面配置、完整示例与使用边界。
 
-文档业务实例见 [文档出题](examples/document-question-generation/README.md)：本地读取 PDF/DOCX 与扫描件 OCR，按完整资料规划、生成三种题目、独立审题并最多修订两轮。已完成离线协议验证及 ds 环境下 10 次授权调用，真实定向修订和最终流程通过；人工评审与正式页面配置状态见[验收记录](docs/document-question-quality-validation.md)。
+业务包仅维护输入输出契约、可选参数和 Prompt；平台统一执行模型调用与严格校验。数据转换使用通用块。开发与迁移见 [包开发说明](samples/packages/README.md)。
 
-2026-09-18 起业务包仅维护输入输出契约、可选参数和 Prompt；平台统一执行模型调用与严格校验。数据转换使用通用块。旧包迁移见 [包开发说明](samples/packages/README.md)。
+## 文档出题实例
+
+[文档出题](examples/document-question-generation/README.md)提供“PDF/DOCX 全文读取与扫描件 OCR → 规划 → 初稿 → 独立审题 → 最多两轮定向修订或重新出题 → 最终验收”。成功返回论述题、单选题和填空题各一道，附参考答案与原文依据。模型处理完整正文，Python 块维护状态、校验引用和控制轮次。
+
+- 初版质量流程已完成 ds 环境下 10 次授权真实调用，实际定向修订、最终流程、用户人工评审、正式页面保存及重启恢复通过；真实重新出题路径仅完成离线验证。
+- 后续针对真实长文引用行号错误增加 `numberedText` 显式索引，保留逐字引用与行号范围的严格校验，并补充具体错误位置。读取块、四个包和九个质量块已成套升级，正式服务已通过页面保存为 **2.0**。
+- 当前 2.0 版本通过历史数据离线复现、资源接线与页面校验，**尚未进行新版本真实模型再验收**。此前 10 次调用不代表新版已通过；复杂表格、双栏、倾斜及低清晰度文档的 OCR 质量仍需验证。
+
+资源版本、拼接步骤与读取限制见 [实例手册](examples/document-question-generation/README.md)，实际验证范围见 [验收记录](docs/document-question-quality-validation.md)。更新源码不会改变已保存实例，升级时需重新加载受影响资源并保存新版本。
 
 ## 当前边界
 
@@ -49,9 +69,9 @@ Electron 自动启动后端；页面顶部显示实际地址。需要图形会�
 - 主动取消等待当前模型传输结束；等待中超时或断连记失败。关闭应用立即停止本地传输。
 - 当前 samples 每类只提供最小与最完整两套开发模板，API 能力包含在通用块 complete.py 中；原查重样例已按要求删除。
 
-## 后续开发与目录
+## 文档与后续开发
 
-2026-09-20 已交付[节点输入机制与 Python 条件块](docs/archive/2026-09-20/node-input-and-python-conditions-plan.md)：执行协议 flow-5，统一 NodeInput、简单/高级参考、if/while 独立 Python 条件及历史协议隔离。samples 块/包同步升级为 2.0.0。轻量验证涵盖执行边界、实际块/API 子进程、任务闭环、Electron 表单交互和隔离 PostgreSQL 停库重启；没有安装依赖、打包或调用线上模型。[文档出题质量与自主修订](docs/archive/2026-09-20/document-question-quality-plan.md)已完成资源实现、有限修订离线验证及授权真实模型调用；人工评审、正式页面保存及重启恢复已通过，计划已完成归档。
+节点输入与 Python 条件块、文件与依赖环境、文档出题质量流程的实施计划已归档。后续事项包括新版出题真实模型复验、备份恢复、历史与缓存的引用安全清理，以及按实际负载推进运行能力；权限、沙箱、多 Agent 和断点续跑尚未交付。
 
 从 [文档导航](docs/README.md) 查看当前需求、架构和使用手册。[Agent 平台分步计划](docs/agent-platform-roadmap.md)定义本轮定位、已实现内容和后续步骤；[产品细化计划](docs/product-refinement.md)保留其他体验优化项；[三类资源优化计划](docs/resource-plan.md)分别定义通用块、业务包和契约的改进。已完成交付、清理记录和旧方案见 [历史归档](docs/archive/README.md)。
 
@@ -63,10 +83,9 @@ Electron 自动启动后端；页面顶部显示实际地址。需要图形会�
 | `samples/packages/` | 业务包最小/完整实现、清单、节点配置与平台标准入口说明 |
 | `samples/contracts/` | 独立契约最小/完整实现、字段及校验钩子说明 |
 | `samples/USAGE.md` | 三类资源加载、服务接线、保存与调用示例 |
+| `examples/document-question-generation/` | 文档读取、规划、出题、审题和有限修订资源及实例手册 |
 | `scripts/export_contracts.py` | 从权威模型生成桌面控制协议 Schema |
 | `docs/` | 当前需求、架构、未完成计划、手册和协议；历史资料集中在 `docs/archive/` |
-| `artifact/` | 用户保留资料，本轮未改动 |
+| `artifact/` | 用户保留资料与历史验证证据 |
 
-旧测试脚本、测试数据和旧实例执行入口已移除。2026-09-17 按新要求清空并重建 samples，原查重代码、流程配方和辅助脚本不再保留。历史交接中的旧命令仅作记录，当前入口以本页和手册为准。开发约定见 [AGENTS.md](AGENTS.md)。
-
-2026-09-20：已交付静态依赖/模型声明、独立块子进程、环境准备和任务文件控件；真实扫描 PDF OCR 与完整缓存离线复用验收通过。规范与限制见 [平台运行文件与依赖](docs/platform-runtime-files.md)。
+服务页拼图是唯一实例配置入口。历史交接中的旧命令仅作记录，当前入口以本页和手册为准。任务完成后清理临时测试、数据及脚本，已完成计划移入归档；开发约定见 [AGENTS.md](AGENTS.md)。
