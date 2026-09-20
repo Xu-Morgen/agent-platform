@@ -10,11 +10,16 @@ class CatalogLoad(StrictModel):
     symbol: str | None = Field(default=None, pattern=r'^[A-Za-z_]\w*$')
 
 
+class CatalogArchive(StrictModel):
+    archived: bool
+
+
 class CatalogResource(StrictModel):
     resource_id: str
     kind: Literal['package', 'block', 'contract']
     name: str
     description: str = ''
+    archived: bool = False
     version: str
     digest: str
     input_contract: str | None = None

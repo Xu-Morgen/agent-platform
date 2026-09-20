@@ -50,6 +50,7 @@ class ModuleCatalog:
         for resource_id, document in self.store.read('resources').items():
             request = CatalogLoad(kind=document['kind'], path='<stored-source>', symbol=document.get('symbol'))
             view = self._load(request, decode_source(document), locked=document.get('runtimeLock'))
+            self._views[resource_id] = view.model_copy(update={'archived': document.get('archived', False)})
             if view.resource_id != resource_id:
                 raise ValueError('持久资源标识与源码不一致')
             if document['kind'] == 'block' and 'runtimeLock' not in document:
@@ -85,6 +86,15 @@ class ModuleCatalog:
     def list(self):
         return [self.get(key) for key in sorted(self._views)]
 
+    def set_archived(self, resource_id, archived):
+        view = self.get(resource_id)
+        document = self.store.read('resources')[resource_id]
+        updated = view.model_copy(update={'archived': archived})
+        # 仅改变目录展示状态；源码、契约和版本标识保留给既有实例与任务。
+        self.store.write([('resources', resource_id, {**document, 'archived': archived})])
+        self._views[resource_id] = updated
+        return self.get(resource_id)
+
     def load(self, request, *, operation=None):
         from ..storage.sources import encode_source
         # 先在独立目录校验；持久化失败不得向当前目录发布半成功资源。
@@ -103,7 +113,7 @@ class ModuleCatalog:
             key = (meta.package_id if view.kind == 'package' else meta.id, meta.version)
             if key in registry._items and registry._items[key].content.digest != view.digest:
                 artifact.content.close()
-                raise invalid('同一资源版本已有不同内容', ['version'], code='VERSION_CONFLICT')
+                raise invalid('同一资源版本已有不同内容；请递增源码声明中的 version 后重新加载。归档旧资源不会释放版本号', ['version'], code='VERSION_CONFLICT')
         content = candidate._sources[view.resource_id]
         document = encode_source(content, request.kind, request.symbol)
         if artifact and request.kind == 'block':

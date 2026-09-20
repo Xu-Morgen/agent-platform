@@ -64,6 +64,8 @@ main:has(.configuration-page:not([hidden])) .page-header button { padding: 5px 1
 #module-library h4, #insert-options h4 { font-size: 11px; letter-spacing: 1px; color: #7a869c; margin: 20px 0 10px; }
 .configuration-page .module-tile { position: relative; display: grid; width: 100%; text-align: left; gap: 5px; padding: 12px 28px 12px 12px; margin-bottom: 8px; background: #fff; border: 1px solid #e4e9f1; border-left: 3px solid #6685df; }
 .module-tile span { font-size: 10px; color: #6580c5; }
+.module-tile .resource-version { justify-self: start; padding: 2px 6px; border-radius: 4px; background: #f1f3f7; color: #69768b; font-size: 11px; }
+.module-tile .resource-version[data-latest="true"] { background: #e8f4ee; color: #28784e; }
 .module-tile strong { font-size: 13px; color: #273953; overflow-wrap: anywhere; }
 .module-tile small { font-size: 11px; line-height: 1.6; color: #7d889b; }
 .module-tile b { position: absolute; right: 10px; top: 10px; color: #8294b3; }

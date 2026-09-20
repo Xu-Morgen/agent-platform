@@ -80,6 +80,7 @@ const operations = {
   validateFlowPorts: (body) => ['POST', '/flows/validate-ports', body],
   loadResource: (body) => ['POST', '/catalog/load', body],
   listResources: () => ['GET', '/catalog'],
+  archiveResource: (id, body) => ['PATCH', `/catalog/${encodeURIComponent(id)}`, body],
   getResource: (id) => ['GET', `/catalog/${encodeURIComponent(id)}`],
   connectionModels: (body) => ['POST', '/connection-tools/models', body],
   testConnection: (body) => ['POST', '/connection-tools/test', body],

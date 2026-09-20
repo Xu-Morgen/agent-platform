@@ -37,17 +37,53 @@ const flowEditor = (() => {
       parent.append(row);
     }
   }
+  function resourceSeries(resource) {
+    // resourceId 固定为 kind:声明标识:version:digest；同名资源不一定属于同一系列。
+    return resource.resourceId.split(':').slice(0,2).join(':');
+  }
+  function compareVersions(left, right) {
+    const parse=value=>{const split=value.indexOf('-');return [
+      (split<0 ? value : value.slice(0,split)).split('.').map(BigInt),
+      split<0 ? null : value.slice(split+1).split('.'),
+    ];};
+    const [a,ap]=parse(left),[b,bp]=parse(right);
+    for(let i=0;i<3;i++)if(a[i]!==b[i])return a[i]>b[i]?1:-1;
+    if(ap===null||bp===null)return ap===bp?0:ap===null?1:-1;
+    for(let i=0;i<Math.max(ap.length,bp.length);i++) {
+      if(ap[i]===bp[i])continue;
+      if(ap[i]===undefined||bp[i]===undefined)return ap[i]===undefined?-1:1;
+      const an=/^\d+$/.test(ap[i]),bn=/^\d+$/.test(bp[i]);
+      if(an&&bn){const x=BigInt(ap[i]),y=BigInt(bp[i]);if(x!==y)return x>y?1:-1;continue;}
+      if(an!==bn)return an?-1:1;
+      return ap[i]>bp[i]?1:-1;
+    }
+    return 0;
+  }
   function renderLibrary(target, query, choose) {
     target.replaceChildren();
-    const groups=[['业务包',resources.filter(r=>r.kind==='package')],['通用块',resources.filter(r=>r.kind==='block')],['流程控制',controls]];
+    const latest=new Map();
+    for(const resource of resources.filter(r=>r.kind!=='contract')) {
+      const key=resourceSeries(resource),previous=latest.get(key);
+      if(!previous||compareVersions(resource.version,previous)>0)latest.set(key,resource.version);
+    }
+    const groups=[['业务包',resources.filter(r=>r.kind==='package'&&!r.archived)],['通用块',resources.filter(r=>r.kind==='block'&&!r.archived)],['流程控制',controls]];
     let count=0;
     for(const [title,items] of groups) {
-      const matches=items.filter(r=>(r.name+' '+(r.description||'')+' '+kindNames[r.kind]).toLowerCase().includes(query.toLowerCase().trim()));
+      const matches=items.filter(r=>(r.name+' '+(r.description||'')+' '+(r.version||'')+' '+kindNames[r.kind]).toLowerCase().includes(query.toLowerCase().trim()));
+      if(title!=='流程控制')matches.sort((a,b)=>a.name.localeCompare(b.name,'zh-CN') ||
+        resourceSeries(a).localeCompare(resourceSeries(b)) || compareVersions(b.version,a.version));
       if(!matches.length)continue;
       target.append(el('h4',title));
       for(const resource of matches) {
         const item=button('',()=>choose(resource));item.className='module-tile';item.dataset.kind=resource.kind;
-        item.append(el('span',kindNames[resource.kind]),el('strong',resource.name),el('small',resource.description || '添加到流程中配置输入与输出'),el('b','＋'));
+        item.append(el('span',kindNames[resource.kind]),el('strong',resource.name+(resource.version ? ' · v'+resource.version : '')));
+        if(resource.version) {
+          const current=compareVersions(resource.version,latest.get(resourceSeries(resource)))===0;
+          const version=el('span',current ? '最新已导入' : '旧版本');version.className='resource-version';version.dataset.latest=String(current);
+          item.append(version,el('small','ID：'+resource.resourceId.split(':')[1]));
+          item.dataset.resourceId=resource.resourceId;
+        }
+        item.append(el('small',resource.description || '添加到流程中配置输入与输出'),el('b','＋'));
         target.append(item);count++;
       }
     }
@@ -55,16 +91,35 @@ const flowEditor = (() => {
       const section=el('details');section.className='resource-import';
       section.append(el('summary','契约'));
       section.append(el('p','业务包和通用块自带输入、输出契约，也可以单独加载契约文件。在流程的输入、输出处选择，契约无需添加为处理步骤。'));
-      const available=contracts();
+      const available=selectableContracts();
       if(!available.length)section.append(el('p','暂无契约，请先加载业务包、通用块或契约文件。'));
       for(const [ref,name] of available) {
         const item=el('details');item.append(el('summary',name));
         const preview=el('div');portPreview(preview,ref);item.append(preview);section.append(item);
       }
       target.append(section);
+      const management=el('details');management.className='resource-import';
+      management.append(el('summary','管理资源 · 归档 / 恢复'),el('p','归档后从添加列表隐藏，已有流程、实例和任务继续可用。更新源码请递增版本号再加载。'));
+      for(const resource of resources) {
+        const row=el('p');
+        row.append(el('span',`${kindNames[resource.kind]} · ${resource.name} · ${resource.kind === 'contract' ? resource.version.slice(0,12) : 'v'+resource.version}${resource.archived ? ' · 已归档' : ''} `));
+        const toggle=button(resource.archived ? '恢复' : '归档',async()=>{
+          toggle.disabled=true;
+          try {
+            const result=await window.agentPlatform.archiveResource(resource.resourceId,{archived:!resource.archived});
+            if(!result.ok){loadStatus('error',result.error.message);return;}
+            resources=resources.map(r=>r.resourceId===resource.resourceId ? result.data : r);
+            renderLibrary($('module-library'),$('module-search').value,r=>add(r));render();
+            loadStatus('success',`${resource.name} 已${result.data.archived ? '归档' : '恢复'}。`);
+          } catch { loadStatus('error','资源状态更新失败，请刷新后重试。'); }
+          finally { toggle.disabled=false; }
+        });
+        row.append(toggle);management.append(row);
+      }
+      target.append(management);
     }
     if(!count)target.append(el('p','没有匹配项。请换个关键词或加载业务包、通用块。'));
-    if(!query && !resources.some(r=>r.kind!=='contract'))target.append(el('p','还没有业务包或通用块，请在下方加载。'));
+    if(!query && !resources.some(r=>r.kind!=='contract'&&!r.archived))target.append(el('p','还没有业务包或通用块，请在下方加载。'));
   }
   function openInsert(nodes,index,label) {
     insertion={nodes,index};$('insert-context').textContent=label;
@@ -91,8 +146,12 @@ const flowEditor = (() => {
     select.value = value || ''; select.onchange = () => change(select.value); return select;
   }
   function contracts() {
-    return resources.flatMap(r => r.kind === 'contract' ? [[r.resourceId, '契约 · ' + r.name, r.schemas.value]]
-      : [['input', '输入'], ['output', '输出']].map(([key, name]) => [r[key + 'Contract'], kindNames[r.kind] + ' · ' + r.name + ' · ' + name + '契约', r.schemas[key]]));
+    return resources.flatMap(r => r.kind === 'contract' ? [[r.resourceId, '契约 · ' + r.name + ' · ' + r.version.slice(0,12) + (r.archived ? ' · 已归档' : ''), r.schemas.value]]
+      : [['input', '输入'], ['output', '输出']].map(([key, name]) => [r[key + 'Contract'], kindNames[r.kind] + ' · ' + r.name + ' · v' + r.version + (r.archived ? ' · 已归档' : '') + ' · ' + name + '契约', r.schemas[key]]));
+  }
+  function selectableContracts(current = '') {
+    const hidden=new Set(resources.filter(r=>r.archived).flatMap(r=>[r.resourceId,r.inputContract,r.outputContract,r.configurationContract]));
+    return contracts().filter(([ref])=>ref===current || !hidden.has(ref));
   }
   function schema(ref) { return contracts().find(([id]) => id === ref)?.[2] || {}; }
   function sourceValue(source) {
@@ -149,7 +208,7 @@ const flowEditor = (() => {
     inputEvents.setValue($('flow-retry-limit'), content.retryLimit);
     inputEvents.setValue($('flow-example'), content.examples.length ? JSON.stringify(content.examples[0].input,null,2) : '');
     for (const [id,key] of [['flow-input','inputContract'],['flow-output','outputContract']]) {
-      const select = choices(contracts(), content[key], value => { content[key] = value; changed(); render(); });
+      const select = choices(selectableContracts(content[key]), content[key], value => { content[key] = value; changed(); render(); });
       select.id = id; $(id).replaceWith(select);
     }
     $('global-budget').hidden = !content.budget;
@@ -178,7 +237,7 @@ const flowEditor = (() => {
   }
   function newId() { let i=1;const ids=new Set(allNodes().map(n=>n.nodeId));while(ids.has('node_'+i))i++;return 'node_'+i; }
   function contractChoice(parent, label, value, update) {
-    const item=el('label',label);item.append(choices(contracts(),value,v=>{update(v);changed();render()}));parent.append(item);
+    const item=el('label',label);item.append(choices(selectableContracts(value),value,v=>{update(v);changed();render()}));parent.append(item);
   }
   function bindingSection(parent, label, values, contract, scope) {
     const section=el('fieldset');section.append(el('legend',label));const body=el('div');body.dataset.bindingSection=label;
@@ -195,7 +254,7 @@ const flowEditor = (() => {
       if(node.kind==='while')card.dataset.conditionId=node.condition.nodeId;
       const header=el('div');header.className='node-header';
       const icon=el('span',({block:'▦',package:'✦',if:'⑂',repeat:'↻',while:'↻'})[node.kind]);icon.className='node-icon';
-      const title=el('div');title.className='node-title';title.append(el('small',kindNames[node.kind]+' · '+node.nodeId),el('h4',nodeName(node)));
+      const title=el('div');title.className='node-title';title.append(el('small',kindNames[node.kind]+' · '+node.nodeId+(resource ? ' · v'+resource.version+(resource.archived ? ' · 已归档' : '') : '')),el('h4',nodeName(node)));
       const actions=el('div');actions.className='node-actions';
       for(const [text,delta] of [['↑',-1],['↓',1]]) {
         const move=button(text,()=>{const next=index+delta;[nodes[index],nodes[next]]=[nodes[next],nodes[index]];changed();render(node.nodeId);});
@@ -244,7 +303,7 @@ const flowEditor = (() => {
         bindingSection(detail,'循环初始值',node.carry.initial,node.carry.contract,scope);
         const inner=[...scope,{kind:'carry',nodeId:node.nodeId,contract:node.carry.contract}];
         if(node.kind==='while'){
-          const condition=el('label','每轮执行前判断 · 输出必须为布尔值');condition.append(choices(resources.filter(r=>r.kind==='block').map(r=>[r.resourceId,r.name]),node.condition.artifactRef,v=>{node.condition.artifactRef=v;delete content.nodeConfigurations[node.condition.nodeId];changed();render();}));detail.append(condition);
+          const condition=el('label','每轮执行前判断 · 输出必须为布尔值');condition.append(choices(resources.filter(r=>r.kind==='block'&&(!r.archived||r.resourceId===node.condition.artifactRef)).map(r=>[r.resourceId,r.name+' · v'+r.version+(r.archived ? ' · 已归档' : '')]),node.condition.artifactRef,v=>{node.condition.artifactRef=v;delete content.nodeConfigurations[node.condition.nodeId];changed();render();}));detail.append(condition);
           const conditionResource=resources.find(r=>r.resourceId===node.condition.artifactRef);
           if(conditionResource?.apiRequired)detail.append(button('配置通用块 API',()=>configure(node.condition,conditionResource)));
           detail.append(el('p','条件通用块自动接收本轮完整携带值。'));
@@ -522,7 +581,7 @@ const flowEditor = (() => {
       $('module-search').value = '';
       renderLibrary($('module-library'),'',resource=>add(resource));render();
       loadStatus('success','已录入'+kindNames[body.kind]+'：'+response.data.name+'\n路径：'+body.path+'\n'+
-        (body.kind === 'contract' ? '现在可在输入契约、输出契约中选择。' : '现在可在左侧点击添加到流程。'));
+        (response.data.archived ? '该版本已归档，请在“管理资源 · 归档 / 恢复”中恢复。' : body.kind === 'contract' ? '现在可在输入契约、输出契约中选择。' : '现在可在左侧点击添加到流程。'));
     } catch {
       loadStatus('error','未能确认加载结果：桌面与后端通信失败，请重试加载（相同资源不会重复录入）。\n路径：'+body.path);
     } finally {

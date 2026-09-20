@@ -56,7 +56,7 @@ def _create_app(store) -> FastAPI:
     from .contracts.flows import FlowDraft
     from .flows.validation import ValidationResult, validate_flow
     from .registry.catalog import ModuleCatalog
-    from .contracts.catalog import CatalogLoad, CatalogResource
+    from .contracts.catalog import CatalogArchive, CatalogLoad, CatalogResource
     from .services import ServiceManager
     app.state.packages = PackageRegistry()
     app.state.catalog = ModuleCatalog(app.state.packages, store)
@@ -188,6 +188,10 @@ def _create_app(store) -> FastAPI:
     @app.get('/api/v1/catalog', response_model=list[CatalogResource])
     async def catalog_list():
         return app.state.catalog.list()
+
+    @app.patch('/api/v1/catalog/{resource_id}', response_model=CatalogResource)
+    async def catalog_archive(resource_id: str, value: CatalogArchive):
+        return app.state.catalog.set_archived(resource_id, value.archived)
 
     @app.get('/api/v1/catalog/{resource_id}', response_model=CatalogResource)
     async def catalog_get(resource_id: str):

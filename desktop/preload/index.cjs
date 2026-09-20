@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
   loadResource: (body) => ipcRenderer.invoke('platform:loadResource', body),
   selectResourcePath: (kind) => ipcRenderer.invoke('platform:selectResourcePath', kind),
   listResources: () => ipcRenderer.invoke('platform:listResources'),
+  archiveResource: (id, body) => ipcRenderer.invoke('platform:archiveResource', id, body),
   getResource: (id) => ipcRenderer.invoke('platform:getResource', id),
   connectionModels: (body) => ipcRenderer.invoke('platform:connectionModels', body),
   testConnection: (body) => ipcRenderer.invoke('platform:testConnection', body),

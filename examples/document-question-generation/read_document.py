@@ -1,5 +1,6 @@
 """单文件文档读取块。依赖与模型由平台准备，运行阶段只使用本地资源。"""
 import time
+import math
 import zipfile
 from functools import lru_cache
 from typing import Annotated
@@ -55,6 +56,21 @@ def ordered_lines(result):
     return sorted(result, key=lambda item: (min(point[1] for point in item[0]), min(point[0] for point in item[0])))
 
 
+def empty_ocr_box(item, pix):
+    # 检测框边缘可能擦到相邻字形；空识别且内部像素全白才视为空白误检。
+    if str(item[1]).strip():
+        return False
+    points = item[0]
+    left = max(0, math.floor(min(point[0] for point in points)) + 1)
+    top = max(0, math.floor(min(point[1] for point in points)) + 1)
+    right = min(pix.width, math.ceil(max(point[0] for point in points)) - 1)
+    bottom = min(pix.height, math.ceil(max(point[1] for point in points)) - 1)
+    return left < right and top < bottom and all(
+        min(pix.pixel(x, y)) >= 250
+        for y in range(top, bottom) for x in range(left, right)
+    )
+
+
 def read_pdf(path, context, deadline):
     import pymupdf
     parts = []
@@ -63,8 +79,11 @@ def read_pdf(path, context, deadline):
     except Exception:
         fail('PDF 损坏或无法打开')
     with document:
-        if not document.is_pdf or document.needs_pass or (document.metadata or {}).get('encryption'):
-            fail('文件不是有效 PDF 或已加密')
+        if not document.is_pdf:
+            fail('文件不是有效 PDF')
+        # 带权限加密标记的 PDF 也可能无需打开密码；以实际打开状态判断。
+        if document.needs_pass:
+            fail('PDF 需要打开密码；请提供无需密码即可打开的文件')
         if document.is_repaired:
             fail('PDF 结构损坏；拒绝以修复后的部分内容继续')
         total = len(document)
@@ -92,6 +111,7 @@ def read_pdf(path, context, deadline):
                             ocr = engine(tuple(context.model(name) for name in ('det', 'rec', 'cls')))
                             result, _ = ocr(pix.tobytes('png'))
                             check(deadline, number)
+                            result = [item for item in (result or []) if not empty_ocr_box(item, pix)]
                             if not result or any(not str(item[1]).strip() or float(item[2]) < 0.5 for item in result):
                                 fail('页面有内容但 OCR 无结果或置信度不足，请提供清晰资料', number)
                             # 整页 OCR 替代文字层；不再拼接原文字，防止混合页重复正文。
@@ -154,7 +174,7 @@ def read_docx(path, context, deadline):
 
 
 @block(
-    id='read-document', version='1.0.0', name='读取完整文档',
+    id='read-document', version='1.0.1', name='读取完整文档',
     description='读取 PDF/DOCX 正文；扫描及混合 PDF 本地 OCR，全文一次性输出。',
     dependencies=['rapidocr-onnxruntime==1.4.4', 'onnxruntime==1.23.2', 'PyMuPDF==1.26.7', 'python-docx==1.2.0'],
     dependencySources=[{'kind': 'index', 'url': 'https://pypi.org/simple'}],
