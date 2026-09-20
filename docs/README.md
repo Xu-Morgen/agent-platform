@@ -14,6 +14,7 @@
 | [产品细化计划](product-refinement.md) | 选择后续 R1–R4 工作，查看优先级与验收目标 |
 | [三类资源专项计划](resource-plan.md) | 推进通用块、Prompt 业务包和独立契约的体验改进 |
 | [资源指导手册](resource-guide.md) | 查找模板、配置说明、加载、接线和调用步骤 |
+| [外部资源研发手册](external-development-guide.md) | 查询全部公开注入能力、函数签名、数据来源、API/context 用法及完整代码示例 |
 | [平台运行文件与依赖](platform-runtime-files.md) | 依赖声明、独立环境、任务文件上传与运行上下文 |
 | [文档出题质量验收记录](document-question-quality-validation.md) | 10 次 ds 真实调用、基线对照、真实修订、人工通过及正式页面保存 |
 | [文档出题实例使用说明](../examples/document-question-generation/README.md) | 加载块、包与契约，配置线上模型，查看尚未完成的验收事项 |

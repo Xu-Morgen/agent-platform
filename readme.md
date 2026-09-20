@@ -34,6 +34,8 @@ Electron 自动启动后端；页面顶部显示实际地址。需要图形会�
 
 完整操作和可复制样例见 [三类资源指导手册](docs/resource-guide.md)、[样例入口](samples/README.md)。模型连接选项见 [模型协议](docs/protocols/model.md)。
 
+编写外部资源见 [研发手册：输入、注入与平台能力](docs/external-development-guide.md)，包含注入清单、函数签名、页面配置、完整示例与使用边界。
+
 文档业务实例见 [文档出题](examples/document-question-generation/README.md)：本地读取 PDF/DOCX 与扫描件 OCR，按完整资料规划、生成三种题目、独立审题并最多修订两轮。已完成离线协议验证及 ds 环境下 10 次授权调用，真实定向修订和最终流程通过；人工评审与正式页面配置状态见[验收记录](docs/document-question-quality-validation.md)。
 
 2026-09-18 起业务包仅维护输入输出契约、可选参数和 Prompt；平台统一执行模型调用与严格校验。数据转换使用通用块。旧包迁移见 [包开发说明](samples/packages/README.md)。
