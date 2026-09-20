@@ -2,6 +2,7 @@
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
+from threading import RLock
 from pydantic import TypeAdapter
 from .single_blocks import SingleBlockRegistry, capture_file
 from .validation import invalid
@@ -10,6 +11,14 @@ from ..contracts.catalog import CatalogResource
 from ..contracts.base import StrictModel
 from ..contracts.budgets import NodeBudget
 from ..contracts.errors import PlatformError
+
+
+def version_order(value):
+    """与资源页一致：数字版本段；预发布低于正式版，数字标识按数值排序。"""
+    release, separator, prerelease = value.partition('-')
+    suffix = tuple((0, int(part)) if part.isdecimal() else (1, part)
+                   for part in prerelease.split('.')) if separator else ()
+    return tuple(map(int, release.split('.'))), not separator, suffix
 
 
 @dataclass(frozen=True)
@@ -35,6 +44,7 @@ class ContractResource:
 
 class ModuleCatalog:
     def __init__(self, packages, store=None):
+        self._publication_lock = RLock()
         self.packages = packages
         self.blocks = SingleBlockRegistry()
         self._views = {}
@@ -87,16 +97,16 @@ class ModuleCatalog:
         return [self.get(key) for key in sorted(self._views)]
 
     def set_archived(self, resource_id, archived):
-        view = self.get(resource_id)
-        document = self.store.read('resources')[resource_id]
-        updated = view.model_copy(update={'archived': archived})
-        # 仅改变目录展示状态；源码、契约和版本标识保留给既有实例与任务。
-        self.store.write([('resources', resource_id, {**document, 'archived': archived})])
-        self._views[resource_id] = updated
-        return self.get(resource_id)
+        with self._publication_lock:
+            view = self.get(resource_id)
+            document = self.store.read('resources')[resource_id]
+            updated = view.model_copy(update={'archived': archived})
+            # 仅改变目录展示状态；源码、契约和版本标识保留给既有实例与任务。
+            self.store.write([('resources', resource_id, {**document, 'archived': archived})])
+            self._views[resource_id] = updated
+            return self.get(resource_id)
 
     def load(self, request, *, operation=None):
-        from ..storage.sources import encode_source
         # 先在独立目录校验；持久化失败不得向当前目录发布半成功资源。
         from .packages import PackageRegistry
         candidate = ModuleCatalog(PackageRegistry())
@@ -109,6 +119,12 @@ class ModuleCatalog:
             except ValueError as exc:
                 candidate.close()
                 raise invalid(str(exc), ['input']) from None
+        # 环境准备不占发布锁；新资源与旧版归档一起提交，与手动归档/恢复串行发布。
+        with self._publication_lock:
+            return self._publish(candidate, request, view, operation)
+
+    def _publish(self, candidate, request, view, operation):
+        from ..storage.sources import encode_source
         if view.resource_id in self._views:
             for source in candidate._sources.values():
                 source.close()
@@ -125,14 +141,32 @@ class ModuleCatalog:
         document = encode_source(content, request.kind, request.symbol)
         if artifact and request.kind == 'block':
             document['runtimeLock'] = artifact.runtime_lock
+        archived = {}
         try:
             if operation:
                 operation.check()
-            self.store.write([('resources', view.resource_id, document)])
+            writes = []
+            if view.kind in ('package', 'block'):
+                series = view.resource_id.split(':')[:2]
+                incoming = version_order(view.version)
+                stored = self.store.read('resources')
+                for previous in self._views.values():
+                    if previous.resource_id.split(':')[:2] != series:
+                        continue
+                    previous_version = version_order(previous.version)
+                    if previous_version > incoming:
+                        view = view.model_copy(update={'archived': True})
+                    elif previous_version < incoming and not previous.archived:
+                        archived[previous.resource_id] = previous.model_copy(update={'archived': True})
+                        writes.append(('resources', previous.resource_id,
+                                       {**stored[previous.resource_id], 'archived': True}))
+            document['archived'] = view.archived
+            writes.append(('resources', view.resource_id, document))
+            self.store.write(writes)
         except Exception:
             content.close()
             raise
-        self._views.update(candidate._views)
+        self._views.update({**candidate._views, **archived, view.resource_id: view})
         self._artifacts.update(candidate._artifacts)
         self._contracts.update(candidate._contracts)
         self._contents.extend(candidate._contents)

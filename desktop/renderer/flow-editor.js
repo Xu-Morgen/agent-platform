@@ -99,7 +99,7 @@ const flowEditor = (() => {
       }
       target.append(section);
       const management=el('details');management.className='resource-import';
-      management.append(el('summary','管理资源 · 归档 / 恢复'),el('p','归档后从添加列表隐藏，已有流程、实例和任务继续可用。更新源码请递增版本号再加载。'));
+      management.append(el('summary','管理资源 · 归档 / 恢复'),el('p','导入新版业务包或通用块后，同一 ID 的较低版本自动归档；补导入旧版默认归档，可手动恢复。独立契约仍手动归档。归档仅从添加列表隐藏，已有流程、实例和任务继续可用。'));
       for(const resource of resources) {
         const row=el('p');
         row.append(el('span',`${kindNames[resource.kind]} · ${resource.name} · ${resource.kind === 'contract' ? resource.version.slice(0,12) : 'v'+resource.version}${resource.archived ? ' · 已归档' : ''} `));
@@ -615,7 +615,7 @@ const flowEditor = (() => {
       $('module-search').value = '';
       renderLibrary($('module-library'),'',resource=>add(resource));render();
       loadStatus('success','已录入'+kindNames[body.kind]+'：'+response.data.name+'\n路径：'+body.path+'\n'+
-        (response.data.archived ? '该版本已归档，请在“管理资源 · 归档 / 恢复”中恢复。' : body.kind === 'contract' ? '现在可在输入契约、输出契约中选择。' : '现在可在左侧点击添加到流程。'));
+        (response.data.archived ? '该版本已归档，请在“管理资源 · 归档 / 恢复”中恢复。' : body.kind === 'contract' ? '现在可在输入契约、输出契约中选择。' : '现在可在左侧点击添加到流程；首次导入新版本时，同一 ID 的较低版本已自动归档。'));
     } catch {
       loadStatus('error','未能确认加载结果：桌面与后端通信失败，请重试加载（相同资源不会重复录入）。\n路径：'+body.path);
     } finally {
