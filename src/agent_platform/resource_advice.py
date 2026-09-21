@@ -60,13 +60,13 @@ def context_for(content, catalog):
         if isinstance(configuration, dict):
             result['configuredConnections'] = [key for key in ('model', 'api')
                                                if isinstance(configuration.get(key), dict)]
-        for key in ('outputContract',):
+        for key in ('outputContract', 'itemOutputContract'):
             if key in value:
                 result[key] = contract(value[key])
         if isinstance(value.get('carry'), dict):
             result['carryContract'] = contract(value['carry'].get('contract'))
             result['carrySources'] = {key: bindings(value['carry'].get(key)) for key in ('initial', 'update')}
-        for key in ('count', 'maxIterations'):
+        for key in ('count', 'maxIterations', 'maxItems'):
             if type(value.get(key)) is int:
                 result[key] = value[key]
         if isinstance(value.get('references'), list):
@@ -77,6 +77,16 @@ def context_for(content, catalog):
         for key in ('thenBranch', 'elseBranch'):
             if isinstance(value.get(key), dict):
                 result[key] = {'nodes': nodes(value[key].get('nodes')), 'outputSources': bindings(value[key].get('output'))}
+        if isinstance(value.get('router'), dict):
+            result['router'] = node(value['router'])
+        if isinstance(value.get('cases'), list):
+            result['cases'] = [{'value': case.get('value'), 'nodes': nodes(case.get('nodes')),
+                                'outputSources': bindings(case.get('output'))}
+                               for case in value['cases'] if isinstance(case, dict)]
+        if isinstance(value.get('source'), dict):
+            result['source'] = {k: value['source'][k] for k in ('kind', 'nodeId') if k in value['source']}
+        if isinstance(value.get('arrayPath'), list):
+            result['arrayPath'] = value['arrayPath']
         if 'body' in value:
             result['body'] = nodes(value['body'])
         return result

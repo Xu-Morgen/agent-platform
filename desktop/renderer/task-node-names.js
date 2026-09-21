@@ -1,7 +1,7 @@
 /* 名称按任务实际实例解析，不能使用服务当前版本，否则历史节点会被错认。 */
 const taskNodeNames = (() => {
   const instances = new Map();
-  const controls = {if:'条件分支', while:'条件循环', repeat:'固定循环'};
+  const controls = {if:'条件分支', while:'条件循环', repeat:'固定循环',foreach:'数组遍历',switch:'枚举分支'};
 
   async function load(run, bridge) {
     const key = JSON.stringify([run.serviceId, run.instanceId]);
@@ -21,6 +21,8 @@ const taskNodeNames = (() => {
             if (node.condition?.kind === 'block') visit([node.condition]);
             visit((node.thenBranch || node.then_branch)?.nodes);
             visit((node.elseBranch || node.else_branch)?.nodes);
+            if(node.router)visit([node.router]);
+            for(const c of node.cases||[])visit(c.nodes);
             visit(node.body);
           }
         }
@@ -30,6 +32,8 @@ const taskNodeNames = (() => {
           function nested(nodes){for(const item of nodes||[]){
             const id=item.nodeId||item.node_id;
             names.set(parent+'/'+id,resources.get(item.artifactRef||item.artifact_ref)||controls[item.kind]||id);
+            if(item.router)nested([item.router]);
+            for(const c of item.cases||[])nested(c.nodes);
             if(item.condition?.kind==='block')nested([item.condition]);
             nested((item.thenBranch||item.then_branch)?.nodes);nested((item.elseBranch||item.else_branch)?.nodes);nested(item.body);
           }}nested(child.flow.flow);

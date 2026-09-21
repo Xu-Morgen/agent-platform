@@ -98,7 +98,7 @@ main:has(.configuration-page:not([hidden])) .page-header button { padding: 5px 1
 .module-tile small { font-size: 11px; line-height: 1.6; color: var(--text-muted); }
 .module-tile b { position: absolute; right: 10px; top: 10px; color: #8294b3; }
 .configuration-page .module-tile[data-kind="package"] { border-left-color: #9c79da; }
-.configuration-page .module-tile:is([data-kind="if"],[data-kind="repeat"],[data-kind="while"]) { border-left-color: #d8a75a; }
+.configuration-page .module-tile:is([data-kind="if"],[data-kind="repeat"],[data-kind="while"],[data-kind="foreach"],[data-kind="switch"]) { border-left-color: #d8a75a; }
 .resource-import { margin-top: 24px; border-top: 1px solid #e7ebf2; padding-top: 16px; font-size: 12px; }
 .resource-import label { margin: 10px 0; }
 .resource-path-picker { display: flex; gap: 6px; align-items: center; }
@@ -124,11 +124,11 @@ main:has(.configuration-page:not([hidden])) .page-header button { padding: 5px 1
 .empty-sequence { text-align: center; font-size: 12px; color: var(--text-muted); margin: 16px 0 0; }
 .flow-node { border-top: 3px solid #7695e5; padding: 0; }
 .flow-node[data-kind="package"] { border-top-color: #ab87df; }
-.flow-node:is([data-kind="if"],[data-kind="while"],[data-kind="repeat"]) { border-top-color: #d9ae67; }
+.flow-node:is([data-kind="if"],[data-kind="while"],[data-kind="repeat"],[data-kind="foreach"],[data-kind="switch"]) { border-top-color: #d9ae67; }
 .node-header { padding: 14px 16px 8px; }
 .node-icon { display: grid; place-items: center; background: #eef3ff; color: #6a86cb; width: 34px; height: 34px; border-radius: 9px; font-size: 22px; flex: none; }
 [data-kind="package"] > .node-header .node-icon { background: #f5effc; color: #9d78cf; }
-:is([data-kind="if"],[data-kind="while"],[data-kind="repeat"]) > .node-header .node-icon { background: #fdf5e7; color: #bd934e; }
+:is([data-kind="if"],[data-kind="while"],[data-kind="repeat"],[data-kind="foreach"],[data-kind="switch"]) > .node-header .node-icon { background: #fdf5e7; color: #bd934e; }
 .node-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .node-title small { font-size: 10px; color: var(--text-muted); }
 .node-title h4 { font-size: 14px; }

@@ -7,8 +7,10 @@ const flowEditor = (() => {
   let contractSelection = null, contractTab = 'all';
   const empty = () => ({name: '', inputContract: '', outputContract: '', flow: [], nodeConfigurations: {}, examples: [], retryLimit: 3});
   let content = empty();
-  const kindNames = {block:'通用块', package:'业务包', contract:'契约', service:'服务', if:'条件分支', repeat:'固定循环', while:'条件循环'};
+  const kindNames = {block:'通用块', package:'业务包', contract:'契约', service:'服务', if:'条件分支', repeat:'固定循环', while:'条件循环', foreach:'数组遍历', switch:'枚举分支'};
   const controls = [
+    {kind:'foreach', name:'数组遍历', description:'按数组实际长度顺序执行，汇总每项输出；超限在首项前停止。'},
+    {kind:'switch', name:'枚举分支', description:'Python 路由块返回有限字符串枚举，每次只执行一个出口。'},
     {kind:'if', name:'条件分支', description:'根据布尔条件，选择「成立」或「否则」路径。'},
     {kind:'repeat', name:'固定循环', description:'按指定次数重复执行，携带每轮的处理结果。'},
     {kind:'while', name:'条件循环', description:'条件成立时重复执行；达到上限仍成立则报错停止。'},
@@ -177,7 +179,7 @@ const flowEditor = (() => {
         output.append(el('h4','当前草稿适用性 · '+({suitable:'适合',conditional:'有前提',unsuitable:'不适合',unknown:'信息不足'})[advice.suitability]),el('p',advice.assessment));
         output.append(el('h4','建议放置位置'));
         if(!advice.placements.length)output.append(el('p','暂无可推荐的位置。'));
-        const findNode=(nodes,id)=>{for(const n of nodes){if(n.nodeId===id)return n;const found=findNode([...(n.body||[]),...(n.thenBranch?.nodes||[]),...(n.elseBranch?.nodes||[]),...(n.condition?[n.condition]:[])],id);if(found)return found;}};
+        const findNode=(nodes,id)=>{for(const n of nodes){if(n.nodeId===id)return n;const found=findNode([...(n.body||[]),...(n.thenBranch?.nodes||[]),...(n.elseBranch?.nodes||[]),...(n.condition?[n.condition]:[]),...(n.router?[n.router]:[]),...(n.cases||[]).flatMap(c=>c.nodes)],id);if(found)return found;}};
         for(const place of advice.placements){
           const anchor=place.nodeId?findNode(snapshot.flow,place.nodeId):null;
           const label=place.position==='start'?'顶层流程开头':(anchor?nodeName(anchor):place.nodeId)+'（'+place.nodeId+'）'+(place.position==='before'?'之前':'之后');
@@ -289,13 +291,44 @@ const flowEditor = (() => {
       : [['primary', '主数据输入'], ['output', '输出']].map(([key, name]) => [r[key + 'Contract'], kindNames[r.kind] + ' · ' + r.name + ' · v' + r.version + (r.archived ? ' · 已归档' : '') + ' · ' + name + '契约', r.schemas[key]]).filter(([ref])=>ref)),
       ...serviceComponents.flatMap(r=>[[r.inputContract,r.name+' 输入',r.schemas.input],[r.outputContract,r.name+' 输出',r.schemas.output]])];
   }
-  function schema(ref) { return contracts().find(([id]) => id === ref)?.[2] || {}; }
+  function schema(ref, seen = new Set()) {
+    if(!ref || seen.has(ref))return {};
+    seen.add(ref);
+    if(ref.startsWith('collection:')){
+      const item=schema(ref.slice(11),seen),{$defs,...value}=item;
+      return {type:'object',properties:{items:{type:'array',items:value}},required:['items'],additionalProperties:false,...($defs?{$defs}:{})};
+    }
+    if(ref.startsWith('item:')){
+      const node=allNodes().find(n=>n.nodeId===ref.slice(5));
+      if(!node)return {};
+      const root=sourceSchema(node.source,seen);
+      const array=arrayFields(root).find(([path])=>JSON.stringify(path)===JSON.stringify(node.arrayPath));
+      return array?{...array[1].items,...(root.$defs?{$defs:root.$defs}:{})}:{};
+    }
+    return contracts().find(([id]) => id === ref)?.[2] || {};
+  }
+  function sourceSchema(source, seen=new Set()) {
+    if(source?.kind==='input')return schema(content.inputContract,seen);
+    const node=allNodes().find(n=>n.nodeId===source?.nodeId);
+    return schema(source?.kind==='item'?'item:'+source.nodeId:outputRef(node||{}),seen);
+  }
+  function arrayFields(root) {
+    const fields=[];
+    function visit(raw,path,seen){
+      if(raw.$ref && seen.has(raw.$ref))return;
+      const next=new Set(seen);if(raw.$ref)next.add(raw.$ref);
+      const value=resolveSchema(raw,root);
+      if(value.type==='array'&&value.items){fields.push([path,value]);return;}
+      if(value.type==='object')for(const key of value.required||[])if(value.properties?.[key])visit(value.properties[key],[...path,key],next);
+    }
+    visit(root,[],new Set());return fields;
+  }
   function sourceValue(source) {
     return JSON.stringify({kind:source.kind,...(source.nodeId ? {nodeId:source.nodeId} : {})});
   }
   function sourceOptions(nodes) {
     const ports = [[{kind:'input'}, '服务输入', content.inputContract], ...nodes.map(n => [
-      {kind:n.kind === 'carry' ? 'carry' : 'node', nodeId:n.nodeId}, n.kind === 'carry' ? n.nodeId + ' · 本轮携带值' : nodeName(n)+' ['+n.nodeId+'] 的输出', outputRef(n)])];
+      {kind:['carry','item'].includes(n.kind) ? n.kind : 'node', nodeId:n.nodeId}, ['carry','item'].includes(n.kind) ? n.nodeId + (n.kind==='item'?' · 当前元素':' · 本轮携带值') : nodeName(n)+' ['+n.nodeId+'] 的输出', outputRef(n)])];
     return ports.map(([source, title, ref]) => [sourceValue(source), title + ' · 完整数据 · ' + typeName(schema(ref),schema(ref))]);
   }
   function bindings(target, values, contract, nodes, destination='当前节点输入') {
@@ -366,10 +399,12 @@ const flowEditor = (() => {
     }
   }
   function outputRef(node) {
-    return node.kind==='service' ? component(node)?.outputContract : node.kind === 'if' ? node.outputContract : node.carry ? node.carry.contract : node.kind === 'carry' ? node.contract : resources.find(r=>r.resourceId===node.artifactRef)?.outputContract;
+    return node.kind==='service' ? component(node)?.outputContract : ['if','switch'].includes(node.kind) ? node.outputContract : node.kind==='foreach' ? 'collection:'+node.itemOutputContract : node.kind==='item' ? 'item:'+node.nodeId : node.carry ? node.carry.contract : node.kind === 'carry' ? node.contract : resources.find(r=>r.resourceId===node.artifactRef)?.outputContract;
   }
   function allNodes(nodes = content.flow) {
-    return nodes.flatMap(n=>[n,...(n.kind === 'if' ? [...(n.condition?.nodeId ? [n.condition] : []),...allNodes(n.thenBranch.nodes),...allNodes(n.elseBranch.nodes)] : n.body ? [...(n.condition?.nodeId ? [n.condition] : []),...allNodes(n.body)] : [])]);
+    return nodes.flatMap(n=>[n,...(n.condition?.nodeId?[n.condition]:[]),...(n.router?.nodeId?[n.router]:[]),
+      ...allNodes(n.thenBranch?.nodes||[]),...allNodes(n.elseBranch?.nodes||[]),
+      ...(n.cases||[]).flatMap(c=>allNodes(c.nodes)),...allNodes(n.body||[])]);
   }
   function newId() { let i=1;const ids=new Set(allNodes().map(n=>n.nodeId));while(ids.has('node_'+i))i++;return 'node_'+i; }
   function contractChoice(parent, label, value, update) {
@@ -426,11 +461,12 @@ const flowEditor = (() => {
     }
     parent.append(panel);
   }
-  function conditionEditor(parent,node,scope,incoming,automatic){
+  function conditionEditor(parent,node,scope,incoming,automatic, routing=false){
+    if(routing)node={condition:node.router};
     if(node.condition?.kind!=='block'){
       parent.append(el('p','此条件使用旧引用协议。请删除该控制节点并重新添加 Python 条件块。'));return;
     }
-    const condition=el('label','Python 条件块 · 独立执行并返回严格 bool');
+    const condition=el('label',routing?'Python 路由块 · 返回有限字符串枚举':'Python 条件块 · 独立执行并返回严格 bool');
     const available=latestResources().filter(r=>r.kind==='block');
     const conditionSelect=choices(available.map(r=>[r.resourceId,r.name+' · v'+r.version]),node.condition.artifactRef,value=>{
       node.condition.artifactRef=value;delete content.nodeConfigurations[node.condition.nodeId];changed();render();
@@ -443,7 +479,7 @@ const flowEditor = (() => {
     const explain=adviceButton(resource);if(explain)parent.append(explain);
     const preview=el('div');portPreview(preview,resource?.primaryContract);parent.append(preview);
     referenceEditor(parent,node.condition,resource,scope,automatic);
-    parent.append(el('p','条件出口：bool（true / false），保存时严格校验。'));
+    parent.append(el('p',routing?'路由出口：有限字符串枚举，所有枚举值必须有且只有一个分支。':'条件出口：bool（true / false），保存时严格校验。'));
     if(resource?.apiRequired)parent.append(button('配置通用块 API',()=>configure(node.condition,resource)));
   }
   function sequence(parent, nodes, inherited, incoming='服务完整输入', incomingReference='无（零项）') {
@@ -454,9 +490,9 @@ const flowEditor = (() => {
       const scope=[...inherited,...nodes.slice(0,index)];
       const resource=node.kind==='service'?component(node):resources.find(r=>r.resourceId===node.artifactRef);
       const card=el('article');card.className='flow-node';card.tabIndex=-1;card.dataset.nodeId=node.nodeId;card.dataset.kind=node.kind;
-      if(node.condition?.nodeId)card.dataset.conditionId=node.condition.nodeId;
+      if(node.condition?.nodeId||node.router?.nodeId)card.dataset.conditionId=(node.condition||node.router).nodeId;
       const header=el('div');header.className='node-header';
-      const icon=el('span',({block:'▦',package:'✦',service:'▣',if:'⑂',repeat:'↻',while:'↻'})[node.kind]);icon.className='node-icon';
+      const icon=el('span',({block:'▦',package:'✦',service:'▣',if:'⑂',repeat:'↻',while:'↻',foreach:'☷',switch:'⑂'})[node.kind]);icon.className='node-icon';
       const title=el('div');title.className='node-title';title.append(el('small',kindNames[node.kind]+' · '+node.nodeId+(resource ? ' · v'+resource.version+(resource.archived ? ' · 已归档' : '') : '')),el('h4',nodeName(node)));
       const actions=el('div');actions.className='node-actions';
       const explain=adviceButton(resource);if(explain)actions.append(explain);
@@ -474,7 +510,7 @@ const flowEditor = (() => {
       const previousInput=index ? nodeName(nodes[index-1])+' 的完整输出' : incoming;
       let inputText=previousInput;
       if(node.kind==='if')inputText='条件 → 成立 / 否则';
-      if(node.body)inputText='初始值 → 每轮处理 → 更新携带值';
+      if(node.body)inputText=node.kind==='foreach'?'数组 → 逐项处理 → items 集合':'初始值 → 每轮处理 → 更新携带值';
       summary.append(el('span','输入 · '+inputText),el('span','输出 · '+(outputRef(node)?contractLabel(outputRef(node)):'待选择契约')));
       if(node.kind==='block'||node.kind==='package')referenceSummary(summary,resource);
       card.append(summary);
@@ -498,17 +534,45 @@ const flowEditor = (() => {
         }));detail.append(versionLabel);
         for(const [label,ref] of [['输入契约',resource?.inputContract],['输出契约',resource?.outputContract]]){detail.append(el('h5',label));const preview=el('div');portPreview(preview,ref);detail.append(preview);}
         detail.append(button('查看固定实例内容',()=>viewHistory(node.serviceId,node.instanceId)));
-      } else if(node.kind==='if') {
-        conditionEditor(detail,node,scope,previousInput,automatic);
+      } else if(node.kind==='if'||node.kind==='switch') {
+        conditionEditor(detail,node,scope,previousInput,automatic,node.kind==='switch');
+        if(node.kind==='switch'){
+          const root=resources.find(r=>r.resourceId===node.router.artifactRef)?.schemas.output||{};
+          const out=resolveSchema(root,root),values=out.enum||(out.const!==undefined?[out.const]:[]);
+          if(out.type==='string'&&values.length&&values.every(v=>typeof v==='string')){
+            detail.append(button('按路由枚举同步出口',()=>{
+              const removed=node.cases.filter(c=>!values.includes(c.value));
+              if(removed.some(c=>c.nodes.length)&&!window.confirm('同步将删除声明外分支及其中节点，继续？'))return;
+              for(const c of removed)for(const n of allNodes(c.nodes))delete content.nodeConfigurations[n.nodeId];
+              node.cases=values.map(value=>node.cases.find(c=>c.value===value)||{value,nodes:[],output:[]});changed();render();
+            }));
+          }else detail.append(el('p','请选择输出为有限字符串枚举的通用块。'));
+        }
         contractChoice(detail,'契约 · 分支输出契约',node.outputContract,v=>node.outputContract=v);
         const branches=el('div');branches.className='flow-branches';
-        for(const [key,title] of [['thenBranch','成立 · true'],['elseBranch','否则 · false']]){
+        const entries=node.kind==='if'?[['thenBranch','成立 · true',node.thenBranch],['elseBranch','否则 · false',node.elseBranch]]:node.cases.map((c,i)=>['cases.'+i,c.value,c]);
+        for(const [key,title,branchValue] of entries){
           const branch=el('div');branch.className='flow-branch';branch.dataset.branch=key;branch.append(el('h5',title));
-          const branchNodes=el('div');sequence(branchNodes,node[key].nodes,scope,previousInput,automatic);branch.append(branchNodes);
+          const branchNodes=el('div');sequence(branchNodes,branchValue.nodes,scope,previousInput,automatic);branch.append(branchNodes);
           const output=el('details');output.className='branch-output';output.dataset.detailKey=node.nodeId+':'+key;output.append(el('summary','本分支返回什么'));
-          bindingSection(output,'分支出口',node[key].output,node.outputContract,[...scope,...node[key].nodes]);branch.append(output);branches.append(branch);
+          bindingSection(output,'分支出口',branchValue.output,node.outputContract,[...scope,...branchValue.nodes]);branch.append(output);branches.append(branch);
         }
         card.append(branches,el('div','⑂ 分支汇合 · 统一输出给下一步'));card.lastChild.className='flow-merge';
+      } else if(node.kind==='foreach') {
+        const source=el('label','完整数组来源');
+        source.append(choices(sourceOptions(scope),sourceValue(node.source),value=>{node.source=value?JSON.parse(value):{kind:'input'};node.arrayPath=[];changed();render();}));detail.append(source);
+        const arrays=arrayFields(sourceSchema(node.source));
+        const path=el('label','数组字段 · 根数组选 []');
+        path.append(choices(arrays.map(([p])=>[JSON.stringify(p),p.length?p.join(' → '):'[] · 根数组']),JSON.stringify(node.arrayPath),value=>{if(value)node.arrayPath=JSON.parse(value);changed();render();}));detail.append(path);
+        if(!arrays.length)detail.append(el('p','来源没有确定的数组字段，请先用通用块规范化。'));
+        const limit=el('label','最大条数 · 超限时不执行任何元素'),input=el('input');input.type='number';input.min='1';input.step='1';input.value=node.maxItems;
+        input.onchange=()=>{node.maxItems=Number(input.value);changed();};limit.append(input);detail.append(limit);
+        contractChoice(detail,'每项输出契约',node.itemOutputContract,v=>node.itemOutputContract=v);
+        detail.append(el('h5','当前元素输入'));const itemPreview=el('div');portPreview(itemPreview,'item:'+node.nodeId);detail.append(itemPreview);
+        detail.append(el('h5','汇总输出 · items 保持输入顺序'));const resultPreview=el('div');portPreview(resultPreview,outputRef(node));detail.append(resultPreview);
+        detail.append(el('p','循环体首步接收当前元素，默认零参考；完整上下文请在高级参考中选择。空数组返回 items: []。'));
+        const body=el('div');body.className='loop-body';body.dataset.branch='body';
+        sequence(body,node.body,[...scope,{kind:'item',nodeId:node.nodeId}],'当前数组元素','无（零项）');card.append(body);
       } else {
         const key=node.kind==='repeat'?'count':'maxIterations';const label=el('label',node.kind==='repeat'?'重复次数 · 0 表示跳过':'最大执行次数 · 防止无限循环');
         const input=el('input');input.type='number';input.min=node.kind==='repeat'?'0':'1';input.step='1';input.value=node[key]??'';input.dataset.count=key;
@@ -537,6 +601,8 @@ const flowEditor = (() => {
     let node={kind,nodeId,artifactRef:resource.resourceId};
     if(kind==='service')node={kind,nodeId,serviceId:resource.serviceId,instanceId:resource.instanceId};
     if(kind==='if')node={kind,nodeId,condition:{kind:'block',nodeId:nodeId+'_condition',artifactRef:''},outputContract:'',thenBranch:{nodes:[],output:[]},elseBranch:{nodes:[],output:[]}};
+    if(kind==='foreach')node={kind,nodeId,source:{kind:'input'},arrayPath:[],maxItems:100,itemOutputContract:'',body:[]};
+    if(kind==='switch')node={kind,nodeId,router:{kind:'block',nodeId:nodeId+'_router',artifactRef:''},outputContract:'',cases:[]};
     if(kind==='repeat'||kind==='while') {
       node={kind,nodeId,carry:{contract:'',initial:[],update:[]},body:[]};
       if(kind==='repeat')node.count=0;
@@ -704,9 +770,10 @@ const flowEditor = (() => {
     target.append(el('h4','只读实例 '+instanceId),el('p',`版本 ${history.version.version} · ${history.version.changeKind} · 编译器 ${history.compilerVersion}`));
     function tree(nodes,parent,configurations=history.flow.nodeConfigurations || history.flow.node_configurations || {}){for(const node of nodes){
       const item=el('fieldset');item.append(el('legend',node.nodeId+' · '+node.kind));
-      const own={...node};delete own.body;delete own.thenBranch;delete own.elseBranch;
+      const own={...node};delete own.body;delete own.thenBranch;delete own.elseBranch;delete own.cases;
       item.append(el('pre',JSON.stringify({node:own,configuration:configurations[node.nodeId]},null,2)));
       if(node.kind==='if')for(const key of ['thenBranch','elseBranch']){const branch=el('fieldset');branch.append(el('legend',key),el('pre',JSON.stringify(node[key].output,null,2)));tree(node[key].nodes,branch,configurations);item.append(branch);}
+      if(node.cases)for(const c of node.cases){const branch=el('fieldset');branch.append(el('legend',c.value),el('pre',JSON.stringify(c.output,null,2)));tree(c.nodes,branch,configurations);item.append(branch);}
       if(node.body)tree(node.body,item,configurations);
       if(node.kind==='service'&&history.children?.[node.nodeId]){
         const child=history.children[node.nodeId],section=el('details');section.append(el('summary','固定子流程 · '+child.instanceId));
