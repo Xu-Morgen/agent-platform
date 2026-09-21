@@ -17,6 +17,7 @@ class RemoteAdapter(TypeAdapter):
     def __init__(self, artifact, direction, schema):
         self.artifact, self.direction, self.schema = artifact, direction, schema
         self.core_schema = {'type': 'function-plain'} if schema.get('x-runtime-contract') else {'type': 'any'}
+        self.validation_shape = artifact.validation_shapes.get(direction)
 
     def json_schema(self, **kwargs):
         return deepcopy(self.schema)
@@ -35,6 +36,7 @@ class ProcessBlock:
             schemas = self.exchange('describe')
         finally:
             self._preparation = None
+        self.validation_shapes = schemas.get('validationShapes', {})
         self.input_adapter = RemoteAdapter(self, 'input', schemas['input'])
         self.output_adapter = RemoteAdapter(self, 'output', schemas['output'])
         self.primary_adapter = RemoteAdapter(self, 'primary', schemas['primary']) if 'primary' in schemas else None

@@ -1,6 +1,6 @@
 """包只绑定模型，声明 API 能力的通用块只绑定 API；预检不发送请求。"""
 from pydantic import ValidationError
-from ..contracts.flows import ModuleNode, NodeConfiguration, BlockConfiguration, walk_nodes
+from ..contracts.flows import ModuleNode, ServiceNode, NodeConfiguration, BlockConfiguration, walk_nodes
 from ..contracts.base import StrictModel
 from ..contracts.errors import PlatformError
 from ..contracts.budgets import NodeBudget
@@ -76,7 +76,22 @@ def validate_configurations(draft, catalog, environments):
     issues = []
     nodes = {node.node_id: node for node, _ in walk_nodes(draft.flow)}
     modules = {key: node for key, node in nodes.items() if isinstance(node, ModuleNode)}
-    if any(node.kind == 'package' for node in modules.values()) and draft.budget is None:
+    has_packages = any(node.kind == 'package' for node in modules.values())
+    for node in nodes.values():
+        if not isinstance(node, ServiceNode):
+            continue
+        try:
+            child = catalog.service(node)
+            has_packages |= bool(child.packages)
+            result = validate_configurations(child.draft, child.catalog, environments)
+            issues.extend(issue.model_copy(update={
+                'node_id': node.node_id + '/' + (issue.node_id or 'service'),
+                'field_path': ['services', node.node_id, *issue.field_path],
+            }) for issue in result.issues)
+        except PlatformError as exc:
+            issues.append(ValidationIssue(code=exc.error.code, reason=str(exc), node_id=node.node_id,
+                                          field_path=['flow', node.node_id, 'instanceId']))
+    if has_packages and draft.budget is None:
         issues.append(ValidationIssue(code='CONFIGURATION_ERROR', reason='含业务包流程必须配置任务全局预算', field_path=['budget']))
     for key in draft.node_configurations.keys() - modules.keys():
         issues.append(ValidationIssue(code='CONFIGURATION_ERROR', reason='配置必须对应业务包或 API 通用块节点', node_id=key, field_path=['nodeConfigurations', key]))

@@ -30,3 +30,20 @@ class CatalogResource(StrictModel):
     budget_defaults: NodeBudget | None = None
     api_required: bool = False
     runtime: dict[str, JsonValue] | None = None
+
+
+class ContractSource(StrictModel):
+    resource_id: str
+    kind: Literal['package', 'block', 'contract']
+    name: str
+    version: str
+    direction: Literal['primary', 'output', 'value']
+    archived: bool
+
+
+class ContractGroup(StrictModel):
+    contract_id: str
+    aliases: list[str]
+    schema_: dict[str, JsonValue] = Field(alias='schema')
+    sources: list[ContractSource]
+    runtime_validation: bool

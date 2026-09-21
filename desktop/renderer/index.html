@@ -85,6 +85,7 @@
       <div class="editor-heading"><div><span class="section-eyebrow">WORKFLOW STUDIO</span><h3>编排服务流程</h3><p>先加载业务包、通用块或契约，再选择输入契约，添加处理步骤，最后选择输出契约。</p></div><span class="editor-badge">可视化编排</span></div>
       <div class="service-context settings-card">
         <div class="panel-heading"><div><span class="section-eyebrow">服务与版本</span><h4>选择编辑的服务</h4></div><button id="service-refresh">刷新列表</button></div>
+        <label>搜索服务 <input id="service-search" type="search" placeholder="服务名称或标识…"></label>
         <label>当前服务 <select id="service-select"><option value="">保存为新服务</option></select></label>
         <p id="service-current" class="field-hint"></p>
       </div>
@@ -97,7 +98,8 @@
       <div class="flow-workspace">
       <aside class="flow-library" aria-label="业务包、通用块和契约">
         <h3>业务包、通用块和契约</h3><p class="flow-hint">业务包：调用模型处理数据。通用块：处理、转换数据或访问 API。契约：规定输入输出有哪些字段及校验规则。</p><p class="flow-hint">点击业务包或通用块添加处理步骤；契约在输入、输出处选择。用流程中的 ＋ 指定插入位置。</p>
-        <label class="library-search">搜索业务包或通用块 <input id="module-search" type="search" placeholder="名称或用途…"></label>
+        <label class="library-search">搜索资源与服务 <input id="module-search" type="search" placeholder="名称、用途或契约字段…"></label>
+        <div id="module-tabs" class="selection-tabs" role="tablist" aria-label="资源类别"></div>
         <div id="module-library"></div>
         <details class="resource-import"><summary>＋ 加载本地资源</summary>
       <form id="load-form">
@@ -146,7 +148,8 @@
       <p id="history-result" role="status"></p>
       <div id="history-view"></div>
       </details>
-      <dialog id="insert-dialog" aria-labelledby="insert-title"><div class="insert-heading"><div><h3 id="insert-title">添加业务包或通用块</h3><p id="insert-context"></p></div><button id="insert-close" type="button" aria-label="关闭添加业务包或通用块">关闭</button></div><label>搜索业务包或通用块 <input id="insert-search" type="search" placeholder="名称或用途…"></label><div id="insert-options"></div></dialog>
+      <dialog id="insert-dialog" aria-labelledby="insert-title"><div class="insert-heading"><div><h3 id="insert-title">添加处理步骤</h3><p id="insert-context"></p></div><button id="insert-close" type="button" aria-label="关闭添加步骤">关闭</button></div><label>搜索资源与服务 <input id="insert-search" type="search" placeholder="名称或用途…"></label><div id="insert-tabs" class="selection-tabs" role="tablist" aria-label="步骤类别"></div><div id="insert-options"></div></dialog>
+      <dialog id="contract-dialog" aria-labelledby="contract-title"><div class="insert-heading"><h3 id="contract-title">选择契约</h3><button id="contract-close" type="button">关闭</button></div><p>相同结构与约束合并为一个契约，列出全部来源。含自定义运行时校验的不同契约保持独立。</p><label>搜索契约 <input id="contract-search" type="search" placeholder="字段、类型、名称或来源…"></label><div id="contract-tabs" class="selection-tabs" role="tablist" aria-label="契约来源"></div><div id="contract-options"></div></dialog>
     </section>
     <section data-page="tasks" class="configuration-page" aria-label="任务调用" hidden>
       <div class="editor-heading"><div><span class="section-eyebrow">TASK RUNNER</span><h3>运行服务，查看每一步结果</h3><p>选择服务并提交输入，在这里跟踪执行过程，或重新打开历史任务。</p></div><a class="text-link" href="#/services">管理服务 ↗</a></div>

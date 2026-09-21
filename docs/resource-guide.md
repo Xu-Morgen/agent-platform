@@ -13,6 +13,7 @@
 | 平台标准入口、Prompt 占位符、输入输出校验和错误 | [CONTEXT.md](../samples/packages/CONTEXT.md) |
 | 独立契约：symbol、类型、字段约束、校验器与兼容性 | [contracts/README.md](../samples/contracts/README.md) |
 | 资源加载、服务接线、控制结构、保存与调用 | [USAGE.md](../samples/USAGE.md) |
+| 固定版本服务嵌套、资源 Tab 与契约内容选择 | [服务组合说明](service-composition.md) |
 
 每类资源只提供最小和最完整两套示例。推荐从无需模型或外部 API 的最小块闭环开始，再配置最小业务包。通用块的最完整示例 complete.py 包含 API 查询、响应及自定义输入校验、可选附件、进度上报、显式错误和可配置文本处理，运行前需要在节点绑定 API 连接并填写请求路径。每类示例都明确配置的作用、默认值和入口出口，不要求先理解其他业务产品。
 

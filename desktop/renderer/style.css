@@ -343,3 +343,17 @@ main:has(.configuration-page:not([hidden])) .page-header button { padding: 5px 1
 #load-result[data-state="error"] { color: #a02525; background: #fff0f0; }
 #load-result[data-state="success"] { color: #246b4c; background: #edf8f3; }
 #load-result:is([data-state="pending"], [data-state="loading"]) { color: #40506a; background: #edf2ff; }
+
+/* 资源分类与契约内容选择；长结构在卡片内滚动。 */
+.selection-tabs { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 14px; }
+.selection-tabs button { padding:7px 12px; border-radius:8px; }
+.selection-tabs button[aria-selected="true"] { background:#285ed5; color:white; border-color:#285ed5; }
+.contract-picker { display:block; width:100%; text-align:left; padding:12px; white-space:normal; overflow-wrap:anywhere; }
+#contract-dialog { width:min(900px, calc(100vw - 48px)); max-height:85vh; overflow:auto; }
+#contract-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:12px; }
+.contract-card { min-width:0; border:1px solid #dbe3ed; border-radius:12px; padding:14px; margin:10px 0; background:#fff; overflow-wrap:anywhere; }
+.contract-card h4 { margin:0 0 10px; font-size:14px; }
+.contract-card pre { max-height:280px; overflow:auto; white-space:pre-wrap; }
+.contract-card details { margin:10px 0; }
+.contract-card p { font-size:12px; color:#526176; }
+.flow-node[data-kind="service"] { border-left:4px solid #5264bc; }

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Query, Request
 from .contracts.environments import Environment, EnvironmentWrite
 from .contracts.connection_tools import ModelListRequest, ModelListResult, ConnectionTestRequest, ConnectionTestResult
-from .contracts.services import ServiceWrite, ServiceView, ServiceSchema, VersionView, ActivateRequest, FlowHistory
+from .contracts.services import ServiceWrite, ServiceView, ServiceSchema, VersionView, ActivateRequest, FlowHistory, ServiceComponent
 from .contracts.runs import Run, RunSubmit, RunResult, RunStatus
 from .contracts.health import HealthResponse
 from .contracts.errors import ErrorResponse, PlatformError
@@ -56,7 +56,7 @@ def _create_app(store) -> FastAPI:
     from .contracts.flows import FlowDraft
     from .flows.validation import ValidationResult, validate_flow
     from .registry.catalog import ModuleCatalog
-    from .contracts.catalog import CatalogArchive, CatalogLoad, CatalogResource
+    from .contracts.catalog import CatalogArchive, CatalogLoad, CatalogResource, ContractGroup
     from .services import ServiceManager
     app.state.packages = PackageRegistry()
     app.state.catalog = ModuleCatalog(app.state.packages, store)
@@ -189,6 +189,10 @@ def _create_app(store) -> FastAPI:
     async def catalog_list():
         return app.state.catalog.list()
 
+    @app.get('/api/v1/contracts', response_model=list[ContractGroup])
+    async def contract_groups():
+        return app.state.catalog.contract_groups()
+
     @app.patch('/api/v1/catalog/{resource_id}', response_model=CatalogResource)
     async def catalog_archive(resource_id: str, value: CatalogArchive):
         return app.state.catalog.set_archived(resource_id, value.archived)
@@ -200,6 +204,10 @@ def _create_app(store) -> FastAPI:
     @app.get('/api/v1/services', response_model=list[ServiceView])
     async def services():
         return app.state.services.list()
+
+    @app.get('/api/v1/service-components', response_model=list[ServiceComponent])
+    async def service_components():
+        return app.state.services.components()
 
     @app.post('/api/v1/services', response_model=ServiceView, status_code=201)
     async def create_service(value: ServiceWrite):

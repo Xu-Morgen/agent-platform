@@ -23,7 +23,7 @@ class FlowRunContext(RunContext):
         def progress(event):
             steps = self.runs.get(self.run_id).steps
             for step in reversed(steps):
-                if step.step_id == 'nodes.' + node_id and step.kind == 'block' and step.status == 'running':
+                if step.step_id == 'nodes.' + self.qualified(node_id) and step.kind == 'block' and step.status == 'running':
                     step.progress = event
                     self.runs.update(self.run_id, steps=steps)
                     break
@@ -37,7 +37,7 @@ class FlowRunContext(RunContext):
             request = validate(ModelRequest, value, 'model.input')
             connection = self.connection(binding)
             adapter = self.model
-            result = (await self.token_policy.invoke(node_id, adapter, connection, request)
+            result = (await self.token_policy.invoke(self.qualified(node_id), adapter, connection, request)
                       if self.token_policy else await adapter.invoke(connection, request))
             return validate(ModelResponse, result, 'model.output')
         return await self.run_step('model.' + node_id, execute, kind='model', package_binding_id=node_id)

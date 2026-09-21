@@ -18,7 +18,21 @@ class ServiceManager:
         self._unsupported = {}
         from .storage import MemoryStore
         self.store = store or MemoryStore()
+        self._owners = {version['instance_id']: service_id
+                        for service_id, document in self.store.read('services').items()
+                        for version in document['history']}
+        self.catalog.service_resolver = self.resolve_nested
         self._restore()
+
+    def resolve_nested(self, node):
+        from .contracts.flows import ServiceNode, walk_nodes
+        if self._owners.get(node.instance_id) != node.service_id:
+            raise invalid('所选实例不属于此服务', ['instanceId'], code='VERSION_CONFLICT')
+        self.require_supported(node.instance_id)
+        child = self.snapshots.get(node.instance_id)
+        if any(isinstance(item, ServiceNode) for item, _ in walk_nodes(child.draft.flow)):
+            raise invalid('当前只支持一层嵌套；请选择不含服务节点的实例', ['instanceId'])
+        return child
 
     def _restore(self):
         from dataclasses import replace
@@ -26,7 +40,13 @@ class ServiceManager:
         from .flows.snapshots import compile_snapshot
         from .flows.execution import COMPILER_VERSION
         from .versions.numbering import VersionNumber
-        for instance_id, document in self.store.read('instances').items():
+        from .contracts.flows import ServiceNode, walk_nodes
+        documents = self.store.read('instances')
+        # 先恢复叶子实例，再恢复引用它们的父实例；不依赖数据库返回顺序。
+        ordered = sorted(documents.items(), key=lambda item: (
+            item[1]['compilerVersion'] == COMPILER_VERSION and
+            any(isinstance(node, ServiceNode) for node, _ in walk_nodes(FlowDraft.model_validate(item[1]['flow']).flow))))
+        for instance_id, document in ordered:
             if document['compilerVersion'] != COMPILER_VERSION:
                 self._unsupported[instance_id] = document
                 continue
@@ -79,6 +99,10 @@ class ServiceManager:
 
     def save(self, request, service_id=None):
         previous = self.get(service_id) if service_id else None
+        from .contracts.flows import ServiceNode, walk_nodes
+        if service_id and any(isinstance(node, ServiceNode) and node.service_id == service_id
+                              for node, _ in walk_nodes(request.flow.flow)):
+            raise invalid('服务不能嵌套引用自己的历史实例', ['flow'])
         from .flows.snapshots import prepare_flow_snapshot
         candidate = prepare_flow_snapshot(request.flow, self.catalog, self.environments)
         key = service_id or 'svc_' + uuid4().hex
@@ -101,7 +125,27 @@ class ServiceManager:
         self.snapshots.add(candidate)
         self._history[key] = history
         self._services[key] = service
+        self._owners[candidate.instance_id] = key
         return service.model_copy(deep=True)
+
+    def components(self):
+        """可嵌入的固定版本列表；归属、兼容性与环境仍在保存时校验。"""
+        from .contracts.flows import ServiceNode, walk_nodes
+        result = []
+        for service in self.list():
+            for version in reversed(self.history(service.service_id)):
+                if version.instance_id in self._unsupported:
+                    continue
+                snapshot = self.snapshots.get(version.instance_id)
+                if any(isinstance(node, ServiceNode) for node, _ in walk_nodes(snapshot.draft.flow)):
+                    continue
+                result.append({'serviceId': service.service_id, 'instanceId': version.instance_id,
+                    'name': service.name, 'version': version.version,
+                    'current': version.instance_id == service.active_instance_id,
+                    'inputContract': snapshot.draft.input_contract, 'outputContract': snapshot.draft.output_contract,
+                    'schemas': {key: snapshot.schema[key] for key in ('input', 'output')},
+                    'budget': snapshot.draft.budget.model_dump(by_alias=True) if snapshot.packages else None})
+        return result
 
     def schema(self, service_id):
         service = self.get(service_id)
@@ -137,7 +181,10 @@ class ServiceManager:
                 upgrade_message='请升级资源并通过服务页保存新实例；此历史快照不可执行或回退激活')
         snapshot = self.snapshots.get(instance_id)
         return FlowHistory(version=version, flow=snapshot.draft, compiler_version=snapshot.compiler_version,
-            configuration=snapshot.configuration, **snapshot.schema)
+            configuration=snapshot.configuration, children={key: {
+                'instanceId': child.instance_id, 'flow': child.draft.model_dump(mode='json', by_alias=True),
+                'contentDigest': child.content_digest,
+            } for key, child in snapshot.children.items()}, **snapshot.schema)
 
     def activate(self, service_id, instance_id):
         from .flows.drafts import preflight

@@ -9,6 +9,8 @@ def signatures(snapshot):
     structural['compiler'] = snapshot.compiler_version
     structural['modules'] = {ref: value.content.digest for ref, value in snapshot.catalog._artifacts.items()}
     structural['contracts'] = {ref: value.schema for ref, value in snapshot.catalog._contracts.items()}
+    if snapshot.children:
+        structural['services'] = {key: value.content_digest for key, value in snapshot.children.items()}
     configuration = {'nodes': draft['nodeConfigurations'], 'budget': draft['budget'], 'retryLimit': draft['retryLimit']}
     return json.dumps(structural, sort_keys=True), json.dumps(configuration, sort_keys=True)
 

@@ -6,10 +6,9 @@ class LoopPolicy:
     def __init__(self, run_id, snapshot, runs):
         self.run_id, self.runs = run_id, runs
         self.global_limit = snapshot.draft.budget.loop_limit
-        self.local_limits = {
-            key: snapshot.draft.node_configurations[key].budget.loop_limit
-            for key in snapshot.packages
-        }
+        self.local_limits = {key: config.budget.loop_limit for key, config in snapshot.all_packages.items()}
+        self.service_limits = {prefix: child.draft.budget.loop_limit for prefix, child in snapshot.scopes()
+                               if prefix and child.all_packages}
 
     def __call__(self, phase, binding_id):
         if phase != 'package_start':
@@ -23,6 +22,10 @@ class LoopPolicy:
                     code='LOOP_BUDGET_EXCEEDED', stage='budget.loop',
                     message='包调用次数额度不足', run_id=self.run_id,
                     details=ErrorDetails(package_binding_id=binding_id, attempt=used + 1)))
+            for prefix, limit in self.service_limits.items():
+                if binding_id.startswith(prefix) and sum(count for key, count in ledger['bindings'].items() if key.startswith(prefix)) >= limit:
+                    raise PlatformError(ErrorResponse(code='LOOP_BUDGET_EXCEEDED', stage='budget.loop',
+                        node_id=prefix.rstrip('/'), message='子服务累计调用次数额度不足', run_id=self.run_id))
             ledger['bindings'][binding_id] = used + 1
             ledger['global'] += 1
             self.runs.update(self.run_id, usage=usage)
@@ -41,8 +44,9 @@ class TokenLedger:
             self.entries[request_id] = (binding_id, usage.model_copy(deep=True))
             self.publish()
 
-    def summary(self, binding_id=None):
-        entries = [u for b, u in self.entries.values() if binding_id is None or b == binding_id]
+    def summary(self, binding_id=None, *, prefix=None):
+        entries = [u for b, u in self.entries.values() if (binding_id is None or b == binding_id)
+                   and (prefix is None or b.startswith(prefix))]
         unknown = any(u.quality == 'unsupported' for u in entries)
         known_input = sum(u.input_tokens or 0 for u in entries)
         known_output = sum(u.output_tokens or 0 for u in entries)
@@ -65,7 +69,9 @@ class TokenPolicy:
     def __init__(self, run_id, snapshot, runs):
         self.ledger = TokenLedger(run_id, runs)
         self.global_limit = snapshot.draft.budget.token_limit
-        self.local_limits = {b: snapshot.draft.node_configurations[b].budget.token_limit for b in snapshot.packages}
+        self.local_limits = {key: config.budget.token_limit for key, config in snapshot.all_packages.items()}
+        self.service_limits = {prefix: child.draft.budget.token_limit for prefix, child in snapshot.scopes()
+                               if prefix and child.all_packages}
 
     def error(self, code, message):
         return PlatformError(ErrorResponse(code=code, stage='budget.token', message=message,
@@ -75,14 +81,17 @@ class TokenPolicy:
         global_usage, local = self.ledger.summary(), self.ledger.summary(binding_id)
         if global_usage['totalTokens'] is None:
             raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '模型用量未知')
-        return min(self.global_limit - global_usage['totalTokens'],
-                   self.local_limits[binding_id] - local['totalTokens'])
+        remaining = [self.global_limit - global_usage['totalTokens'], self.local_limits[binding_id] - local['totalTokens']]
+        remaining += [limit - self.ledger.summary(prefix=prefix)['totalTokens']
+                      for prefix, limit in self.service_limits.items() if binding_id.startswith(prefix)]
+        return min(remaining)
 
     def __call__(self, phase, step_id):
         if phase == 'cleanup':
             return
         summaries = [(self.ledger.summary(), self.global_limit)]
         summaries += [(self.ledger.summary(b), limit) for b, limit in self.local_limits.items()]
+        summaries += [(self.ledger.summary(prefix=prefix), limit) for prefix, limit in self.service_limits.items()]
         for usage, limit in summaries:
             if usage['totalTokens'] is None:
                 raise self.error('TOKEN_ACCOUNTING_UNSUPPORTED', '缺少可用模型计量')

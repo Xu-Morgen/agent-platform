@@ -56,7 +56,7 @@ class RunWorker:
         api_transport = JsonTransport(envs.credentials)
         token_policy = None
         policies = (CancellationPolicy(runs, run_id),) + boundary.policies
-        if snapshot.packages:
+        if snapshot.all_packages:
             token_policy = TokenPolicy(run_id, snapshot, runs)
             policies += (token_policy, LoopPolicy(run_id, snapshot, runs))
         boundary.policies = policies

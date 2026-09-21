@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 from langgraph.graph import START, END, StateGraph
 from langgraph.errors import GraphRecursionError
 from ..contracts.base import StrictModel
-from ..contracts.flows import FlowDraft, ModuleNode, ConstantValue, IfNode, RepeatNode, WhileNode, PortReference
+from ..contracts.flows import FlowDraft, ModuleNode, ServiceNode, ConstantValue, IfNode, RepeatNode, WhileNode, PortReference
 from ..contracts.errors import PlatformError, ErrorResponse
 from ..runtime.context import current_context
 from ..runtime.boundary import checkpoint
@@ -18,6 +18,7 @@ from .validation import validate_flow
 COMPILER_VERSION = 'flow-5'
 execution_path = ContextVar('flow_path', default=())
 step_counter = ContextVar('flow_steps', default=None)
+terminal_check = ContextVar('flow_terminal_check', default=None)
 
 
 async def boundary(phase, node):
@@ -97,9 +98,10 @@ class FlowExecutor:
     catalog: object
     graph: object
 
-    async def run(self, value, *, recursion_limit=10000):
+    async def run(self, value, *, recursion_limit=10000, output_check=None):
         value = await asyncio.to_thread(checked, self.catalog.contract(self.draft.input_contract), value, 'flow.input')
-        token = step_counter.set([0, recursion_limit])
+        token = step_counter.set(step_counter.get() or [0, recursion_limit])
+        output_token = terminal_check.set(output_check)
         try:
             await boundary('start', 'flow')
             result = await self.graph.ainvoke({'input': plain(value)}, config={'recursion_limit': recursion_limit})
@@ -112,6 +114,7 @@ class FlowExecutor:
                 await checkpoint('cleanup', 'flow')
             finally:
                 step_counter.reset(token)
+                terminal_check.reset(output_token)
 
 
 def compile_flow(draft, catalog):
@@ -132,12 +135,18 @@ def compile_flow(draft, catalog):
 
     async def validate_consumer(node, source, defaults, state, producer):
         try:
-            await asyncio.to_thread(checked, catalog.contract(catalog.get(node.artifact_ref).input_contract),
-                                    envelope(node, source, defaults, state), 'nodes.' + node.node_id + '.input')
+            if isinstance(node, ServiceNode):
+                child = catalog.service(node)
+                await asyncio.to_thread(checked, child.catalog.contract(child.draft.input_contract),
+                                        resolve(source, state), 'nodes.' + node.node_id + '.input')
+            else:
+                await asyncio.to_thread(checked, catalog.contract(catalog.get(node.artifact_ref).input_contract),
+                                        envelope(node, source, defaults, state), 'nodes.' + node.node_id + '.input')
         except PlatformError as exc:
             # 仅 primary 的字段错误可归因于直接生产者；参考和跨字段错误立即失败。
             paths = [issue.field_path for issue in exc.error.issues] or [exc.error.field_path or []]
-            if paths and all(path and path[0] == 'primary' for path in paths):
+            if exc.error.code in ('CONTRACT_VALIDATION_ERROR', 'OUTPUT_VALIDATION_ERROR') and (
+                    isinstance(node, ServiceNode) or (paths and all(path and path[0] == 'primary' for path in paths))):
                 exc.error.code = 'OUTPUT_VALIDATION_ERROR'
                 exc.error.stage = 'nodes.' + producer + '.output'
                 exc.error.source_node_id = producer
@@ -162,7 +171,7 @@ def compile_flow(draft, catalog):
                 updated = state.model_copy(deep=True)
                 updated.outputs[node.node_id] = plain(result)
                 updated.primaries[node.node_id] = deepcopy(plain(value)['primary'])
-                if isinstance(next_node, ModuleNode):
+                if isinstance(next_node, (ModuleNode, ServiceNode)):
                     await validate_consumer(next_node, PortReference(kind='node', node_id=node.node_id),
                                             [('primary', node.node_id)], updated, node.node_id)
                 elif isinstance(next_node, IfNode):
@@ -175,6 +184,17 @@ def compile_flow(draft, catalog):
                         exc.error.source_node_id = node.node_id
                         exc.error.message = ('输出不符合下一步输入契约' if next_node else '输出不符合服务输出契约') + '：' + exc.error.message
                         raise
+                    if terminal_check.get():
+                        try:
+                            await terminal_check.get()(plain(result))
+                        except PlatformError as exc:
+                            if exc.error.code == 'OUTPUT_VALIDATION_ERROR':
+                                exc.error.stage = stage + '.output'
+                                exc.error.code = 'OUTPUT_VALIDATION_ERROR'
+                                context = current_context.get()
+                                exc.error.source_node_id = context.qualified(node.node_id) if context else node.node_id
+                                exc.error.node_id = exc.error.source_node_id
+                            raise
                 return {'outputs': updated.outputs, 'primaries': updated.primaries}
             except PlatformError as exc:
                 exc.error.node_id = exc.error.node_id or node.node_id
@@ -194,6 +214,46 @@ def compile_flow(draft, catalog):
                         raise PlatformError(error) from None
         return run
 
+    def service_wrap(node, source, next_contract, next_node):
+        async def execute(state):
+            child = catalog.service(node)
+            incoming = resolve(source, state)
+            async def output_check(value):
+                updated = state.model_copy(deep=True)
+                updated.outputs[node.node_id] = plain(value)
+                updated.primaries[node.node_id] = deepcopy(incoming)
+                consumer = next_node.condition if isinstance(next_node, IfNode) else next_node
+                if isinstance(consumer, (ModuleNode, ServiceNode)):
+                    await validate_consumer(consumer, PortReference(kind='node', node_id=node.node_id),
+                                            [('primary', node.node_id)], updated, node.node_id)
+                if next_contract:
+                    await asyncio.to_thread(checked, catalog.contract(next_contract), value, 'nodes.' + node.node_id + '.output')
+            context = current_context.get()
+            ct = None
+            if context:
+                from .context import FlowRunContext
+                nested = FlowRunContext(context.run_id, child, context.runs, context.model,
+                                        context.token_policy, context.api_transport)
+                nested.prefix = context.qualified(node.node_id) + '/'
+                nested.files = getattr(context, 'files', None)
+                ct = current_context.set(nested)
+            pt = execution_path.set((*execution_path.get(), (context.qualified(node.node_id) if context else node.node_id)))
+            try:
+                result = await child.graph.run(incoming, output_check=output_check)
+            except PlatformError as exc:
+                exc.error.node_id = exc.error.node_id or (context.qualified(node.node_id) if context else node.node_id)
+                raise
+            finally:
+                execution_path.reset(pt)
+                if ct is not None:
+                    current_context.reset(ct)
+            # 控制容器作为最后一步时也必须检查跨服务边界，但不重放整个子流程。
+            if not isinstance(child.draft.flow[-1], ModuleNode):
+                await output_check(result)
+            return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(result)},
+                    'primaries': {**deepcopy(state.primaries), node.node_id: deepcopy(incoming)}}
+        return guarded(node.node_id, execute)
+
     def sequence(nodes, incoming, final_contract=None, incoming_defaults=()):
         graph = StateGraph(FlowState)
         previous = START
@@ -201,10 +261,11 @@ def compile_flow(draft, catalog):
             name = f'node_{index}'
             source = PortReference(kind='node', node_id=nodes[index - 1].node_id) if index else incoming
             defaults = [('primary', nodes[index - 1].node_id)] if index else incoming_defaults
-            if isinstance(node, ModuleNode):
+            if isinstance(node, (ModuleNode, ServiceNode)):
                 following = nodes[index + 1] if index + 1 < len(nodes) else None
                 expected = final_contract if following is None else None
-                graph.add_node(name, wrap(node, source, defaults, expected, following), retry_policy=None)
+                operation = service_wrap(node, source, expected, following) if isinstance(node, ServiceNode) else wrap(node, source, defaults, expected, following)
+                graph.add_node(name, operation, retry_policy=None)
                 graph.add_edge(previous, name)
                 previous = name
             elif isinstance(node, IfNode):

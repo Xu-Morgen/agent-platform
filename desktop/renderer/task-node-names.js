@@ -25,6 +25,16 @@ const taskNodeNames = (() => {
           }
         }
         visit(history.data.flow.flow);
+        for(const [parent,child] of Object.entries(history.data.children||{})){
+          names.set(parent,'嵌套服务');
+          function nested(nodes){for(const item of nodes||[]){
+            const id=item.nodeId||item.node_id;
+            names.set(parent+'/'+id,resources.get(item.artifactRef||item.artifact_ref)||controls[item.kind]||id);
+            if(item.condition?.kind==='block')nested([item.condition]);
+            nested((item.thenBranch||item.then_branch)?.nodes);nested((item.elseBranch||item.else_branch)?.nodes);nested(item.body);
+          }}nested(child.flow.flow);
+          names.set(parent+'/output','子服务返回');
+        }
         return names;
       })();
       instances.set(key, request);

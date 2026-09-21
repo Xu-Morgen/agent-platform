@@ -1,7 +1,7 @@
 """按结构化控制流检查保证可用的端口，不执行模块。"""
 from dataclasses import dataclass
 from ..contracts.base import StrictModel
-from ..contracts.flows import ModuleNode, IfNode, RepeatNode, WhileNode, ConstantValue, PortReference
+from ..contracts.flows import ModuleNode, ServiceNode, IfNode, RepeatNode, WhileNode, ConstantValue, PortReference
 from ..contracts.errors import PlatformError, ValidationIssue
 from pydantic import Field, ValidationError
 from .compatibility import assignable, Incompatible
@@ -83,6 +83,10 @@ def validate_flow(draft, catalog):
                 if isinstance(node, ModuleNode):
                     port = module(node, primary, defaults, scope, carry, path)
                     primary = contract(catalog.get(node.artifact_ref).primary_contract)
+                elif isinstance(node, ServiceNode):
+                    child = catalog.service(node)
+                    assignable(primary.schema, child.schema['input'])
+                    port = Port(child.schema['output'], kind='service')
                 elif isinstance(node, IfNode):
                     module(node.condition, primary, defaults, scope, carry, (*path, 'condition'), condition=True)
                     port = contract(node.output_contract)

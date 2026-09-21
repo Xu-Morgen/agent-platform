@@ -43,7 +43,7 @@ class RunSubmission:
                 raise PlatformError(ErrorResponse(code='CONFIGURATION_ERROR', stage='runs.submit',
                     message='当前环境或节点配置校验失败', issues=validation.issues))
             ids = {(config.model if isinstance(config, NodeConfiguration) else config.api).environment_id
-                   for config in draft.node_configurations.values()}
+                   for _, scope in snapshot.scopes() for config in scope.draft.node_configurations.values()}
             environments = {key: self.environments.get(key) for key in sorted(ids)}
             run = self.runs.create(service_id=service.service_id, instance_id=snapshot.instance_id,
                 files=self.files, references=references,

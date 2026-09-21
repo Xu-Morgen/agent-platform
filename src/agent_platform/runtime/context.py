@@ -30,8 +30,17 @@ class RunContext:
         self.api_transport = api_transport
         self.model = model
         self.token_policy = token_policy
+        self.prefix = ''
+
+    def qualified(self, node_id):
+        return self.prefix + node_id
 
     async def run_step(self, step_id, operation, *, kind='step', package_binding_id=None):
+        if self.prefix:
+            head, separator, tail = step_id.partition('.')
+            step_id = head + separator + self.prefix + tail
+            if package_binding_id:
+                package_binding_id = self.qualified(package_binding_id)
         await checkpoint('step_start', step_id)
         if kind == 'package':
             await checkpoint('package_start', package_binding_id)
@@ -62,6 +71,11 @@ class RunContext:
         except Exception as exc:
             step.status = 'failed'
             step.error = execution_error(exc, step_id, self.run_id)
+            if self.prefix:
+                for attr in ('node_id', 'source_node_id'):
+                    value = getattr(step.error, attr)
+                    if value and '/' not in value:
+                        setattr(step.error, attr, self.qualified(value))
             if getattr(exc, 'usage', None) is not None:
                 step.usage = exc.usage.model_dump(mode='json', by_alias=True)
             if kind == 'package':

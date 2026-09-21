@@ -87,6 +87,10 @@ async def main():
                           for direction, adapter in [('input', artifact.input_adapter), ('output', artifact.output_adapter)]}
                 if artifact.primary_adapter is not None:
                     result['primary'] = ContractResource(artifact.primary_adapter, request['digest'] + ':primary').schema
+                from ..registry.contract_groups import validation_shape
+                result['validationShapes'] = {direction: validation_shape(getattr(artifact, direction + '_adapter'))
+                                               for direction in ('input', 'output', 'primary')
+                                               if getattr(artifact, direction + '_adapter', None) is not None}
             elif action == 'validate':
                 adapter = getattr(artifact, request['direction'] + '_adapter')
                 result = plain(adapter.validate_python(request['value'], strict=True))

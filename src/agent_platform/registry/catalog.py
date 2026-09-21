@@ -25,9 +25,13 @@ def version_order(value):
 class ContractResource:
     adapter: TypeAdapter
     identity: str
+    schema_document: dict | None = None
 
     @property
     def schema(self):
+        if self.schema_document is not None:
+            from copy import deepcopy
+            return {**deepcopy(self.schema_document), 'x-contract-id': self.identity}
         schema = self.adapter.json_schema(by_alias=True)
         schema['x-contract-id'] = self.identity
         def custom(value):
@@ -51,6 +55,7 @@ class ModuleCatalog:
         self._artifacts = {}
         self._contracts = {}
         self._contents = []
+        self.service_resolver = None
         from ..storage import MemoryStore
         self.store = store or MemoryStore()
         self._sources = {}
@@ -68,6 +73,11 @@ class ModuleCatalog:
         if sealed:
             # 旧记录从未保存依赖锁；首次成功恢复时固定当前已验证环境，保留源码及历史身份。
             self.store.write(sealed)
+        self.contract_groups()
+
+    def contract_groups(self):
+        from .contract_groups import contract_groups
+        return contract_groups(self)
 
     def close(self):
         for content in self._sources.values():
@@ -82,6 +92,11 @@ class ModuleCatalog:
         if resource_id not in self._contracts:
             raise invalid('契约资源未加载', ['contract'], code='DEPENDENCY_ERROR')
         return self._contracts[resource_id]
+
+    def service(self, node):
+        if self.service_resolver is None:
+            raise invalid('服务实例解析不可用', ['instanceId'], code='DEPENDENCY_ERROR')
+        return self.service_resolver(node)
 
     def artifact(self, resource_id):
         if resource_id not in self._artifacts:
@@ -173,6 +188,7 @@ class ModuleCatalog:
         self.packages._items.update(candidate.packages._items)
         self.blocks._items.update(candidate.blocks._items)
         self._sources[view.resource_id] = content
+        self.contract_groups()
         return self.get(view.resource_id)
 
     def _load(self, request, captured=None, *, locked=None, operation=None):

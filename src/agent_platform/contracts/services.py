@@ -3,7 +3,7 @@ from pydantic import Field, JsonValue
 from .base import StrictModel
 from .flows import FlowDraft
 from .packages import Identifier
-from .budgets import PositiveInt
+from .budgets import PositiveInt, InstanceBudget
 
 
 class ServiceWrite(StrictModel):
@@ -41,6 +41,18 @@ class ActivateRequest(StrictModel):
     instance_id: Identifier
 
 
+class ServiceComponent(StrictModel):
+    service_id: Identifier
+    instance_id: Identifier
+    name: str
+    version: str
+    current: bool
+    input_contract: str
+    output_contract: str
+    schemas: dict[str, JsonValue]
+    budget: InstanceBudget | None
+
+
 class FlowHistory(StrictModel):
     version: VersionView
     flow: FlowDraft | dict[str, JsonValue]
@@ -51,3 +63,4 @@ class FlowHistory(StrictModel):
     output: dict[str, JsonValue]
     examples: list[JsonValue]
     configuration: dict[str, JsonValue]
+    children: dict[str, JsonValue] = Field(default_factory=dict)

@@ -85,6 +85,14 @@ class Branch(StrictModel):
     output: list[PortBinding]
 
 
+class ServiceNode(StrictModel):
+    """配置者选择已保存实例；入口为完整业务数据，不开放跨服务参考。"""
+    node_id: Identifier
+    kind: Literal['service']
+    service_id: Identifier
+    instance_id: Identifier
+
+
 class IfNode(StrictModel):
     node_id: Identifier
     kind: Literal['if']
@@ -129,7 +137,7 @@ class WhileNode(StrictModel):
         return self
 
 
-FlowNode = Annotated[ModuleNode | IfNode | RepeatNode | WhileNode, Field(discriminator='kind')]
+FlowNode = Annotated[ModuleNode | ServiceNode | IfNode | RepeatNode | WhileNode, Field(discriminator='kind')]
 for _model in (Branch, RepeatNode, WhileNode):
     _model.model_rebuild()
 
