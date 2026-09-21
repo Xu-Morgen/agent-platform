@@ -356,4 +356,9 @@ main:has(.configuration-page:not([hidden])) .page-header button { padding: 5px 1
 .contract-card pre { max-height:280px; overflow:auto; white-space:pre-wrap; }
 .contract-card details { margin:10px 0; }
 .contract-card p { font-size:12px; color:#526176; }
+.contract-origins { margin-bottom:16px; padding:12px; border-radius:8px; background:#f3f6fc; }
+.contract-origins h4 { color:#526176; font-size:12px; }
+.contract-origin + .contract-origin { margin-top:10px; padding-top:10px; border-top:1px solid #dbe3ed; }
+.contract-origin strong { display:block; color:#203753; font-size:15px; }
+.contract-origin p { margin:5px 0 0; line-height:1.6; }
 .flow-node[data-kind="service"] { border-left:4px solid #5264bc; }

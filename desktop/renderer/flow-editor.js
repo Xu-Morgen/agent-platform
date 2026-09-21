@@ -37,17 +37,33 @@ const flowEditor = (() => {
   }
   function contractCard(group, select) {
     const card=el('article');card.className='contract-card';card.dataset.contractId=group.contractId;
-    card.append(el('h4',contractLabel(group.contractId)));
+    const origins=new Map();
+    for(const source of group.sources){
+      if(!origins.has(source.resourceId))origins.set(source.resourceId,{...source,roles:[]});
+      const role=source.direction==='primary'?'主数据输入':source.direction==='output'?'输出结果':'独立契约';
+      if(!origins.get(source.resourceId).roles.includes(role))origins.get(source.resourceId).roles.push(role);
+    }
+    const sources=el('section');sources.className='contract-origins';sources.setAttribute('aria-label','契约来源');
+    sources.append(el('h4',origins.size>1?`契约来源 · ${origins.size} 个资源共用`:'契约来源'));
+    for(const source of origins.values()){
+      const item=el('div');item.className='contract-origin';
+      item.append(el('strong',source.name));
+      const version=source.kind==='contract'?'内容版本 '+source.version.slice(0,12):'v'+source.version;
+      item.append(el('p',`${kindNames[source.kind]} · ${version} · ${source.roles.join(' / ')}${source.archived?' · 已归档':''}`));
+      const resource=resources.find(resource=>resource.resourceId===source.resourceId);
+      if(resource?.description)item.append(el('p',resource.description));
+      sources.append(item);
+    }
+    card.append(sources,el('h4','数据结构 · '+contractLabel(group.contractId)));
     const preview=el('div');portPreview(preview,group.contractId);card.append(preview);
     if(group.runtimeValidation)card.append(el('p','校验身份独立 · 未合并为共享契约'));
-    const sources=el('details');sources.append(el('summary',group.sources.length+' 个来源'));
-    for(const source of group.sources)sources.append(el('p',`${kindNames[source.kind]} · ${source.name} · ${source.kind==='contract'?source.version.slice(0,12):'v'+source.version} · ${source.direction==='primary'?'主输入':source.direction==='output'?'输出':'独立契约'}${source.archived?' · 已归档':''}`));
-    const raw=el('details');raw.append(el('summary','完整结构与约束'),el('pre',JSON.stringify(group.schema,null,2)));card.append(sources,raw);
+    const raw=el('details');raw.append(el('summary','完整结构与约束'),el('pre',JSON.stringify(group.schema,null,2)));card.append(raw);
     if(select){const selected=contractGroup(contractSelection.value)?.contractId===group.contractId;card.append(button(selected?'使用此契约（当前）':'使用此契约',()=>{select(group.contractId);}));}
     return card;
   }
   function filteredContracts(query, tab, current='') {
-    return contractGroups.filter(group=>(group.aliases.includes(current)||group.contractId===current||group.sources.some(s=>!s.archived)) &&
+    const visible=new Set(latestResources().map(resource=>resource.resourceId));
+    return contractGroups.map(group=>({...group,sources:group.sources.filter(source=>visible.has(source.resourceId))})).filter(group=>group.sources.length &&
       (tab==='all'||group.sources.some(source=>source.kind===tab)) &&
       (JSON.stringify(group.schema)+' '+group.sources.map(s=>s.name+' '+s.version).join(' ')).toLowerCase().includes(query.trim().toLowerCase()));
   }
@@ -85,6 +101,15 @@ const flowEditor = (() => {
     // resourceId 固定为 kind:声明标识:version:digest；同名资源不一定属于同一系列。
     return resource.resourceId.split(':').slice(0,2).join(':');
   }
+  function latestResources(includeArchived=false) {
+    const latest=new Map();
+    for(const resource of resources.filter(resource=>resource.kind==='package'||resource.kind==='block')){
+      const key=resourceSeries(resource),previous=latest.get(key);
+      if(!previous||compareVersions(resource.version,previous.version)>0)latest.set(key,resource);
+    }
+    return resources.filter(resource=>(resource.kind==='contract'||latest.get(resourceSeries(resource))?.resourceId===resource.resourceId)&&
+      (includeArchived||!resource.archived));
+  }
   function compareVersions(left, right) {
     const parse=value=>{const split=value.indexOf('-');return [
       (split<0 ? value : value.slice(0,split)).split('.').map(BigInt),
@@ -106,14 +131,10 @@ const flowEditor = (() => {
   function renderLibrary(target, query, choose) {
     target.replaceChildren();
     const activeTab=target.id==='module-library'?libraryTab:insertTab;
-    const latest=new Map();
-    for(const resource of resources.filter(r=>r.kind!=='contract')) {
-      const key=resourceSeries(resource),previous=latest.get(key);
-      if(!previous||compareVersions(resource.version,previous)>0)latest.set(key,resource.version);
-    }
+    const visible=latestResources();
     const reusable=new Map();
     for(const item of serviceComponents)if(!reusable.has(item.serviceId)||item.current)reusable.set(item.serviceId,item);
-    const groups=[['业务包',resources.filter(r=>r.kind==='package'&&!r.archived),'package'],['通用块',resources.filter(r=>r.kind==='block'&&!r.archived),'block'],['服务',[...reusable.values()].filter(r=>r.serviceId!==$('service-select').value).map(r=>({...r,kind:'service'})),'service'],['流程控制',controls,'control']];
+    const groups=[['业务包',visible.filter(r=>r.kind==='package'),'package'],['通用块',visible.filter(r=>r.kind==='block'),'block'],['服务',[...reusable.values()].filter(r=>r.serviceId!==$('service-select').value).map(r=>({...r,kind:'service'})),'service'],['流程控制',controls,'control']];
     let count=0;
     for(const [title,items,category] of groups) {
       if(activeTab!=='all'&&activeTab!==category)continue;
@@ -128,8 +149,7 @@ const flowEditor = (() => {
         if(resource.kind==='service') {
           item.append(el('small',resource.current?'当前版本 · 添加后可选择历史版本':'可复用历史版本 · 添加后可切换版本'),el('small',resource.instanceId));
         } else if(resource.version) {
-          const current=compareVersions(resource.version,latest.get(resourceSeries(resource)))===0;
-          const version=el('span',current ? '最新已导入' : '旧版本');version.className='resource-version';version.dataset.latest=String(current);
+          const version=el('span','最新已导入');version.className='resource-version';version.dataset.latest='true';
           item.append(version,el('small','ID：'+resource.resourceId.split(':')[1]));
           item.dataset.resourceId=resource.resourceId;
         }
@@ -148,8 +168,8 @@ const flowEditor = (() => {
       }
       if(activeTab==='all'||activeTab==='contract'){section.open=activeTab==='contract';target.append(section);}
       const management=el('details');management.className='resource-import';
-      management.append(el('summary','管理资源 · 归档 / 恢复'),el('p','导入新版业务包或通用块后，同一 ID 的较低版本自动归档；补导入旧版默认归档，可手动恢复。独立契约仍手动归档。归档仅从添加列表隐藏，已有流程、实例和任务继续可用。'));
-      for(const resource of resources) {
+      management.append(el('summary','管理资源 · 归档 / 恢复'),el('p','包和块只展示同一 ID 的最新已导入版本，旧版本不展示。归档最新版不会显示旧版。独立契约仍可手动归档；已有流程、实例和任务引用保持不变。'));
+      for(const resource of latestResources(true)) {
         const row=el('p');
         row.append(el('span',`${kindNames[resource.kind]} · ${resource.name} · ${resource.kind === 'contract' ? resource.version.slice(0,12) : 'v'+resource.version}${resource.archived ? ' · 已归档' : ''} `));
         const toggle=button(resource.archived ? '恢复' : '归档',async()=>{
@@ -169,7 +189,7 @@ const flowEditor = (() => {
       target.append(management);
     }
     if(!count)target.append(el('p','没有匹配项。请换个关键词或加载业务包、通用块。'));
-    if(!query && !resources.some(r=>r.kind!=='contract'&&!r.archived))target.append(el('p','还没有业务包或通用块，请在下方加载。'));
+    if(!query && !visible.some(r=>r.kind!=='contract'))target.append(el('p','暂无可选的最新业务包或通用块，请加载资源或恢复已归档的最新版。'));
   }
   function openInsert(nodes,index,label) {
     insertion={nodes,index};$('insert-context').textContent=label;
@@ -319,9 +339,14 @@ const flowEditor = (() => {
       parent.append(el('p','此条件使用旧引用协议。请删除该控制节点并重新添加 Python 条件块。'));return;
     }
     const condition=el('label','Python 条件块 · 独立执行并返回严格 bool');
-    condition.append(choices(resources.filter(r=>r.kind==='block'&&(!r.archived||r.resourceId===node.condition.artifactRef)).map(r=>[r.resourceId,r.name+' · v'+r.version]),node.condition.artifactRef,value=>{
+    const available=latestResources().filter(r=>r.kind==='block');
+    const conditionSelect=choices(available.map(r=>[r.resourceId,r.name+' · v'+r.version]),node.condition.artifactRef,value=>{
       node.condition.artifactRef=value;delete content.nodeConfigurations[node.condition.nodeId];changed();render();
-    }));parent.append(condition,el('p','主数据：'+incoming+'；条件结果只选择路径。'));
+    });
+    if(node.condition.artifactRef&&!available.some(r=>r.resourceId===node.condition.artifactRef)){
+      const selected=conditionSelect.selectedOptions[0];selected.textContent='保留当前固定引用（不在最新可选列表中）';selected.disabled=true;
+    }
+    condition.append(conditionSelect);parent.append(condition,el('p','主数据：'+incoming+'；条件结果只选择路径。'));
     const resource=resources.find(r=>r.resourceId===node.condition.artifactRef);
     const preview=el('div');portPreview(preview,resource?.primaryContract);parent.append(preview);
     referenceEditor(parent,node.condition,resource,scope,automatic);
@@ -691,7 +716,7 @@ const flowEditor = (() => {
       $('module-search').value = '';
       renderLibrary($('module-library'),'',resource=>add(resource));render();
       loadStatus('success','已录入'+kindNames[body.kind]+'：'+response.data.name+'\n路径：'+body.path+'\n'+
-        (response.data.archived ? '该版本已归档，请在“管理资源 · 归档 / 恢复”中恢复。' : body.kind === 'contract' ? '现在可在输入契约、输出契约中选择。' : '现在可在左侧点击添加到流程；首次导入新版本时，同一 ID 的较低版本已自动归档。'));
+        (response.data.archived ? '该版本已归档。包和块仅展示最新版本，旧版不会进入资源或契约选择列表。' : body.kind === 'contract' ? '现在可在输入契约、输出契约中选择。' : '现在可在左侧点击添加到流程；首次导入新版本时，同一 ID 的较低版本已自动归档。'));
     } catch {
       loadStatus('error','未能确认加载结果：桌面与后端通信失败，请重试加载（相同资源不会重复录入）。\n路径：'+body.path);
     } finally {
