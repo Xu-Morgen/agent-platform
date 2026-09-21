@@ -54,7 +54,7 @@ const flowEditor = (() => {
       if(resource?.description)item.append(el('p',resource.description));
       sources.append(item);
     }
-    card.append(sources,el('h4','数据结构 · '+contractLabel(group.contractId)));
+    card.append(sources,el('h4','数据结构'));
     const preview=el('div');portPreview(preview,group.contractId);card.append(preview);
     if(group.runtimeValidation)card.append(el('p','校验身份独立 · 未合并为共享契约'));
     const raw=el('details');raw.append(el('summary','完整结构与约束'),el('pre',JSON.stringify(group.schema,null,2)));card.append(raw);
@@ -220,6 +220,7 @@ const flowEditor = (() => {
           item.dataset.resourceId=resource.resourceId;
         }
         item.append(el('small',resource.description || '添加到流程中配置输入与输出'),el('b','＋'));
+        if(resource.kind==='block'||resource.kind==='package')referenceSummary(item,resource);
         const wrapper=el('div');wrapper.className='resource-choice';wrapper.append(item);
         const explain=adviceButton(resource);if(explain)wrapper.append(explain);
         target.append(wrapper);count++;
@@ -378,8 +379,31 @@ const flowEditor = (() => {
     const section=el('fieldset');section.append(el('legend',label));const body=el('div');body.dataset.bindingSection=label;
     bindings(body,values,contract,scope,label.startsWith('输入 ·')?'当前节点输入':label);section.append(body);parent.append(section);
   }
+  function referenceDeclaration(resource) {
+    const root=resource?.schemas?.input || {}, entry=resolveSchema(root,root);
+    const declaration=resolveSchema(entry.properties?.references,root);
+    return {root,entry,declaration,slots:declaration.prefixItems || []};
+  }
+  function referenceSummary(parent, resource) {
+    const {root,entry,declaration,slots}=referenceDeclaration(resource);
+    const summary=el('span');summary.className='reference-summary';
+    if(!entry.properties?.references){summary.append(el('small','参考输入 · 声明不可用'));parent.append(summary);return;}
+    summary.append(el('strong',slots.length?`参考输入 · ${slots.length} 项（按位置顺序）`:'参考输入 · 0 项，无需参考'));
+    if(slots.length){
+      const explanation=declaration.description || entry.description;
+      if(explanation)summary.append(el('small',explanation));
+      slots.forEach((slot,index)=>{
+        const resolved=resolveSchema(slot,root),item=el('span');item.className='reference-slot';
+        item.append(el('code',`references[${index}]`),el('small','类型 · '+(resolved.title || typeName(slot,root))));
+        item.append(el('small',slot.description?'作用 · '+slot.description:'作用 · 资源未声明此位置的用途'));
+        if(!slot.description&&resolved.description)item.append(el('small','结构说明 · '+resolved.description));
+        summary.append(item);
+      });
+    }
+    parent.append(summary);
+  }
   function referenceEditor(parent, node, resource, scope, automatic) {
-    const root=resource?.schemas.input || {}, slots=resolveSchema(resolveSchema(root,root).properties?.references,root).prefixItems || [];
+    const {root,slots}=referenceDeclaration(resource);
     parent.append(el('p','主数据自动传递；简单模式参考：'+automatic+'。资源声明 '+slots.length+' 个参考位置。'));
     const panel=el('details');panel.dataset.detailKey=node.nodeId+':references';panel.open=node.references!=null;
     panel.append(el('summary','高级参考设置'));
@@ -451,7 +475,9 @@ const flowEditor = (() => {
       let inputText=previousInput;
       if(node.kind==='if')inputText='条件 → 成立 / 否则';
       if(node.body)inputText='初始值 → 每轮处理 → 更新携带值';
-      summary.append(el('span','输入 · '+inputText),el('span','输出 · '+(outputRef(node)?contractLabel(outputRef(node)):'待选择契约')));card.append(summary);
+      summary.append(el('span','输入 · '+inputText),el('span','输出 · '+(outputRef(node)?contractLabel(outputRef(node)):'待选择契约')));
+      if(node.kind==='block'||node.kind==='package')referenceSummary(summary,resource);
+      card.append(summary);
       const detail=el('details');detail.className='node-details';detail.append(el('summary',node.kind==='service'?'查看固定版本与契约':node.kind==='block'||node.kind==='package'?'查看固定契约与配置参数':'配置条件或循环'));card.append(detail);
       if(node.kind==='block'||node.kind==='package') {
         detail.append(el('h5','输入契约 · 自动接收'+previousInput));

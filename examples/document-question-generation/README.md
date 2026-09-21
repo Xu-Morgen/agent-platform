@@ -9,11 +9,11 @@
 | 资源 | 版本 | 职责 |
 | --- | --- | --- |
 | [read_document.py](read_document.py) | 4.0.0 | PDF/DOCX 全文读取并生成显式行号索引；读取算法未变 |
-| [document-question-planner](document-question-planner/package.json) | 3.0.0 | 判断资料充分性，规划三个考点、目标、难度、依据 |
-| [document-question-generator](document-question-generator/package.json) | 5.0.0 | 初稿和重新出题共用包，独立节点配置 |
-| [document-question-reviewer](document-question-reviewer/package.json) | 3.0.0 | 独立审题，逐题 findings 和总体 verdict |
-| [document-question-reviser](document-question-reviser/package.json) | 3.0.0 | 只修订被 findings 指出的题目 |
-| [quality-blocks](quality-blocks/) | 每块 3.0.0 | 规划核验、输入转换、状态维护、条件、最终验收 |
+| [document-question-planner](document-question-planner/package.json) | 4.0.0 | 判断资料充分性，规划三个考点、目标、难度、依据 |
+| [document-question-generator](document-question-generator/package.json) | 6.0.0 | 初稿和重新出题共用包，独立节点配置 |
+| [document-question-reviewer](document-question-reviewer/package.json) | 4.0.0 | 独立审题，逐题 findings 和总体 verdict |
+| [document-question-reviser](document-question-reviser/package.json) | 4.0.0 | 只修订被 findings 指出的题目 |
+| [quality-blocks](quality-blocks/) | 每块 4.0.0 | 规划核验、输入转换、状态维护、条件、最终验收 |
 | [quality_contracts.py](quality_contracts.py) | 源码随资源版本固定 | 权威契约和确定性规则 |
 | [quality-schemas.json](quality-schemas.json)、[contract-examples.json](contract-examples.json) | 派生交付说明 | 公开 Schema 与通过权威契约校验的合成示例 |
 
@@ -122,3 +122,7 @@ prepare_generation 是显式转换块：把初稿的规划或重新出题的完�
 ## 用途与字段说明
 
 2026-09-21 补充了资源用途、前后步骤和字段说明，并递增资源版本。已加载的旧快照保持不变，请重新加载新版本并按需保存新实例。契约页面可展开嵌套字段；模型环境配置完成后，可使用[基于当前草稿的 AI 解释](../../docs/resource-explanation.md)。本轮只改变说明，业务约束与执行逻辑保持不变。
+
+### 参考位置用途声明
+
+2026-09-21 补齐出题入口及规划核验、状态初始化、审题合并、定向修订更新和重新出题更新块的逐位置用途，使用 `Annotated[类型, Field(description=...)]` 导出到入口 Schema。卡片直接读取参考数量、位置和作用；零参考资源保持 `tuple[()]`。共享契约已同步到所有自包含资源及公开 Schema，受影响资源已递增大版本；读取文档块仍为 4.0.0。重新加载后可在资源卡片查看，已有节点固定旧版引用，需选择新版资源并保存新实例才会更新。业务约束、参考顺序及执行逻辑不变，本轮未调用真实模型或更新已保存服务。

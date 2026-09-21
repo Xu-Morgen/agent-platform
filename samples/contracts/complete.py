@@ -61,5 +61,5 @@ class Output(StrictModel):
     reviewer_note: str | None = Field(default=None, description='可省略，也可以显式为 null')
 
 
-class ReviewInput(NodeInput[Output, tuple[Annotated[Input, Field(description="本次处理的原始批次")]]]):
+class ReviewInput(NodeInput[Output, tuple[Annotated[Input, Field(description="本次处理的原始批次，用于逐条对照输出结果，核验处理结果与原始输入的一致性。")]]]):
     """供资源开发者声明审查入口；服务输入仍选择业务 Input，不填写封装。"""

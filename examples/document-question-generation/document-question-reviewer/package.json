@@ -1,6 +1,6 @@
 {
   "packageId": "document-question-reviewer",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "name": "独立审题",
   "description": "独立检查当前三题的依据、答案、歧义与可评分性，给出通过、定向修订、重新出题或资料不足结论。主数据为完整题目状态；输出需经合并审题块写回状态。无参考输入。",
   "contractRefs": {

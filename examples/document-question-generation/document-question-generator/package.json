@@ -1,6 +1,6 @@
 {
   "packageId": "document-question-generator",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "name": "依据规划出题",
   "description": "依据已核验规划生成完整三题及答案、得分点和原文引文；也可按审题意见重新出题。接在准备出题上下文块后，参考依次绑定原文、规划；输出交给初始化或采纳重新出题块。",
   "contractRefs": {

@@ -188,7 +188,10 @@ class PlannerEntry(NodeInput[Document, tuple[()]]):
     pass
 
 
-class GeneratorEntry(NodeInput[GenerationInput, tuple[Document, SufficientPlan]]):
+class GeneratorEntry(NodeInput[GenerationInput, tuple[
+    Annotated[Document, Field(description='完整原文及显式行号，供出题核对事实、选取可追溯的依据引文。')],
+    Annotated[SufficientPlan, Field(description='已核验的出题规划，约束三题的考点、目标、难度和依据，供初稿与重新出题遵循。')],
+]]):
     """出题节点入口：主数据为上下文；参考依次为完整原文、核验后的规划。"""
     pass
 
@@ -254,8 +257,8 @@ def verify_state(state):
 
 from agent_platform.blocks import block
 
-@block(id='question-update-regeneration', version='3.0.0', name='采纳重新出题并计轮', description='接收重新出题的三题，参考准备出题块输出的 context 封装，从中取得此前完整状态，保留原文与规划、替换题目、轮数加 1 并标记待审。最多两轮，随后必须重新审题。')
-def run(value: NodeInput[Questions, tuple[GenerationInput]]) -> QuestionState:
+@block(id='question-update-regeneration', version='4.0.0', name='采纳重新出题并计轮', description='接收重新出题的三题，参考准备出题块输出的 context 封装，从中取得此前完整状态，保留原文与规划、替换题目、轮数加 1 并标记待审。最多两轮，随后必须重新审题。')
+def run(value: NodeInput[Questions, tuple[Annotated[GenerationInput, Field(description='本次重新出题的输入上下文，从中读取旧状态，校验重新出题许可并保留原文、规划及累计修订轮数。')]]]) -> QuestionState:
     previous = value.references[0].context
     if not isinstance(previous, QuestionState):
         quality_fail('重新出题更新缺少原状态')

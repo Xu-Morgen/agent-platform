@@ -188,7 +188,10 @@ class PlannerEntry(NodeInput[Document, tuple[()]]):
     pass
 
 
-class GeneratorEntry(NodeInput[GenerationInput, tuple[Document, SufficientPlan]]):
+class GeneratorEntry(NodeInput[GenerationInput, tuple[
+    Annotated[Document, Field(description='完整原文及显式行号，供出题核对事实、选取可追溯的依据引文。')],
+    Annotated[SufficientPlan, Field(description='已核验的出题规划，约束三题的考点、目标、难度和依据，供初稿与重新出题遵循。')],
+]]):
     """出题节点入口：主数据为上下文；参考依次为完整原文、核验后的规划。"""
     pass
 
@@ -254,8 +257,8 @@ def verify_state(state):
 
 from agent_platform.blocks import block
 
-@block(id='question-initialize-state', version='3.0.0', name='初始化题目状态', description='接收初稿三题，参考依次读取原文和已核验规划，组装完整题目状态；标记待审并将修订轮数置 0。接在初次出题后、独立审题前。')
-def run(value: NodeInput[Questions, tuple[Document, SufficientPlan]]) -> QuestionState:
+@block(id='question-initialize-state', version='4.0.0', name='初始化题目状态', description='接收初稿三题，参考依次读取原文和已核验规划，组装完整题目状态；标记待审并将修订轮数置 0。接在初次出题后、独立审题前。')
+def run(value: NodeInput[Questions, tuple[Annotated[Document, Field(description='初次出题所依据的完整原文，写入题目状态并用于核验题目引文。')], Annotated[SufficientPlan, Field(description='初次出题采用的已核验规划，写入题目状态并核对题目与规划的一致性。')]]]) -> QuestionState:
     state = QuestionState(document=value.references[0], plan=value.references[1],
                           current=value.primary, review=AwaitingReview(phase='awaiting_review'), revision_rounds=0)
     return verify_state(state)

@@ -188,7 +188,10 @@ class PlannerEntry(NodeInput[Document, tuple[()]]):
     pass
 
 
-class GeneratorEntry(NodeInput[GenerationInput, tuple[Document, SufficientPlan]]):
+class GeneratorEntry(NodeInput[GenerationInput, tuple[
+    Annotated[Document, Field(description='完整原文及显式行号，供出题核对事实、选取可追溯的依据引文。')],
+    Annotated[SufficientPlan, Field(description='已核验的出题规划，约束三题的考点、目标、难度和依据，供初稿与重新出题遵循。')],
+]]):
     """出题节点入口：主数据为上下文；参考依次为完整原文、核验后的规划。"""
     pass
 

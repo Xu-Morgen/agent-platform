@@ -188,7 +188,10 @@ class PlannerEntry(NodeInput[Document, tuple[()]]):
     pass
 
 
-class GeneratorEntry(NodeInput[GenerationInput, tuple[Document, SufficientPlan]]):
+class GeneratorEntry(NodeInput[GenerationInput, tuple[
+    Annotated[Document, Field(description='完整原文及显式行号，供出题核对事实、选取可追溯的依据引文。')],
+    Annotated[SufficientPlan, Field(description='已核验的出题规划，约束三题的考点、目标、难度和依据，供初稿与重新出题遵循。')],
+]]):
     """出题节点入口：主数据为上下文；参考依次为完整原文、核验后的规划。"""
     pass
 
@@ -254,8 +257,8 @@ def verify_state(state):
 
 from agent_platform.blocks import block
 
-@block(id='question-merge-review', version='3.0.0', name='合并审题并校验', description='接收独立审题结果，参考审题前的完整待审状态，核验依据后将审题结果合并回状态。接在每次审题后，为条件判断或最终验收提供完整状态。')
-def run(value: NodeInput[Review, tuple[QuestionState]]) -> QuestionState:
+@block(id='question-merge-review', version='4.0.0', name='合并审题并校验', description='接收独立审题结果，参考审题前的完整待审状态，核验依据后将审题结果合并回状态。接在每次审题后，为条件判断或最终验收提供完整状态。')
+def run(value: NodeInput[Review, tuple[Annotated[QuestionState, Field(description='本次审题前的待审状态，用于保留原文、规划、题目和修订轮数，并合入新的审题结果。')]]]) -> QuestionState:
     previous = value.references[0]
     verify_state(previous)
     if not isinstance(previous.review, AwaitingReview):

@@ -1,6 +1,6 @@
 {
   "packageId": "document-question-reviser",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "name": "定向修订",
   "description": "按完整状态中的审题意见修复被指出的题目，保留未指出的题目，输出完整三题。用于定向修订分支，后接采纳定向修订并计轮块，再重新审题。无参考输入。",
   "contractRefs": {

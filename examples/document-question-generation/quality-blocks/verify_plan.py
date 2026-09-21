@@ -188,7 +188,10 @@ class PlannerEntry(NodeInput[Document, tuple[()]]):
     pass
 
 
-class GeneratorEntry(NodeInput[GenerationInput, tuple[Document, SufficientPlan]]):
+class GeneratorEntry(NodeInput[GenerationInput, tuple[
+    Annotated[Document, Field(description='完整原文及显式行号，供出题核对事实、选取可追溯的依据引文。')],
+    Annotated[SufficientPlan, Field(description='已核验的出题规划，约束三题的考点、目标、难度和依据，供初稿与重新出题遵循。')],
+]]):
     """出题节点入口：主数据为上下文；参考依次为完整原文、核验后的规划。"""
     pass
 
@@ -254,8 +257,8 @@ def verify_state(state):
 
 from agent_platform.blocks import block
 
-@block(id='question-verify-plan', version='3.0.0', name='核验出题规划', description='接收规划包结果，参考原文核验三题顺序、不同知识点及引文行号；输出可用规划。资料不足或依据无效时明确失败。位于规划包之后、准备出题之前。')
-def run(value: NodeInput[Planning, tuple[Document]]) -> SufficientPlan:
+@block(id='question-verify-plan', version='4.0.0', name='核验出题规划', description='接收规划包结果，参考原文核验三题顺序、不同知识点及引文行号；输出可用规划。资料不足或依据无效时明确失败。位于规划包之后、准备出题之前。')
+def run(value: NodeInput[Planning, tuple[Annotated[Document, Field(description='规划依据的完整原文及显式行号，用于核验规划引文、行号范围和原文一致性。')]]]) -> SufficientPlan:
     decision = value.primary.decision
     if isinstance(decision, InsufficientPlan):
         quality_fail('资料不足：' + decision.reason, insufficient=True)

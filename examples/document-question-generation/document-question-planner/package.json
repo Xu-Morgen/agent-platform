@@ -1,6 +1,6 @@
 {
   "packageId": "document-question-planner",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "name": "出题规划",
   "description": "根据完整原文规划论述、单选、填空各一题，给出知识点、难度与行号依据；资料不足时返回原因。接在读取文档后，再接核验出题规划块。无参考输入。",
   "contractRefs": {

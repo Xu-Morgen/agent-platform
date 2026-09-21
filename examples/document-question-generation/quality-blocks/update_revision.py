@@ -188,7 +188,10 @@ class PlannerEntry(NodeInput[Document, tuple[()]]):
     pass
 
 
-class GeneratorEntry(NodeInput[GenerationInput, tuple[Document, SufficientPlan]]):
+class GeneratorEntry(NodeInput[GenerationInput, tuple[
+    Annotated[Document, Field(description='完整原文及显式行号，供出题核对事实、选取可追溯的依据引文。')],
+    Annotated[SufficientPlan, Field(description='已核验的出题规划，约束三题的考点、目标、难度和依据，供初稿与重新出题遵循。')],
+]]):
     """出题节点入口：主数据为上下文；参考依次为完整原文、核验后的规划。"""
     pass
 
@@ -254,8 +257,8 @@ def verify_state(state):
 
 from agent_platform.blocks import block
 
-@block(id='question-update-revision', version='3.0.0', name='采纳定向修订并计轮', description='接收修订包输出的三题，参考修订前完整状态，确认未被指出的题目未改变；替换题目、轮数加 1 并标记待审。最多两轮，随后必须重新审题。')
-def run(value: NodeInput[Questions, tuple[QuestionState]]) -> QuestionState:
+@block(id='question-update-revision', version='4.0.0', name='采纳定向修订并计轮', description='接收修订包输出的三题，参考修订前完整状态，确认未被指出的题目未改变；替换题目、轮数加 1 并标记待审。最多两轮，随后必须重新审题。')
+def run(value: NodeInput[Questions, tuple[Annotated[QuestionState, Field(description='定向修订前的完整状态，用于核对修订许可、确保未被指出的题目保持不变，并累计修订轮数。')]]]) -> QuestionState:
     previous = verify_state(value.references[0])
     if not isinstance(previous.review, Review) or previous.review.verdict != 'revise':
         quality_fail('定向修订要求 revise 状态')

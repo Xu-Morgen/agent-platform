@@ -26,5 +26,5 @@ class Output(StrictModel):
     keywords: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1, max_length=3, description='从原文中提取的 1～3 个非空关键词，用于概览摘要主题。')
 
 
-class Entry(NodeInput[Input, tuple[Annotated[Input, Field(description="摘要事实核对用的原始文本")]]]):
+class Entry(NodeInput[Input, tuple[Annotated[Input, Field(description="摘要所依据的原始文本，用于核对摘要与关键词中的事实，避免引入原文未提供的信息。")]]]):
     """主数据为待摘要文本；唯一参考为原始文本，数量与位置固定。"""

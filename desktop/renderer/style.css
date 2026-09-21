@@ -109,17 +109,24 @@ main:has(.configuration-page:not([hidden])) .page-header button { padding: 5px 1
 .node-description { margin: 0 16px 12px; font-size: 12px; color: #7b879b; }
 .node-port-summary { display: grid; gap: 5px; background: #f8fafd; border-top: 1px solid #edf0f6; padding: 10px 16px; font-size: 11px; color: #6b7d97; overflow-wrap: anywhere; }
 .node-port-summary span::before { content: '●'; color: #8eacd9; margin-right: 6px; font-size: 9px; }
+.reference-summary { display: grid; min-width: 0; gap: 6px; margin-top: 6px; padding-top: 8px; border-top: 1px solid #e4e9f1; overflow-wrap: anywhere; }
+.reference-summary > strong { font-size: 11px; color: #526b94; }
+.reference-summary small { font-size: 11px; line-height: 1.7; color: #65758f; }
+.reference-slot { display: grid; min-width: 0; gap: 3px; padding: 6px 0; }
+.reference-slot code { font-size: 11px; color: #526b94; }
+.node-port-summary .reference-summary::before, .node-port-summary .reference-summary span::before { content: none; }
 .node-details { border-top: 1px solid #e9edf5; padding: 12px 16px; font-size: 12px; }
 .node-details > summary { font-size: 12px; }
 .node-details > h5 { margin-top: 18px; color: #6b7990; }
 .node-details fieldset, .branch-output fieldset, .loop-update fieldset { min-width: 0; padding: 12px 0; border: 0; margin: 16px 0 0; }
 .node-details legend, .branch-output legend, .loop-update legend { color: #5c6b83; font-size: 12px; font-weight: 600; }
 .port-preview { margin: 10px 0; font-size: 11px; color: #8a97aa; }
-.port-field { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 10px; padding: 6px 0; border-bottom: 1px solid #f0f3f8; overflow-wrap: anywhere; }
-.port-field code { color: #526b94; font-size: 11px; }
-.port-field > span { color: #8491a6; flex: 1; }
-.port-field small { color: #9aa5b5; font-size: 10px; }
-.port-field p { flex-basis: 100%; margin: 0; color: #7b8a9f; }
+/* 类型独占整行，避免长字段名将枚举值挤成逐字换行。 */
+.port-field { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: baseline; gap: 5px 10px; padding: 10px 0; border-bottom: 1px solid #f0f3f8; overflow-wrap: anywhere; }
+.port-field > code { grid-column: 1; grid-row: 1; min-width: 0; color: #526b94; font-size: 11px; }
+.port-field > span { grid-column: 1 / -1; grid-row: 2; min-width: 0; color: #526176; line-height: 1.7; }
+.port-field > small { grid-column: 2; grid-row: 1; color: #7b8a9f; font-size: 10px; white-space: nowrap; }
+.port-field > p { grid-column: 1 / -1; margin: 0; color: #7b8a9f; }
 .raw-schema { margin: 14px 0; font-size: 11px; }
 .configuration-status { padding: 8px 16px; margin: 0; background: #fcfaf5; color: #9b8053; font-size: 11px; border-radius: 0 0 10px 10px; }
 .flow-branches { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 16px; border-top: 1px solid #eee7d9; container-type: inline-size; }

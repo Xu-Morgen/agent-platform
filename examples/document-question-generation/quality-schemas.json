@@ -2181,10 +2181,12 @@
         "minItems": 2,
         "prefixItems": [
           {
-            "$ref": "#/$defs/Document"
+            "$ref": "#/$defs/Document",
+            "description": "完整原文及显式行号，供出题核对事实、选取可追溯的依据引文。"
           },
           {
-            "$ref": "#/$defs/SufficientPlan"
+            "$ref": "#/$defs/SufficientPlan",
+            "description": "已核验的出题规划，约束三题的考点、目标、难度和依据，供初稿与重新出题遵循。"
           }
         ],
         "title": "References",
