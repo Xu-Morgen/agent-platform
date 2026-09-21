@@ -1,9 +1,10 @@
 {
   "packageId": "sample-minimal-chat",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "name": "最小 Prompt 包",
   "contractRefs": {
     "input": "models:Entry",
     "output": "models:Text"
-  }
+  },
+  "description": "接收 text 文本，让模型概括正文并在 text 中返回摘要，演示最小模型交互与严格输出。可作服务首步；放在其他步骤后时使用高级空参考列表。需要绑定模型连接。"
 }

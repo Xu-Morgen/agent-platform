@@ -22,13 +22,15 @@ NonBlank = Annotated[str, Field(min_length=1, pattern=r'\S')]
 
 
 class Input(StrictModel):
-    document: TaskFile
+    """文档读取入口：服务第一步接收用户上传的文档。"""
+    document: TaskFile = Field(description='任务页已保存的 PDF 或 DOCX 附件引用；不是本机路径。')
 
 
 class Output(StrictModel):
-    file_name: NonBlank
-    text: NonBlank
-    numbered_text: NonBlank
+    """原文来源：文档读取块输出，规划包输入；正文与行号索引必须一致。"""
+    file_name: NonBlank = Field(description='上传文档的原始文件名，用于辨认题目依据的来源。')
+    text: NonBlank = Field(description='完整原文正文，供出题与引文核验使用；不截断或概括。')
+    numbered_text: NonBlank = Field(description='带有从 1 开始显式行号的完整正文；出题及审题引用这些行号，不作为页码。')
 
 
 def fail(reason, page=None, code='DOCUMENT_READ_ERROR'):
@@ -177,8 +179,8 @@ def read_docx(path, context, deadline):
 
 
 @block(
-    id='read-document', version='3.0.0', name='读取完整文档',
-    description='读取 PDF/DOCX 正文；扫描及混合 PDF 本地 OCR，全文一次性输出。',
+    id='read-document', version='4.0.0', name='读取完整文档',
+    description='接收已上传 PDF/DOCX 附件，提取完整正文及显式行号，作为出题规划的原文来源。扫描及混合 PDF 使用本地 OCR；须先准备声明的依赖与模型。通常为服务首步，无参考输入。',
     dependencies=['rapidocr-onnxruntime==1.4.4', 'onnxruntime==1.23.2', 'PyMuPDF==1.26.7', 'python-docx==1.2.0'],
     dependencySources=[{'kind': 'index', 'url': 'https://pypi.org/simple'}],
     models=[

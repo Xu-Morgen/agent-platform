@@ -8,12 +8,12 @@
 
 | 资源 | 版本 | 职责 |
 | --- | --- | --- |
-| [read_document.py](read_document.py) | 3.0.0 | PDF/DOCX 全文读取并生成显式行号索引；读取算法未变 |
-| [document-question-planner](document-question-planner/package.json) | 2.0.0 | 判断资料充分性，规划三个考点、目标、难度、依据 |
-| [document-question-generator](document-question-generator/package.json) | 4.0.0 | 初稿和重新出题共用包，独立节点配置 |
-| [document-question-reviewer](document-question-reviewer/package.json) | 2.0.0 | 独立审题，逐题 findings 和总体 verdict |
-| [document-question-reviser](document-question-reviser/package.json) | 2.0.0 | 只修订被 findings 指出的题目 |
-| [quality-blocks](quality-blocks/) | 每块 2.0.0 | 规划核验、输入转换、状态维护、条件、最终验收 |
+| [read_document.py](read_document.py) | 4.0.0 | PDF/DOCX 全文读取并生成显式行号索引；读取算法未变 |
+| [document-question-planner](document-question-planner/package.json) | 3.0.0 | 判断资料充分性，规划三个考点、目标、难度、依据 |
+| [document-question-generator](document-question-generator/package.json) | 5.0.0 | 初稿和重新出题共用包，独立节点配置 |
+| [document-question-reviewer](document-question-reviewer/package.json) | 3.0.0 | 独立审题，逐题 findings 和总体 verdict |
+| [document-question-reviser](document-question-reviser/package.json) | 3.0.0 | 只修订被 findings 指出的题目 |
+| [quality-blocks](quality-blocks/) | 每块 3.0.0 | 规划核验、输入转换、状态维护、条件、最终验收 |
 | [quality_contracts.py](quality_contracts.py) | 源码随资源版本固定 | 权威契约和确定性规则 |
 | [quality-schemas.json](quality-schemas.json)、[contract-examples.json](contract-examples.json) | 派生交付说明 | 公开 Schema 与通过权威契约校验的合成示例 |
 
@@ -118,3 +118,7 @@ prepare_generation 是显式转换块：把初稿的规划或重新出题的完�
 不搜索全文后自动重定位错误引文，不放宽逐字匹配，不静默修改失败任务。新增 numberedText 属于资源契约升级，读取块、四个包及九个质量块须成套重新加载并保存新实例；单改源码不会改变现有快照。通用 samples 无需加入此业务字段。
 
 当前“文档出题质量 · ds”已通过实际服务页升级到版本 **2.0**，实例 `ins_3a0741d599264b14b9f6e303f8b64ac5`，参考配置、ds 连接、任务预算和 retryLimit 保持原值。新提交使用新实例，历史失败任务保持原记录。此次修复只做历史数据离线复现、资源/接线与页面校验，未追加线上调用，尚未进行新版本真实模型再验收。显式编号降低数行错误，但不保证模型永远不会引用错误；严格校验仍会拒绝不正确的依据。
+
+## 用途与字段说明
+
+2026-09-21 补充了资源用途、前后步骤和字段说明，并递增资源版本。已加载的旧快照保持不变，请重新加载新版本并按需保存新实例。契约页面可展开嵌套字段；模型环境配置完成后，可使用[基于当前草稿的 AI 解释](../../docs/resource-explanation.md)。本轮只改变说明，业务约束与执行逻辑保持不变。

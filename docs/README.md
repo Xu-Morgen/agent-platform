@@ -13,6 +13,7 @@
 | [文档出题质量与自主修订计划](archive/2026-09-20/document-question-quality-plan.md) | 已完成的规划、审题、有限修订实施及验收记录 |
 | [产品细化计划](product-refinement.md) | 选择后续 R1–R4 工作，查看优先级与验收目标 |
 | [三类资源专项计划](resource-plan.md) | 推进通用块、Prompt 业务包和独立契约的体验改进 |
+| [资源用途说明与 AI 解释](resource-explanation.md) | 补充资源/字段说明、结合当前草稿请求模型解释及升级资源 |
 | [资源指导手册](resource-guide.md) | 查找模板、配置说明、加载、接线和调用步骤 |
 | [固定版本服务组合与契约选择](service-composition.md) | 将叶子服务加入拼图，选择固定版本、共享契约及查看嵌套记录 |
 | [外部资源研发手册](external-development-guide.md) | 查询全部公开注入能力、函数签名、数据来源、API/context 用法及完整代码示例 |

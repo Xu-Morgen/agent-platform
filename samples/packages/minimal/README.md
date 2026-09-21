@@ -13,4 +13,4 @@ Prompt 使用 `{{input.primary.text}}`；平台调用一次模型，严格验证
 
 [清单](package.json) · [完整配置](../CONFIGURATION.md) · [标准入口](../CONTEXT.md)
 
-2.0.0 的 Entry 为 NodeInput[Text, tuple[()]]。首节点简单模式即可；接在其他节点后时切换高级模式，显式保留空参考列表。调用服务时仍填写 {"text":"内容"}。
+3.0.0 的 Entry 为 NodeInput[Text, tuple[()]]。首节点简单模式即可；接在其他节点后时切换高级模式，显式保留空参考列表。调用服务时仍填写 {"text":"内容"}。

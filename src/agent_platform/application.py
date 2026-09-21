@@ -241,6 +241,13 @@ def _create_app(store) -> FastAPI:
     async def service_schema(service_id: str):
         return app.state.services.schema(service_id)
 
+    from .contracts.resource_advice import AdviceRequest, AdviceResult
+    from .resource_advice import explain
+
+    @app.post('/api/v1/resource-advice', response_model=AdviceResult)
+    async def resource_advice(value: AdviceRequest):
+        return await explain(value, app.state.catalog, app.state.environments, app.state.connection_tools)
+
     @app.get('/api/v1/environments', response_model=list[Environment])
     async def environments():
         return app.state.environments.list()

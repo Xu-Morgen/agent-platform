@@ -362,3 +362,14 @@ main:has(.configuration-page:not([hidden])) .page-header button { padding: 5px 1
 .contract-origin strong { display:block; color:#203753; font-size:15px; }
 .contract-origin p { margin:5px 0 0; line-height:1.6; }
 .flow-node[data-kind="service"] { border-left:4px solid #5264bc; }
+
+.resource-choice { position: relative; margin-bottom: 8px; }
+.resource-choice .module-tile { min-width: 0; margin-bottom: 0; }
+.resource-choice > .resource-advice-button { position: absolute; top: 7px; right: 8px; padding: 5px 8px; font-size: 11px; }
+.resource-choice:has(> .resource-advice-button) .module-tile > span:first-child { min-height: 25px; padding-right: 86px; }
+.resource-choice:has(> .resource-advice-button) .module-tile b { top: auto; bottom: 10px; }
+.resource-advice-button { flex-shrink: 0; white-space: nowrap; }
+.node-actions .resource-advice-button { width: auto; padding: 5px 8px; }
+.nested-contract { margin: 6px 0 10px 12px; padding-left: 10px; border-left: 2px solid #e4e9f1; }
+#advice-dialog { width: min(760px, 90vw); max-height: 85vh; overflow: auto; }
+#advice-output p { white-space: pre-wrap; line-height: 1.7; overflow-wrap: anywhere; }

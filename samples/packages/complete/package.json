@@ -1,13 +1,13 @@
 {
   "packageId": "sample-complete-chat",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "name": "可配置摘要 Prompt 包",
   "contractRefs": {
     "input": "models:Entry",
     "output": "models:Output",
     "configuration": "models:Config"
   },
-  "description": "输入输出契约、嵌套业务参数与 Prompt 模板；由平台调用模型。",
+  "description": "将主数据 text 概括为摘要与 1～3 个关键词，可配置摘要要求与语言。需要一份原始文本参考用于核对事实，并绑定模型连接；输出可交给接收摘要对象的步骤。",
   "prompt": "prompt.txt",
   "budgetDefaults": {
     "loopLimit": 4,

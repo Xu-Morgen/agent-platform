@@ -77,6 +77,7 @@ const flowEditor = (() => {
   function typeName(value, root, depth=0) {
     if(depth>8)return '嵌套数据';
     value = resolveSchema(value, root);
+    if (Object.hasOwn(value,'const'))return JSON.stringify(value.const);
     if (value.enum) return value.enum.map(v=>JSON.stringify(v)).join(' | ');
     if (value.anyOf) return value.anyOf.map(v=>typeName(v,root,depth+1)).join(' | ');
     if (value.type === 'array') return value.prefixItems ? '['+value.prefixItems.map(item=>typeName(item,root,depth+1)).join(', ')+']' : typeName(value.items,root,depth+1) + '[]';
@@ -87,16 +88,29 @@ const flowEditor = (() => {
     if (!ref) { parent.append(el('p','请选择契约；加载业务包、通用块或契约文件后，这里会列出可选契约。')); return; }
     const root=schema(ref), value=resolveSchema(root,root);
     if (!Object.keys(root).length) { parent.append(el('p','契约不可用，请重新加载对应业务包、通用块或契约文件。')); return; }
-    const fields=Object.entries(value.properties || {});
-    if (!fields.length) { parent.append(el('code',typeName(value,root))); return; }
-    for (const [key,definition] of fields) {
-      const row=el('div');row.className='port-field';
-      row.append(el('code',key),el('span',typeName(definition,root)),el('small',value.required?.includes(key)?'必填':'可选'));
-      const description=definition.description || resolveSchema(definition,root).description;
-      if(description)row.append(el('p',description));
-      parent.append(row);
+    if(value.description)parent.append(el('p',value.description));
+    function fields(target,current,depth=0,seen=[]) {
+      const resolved=resolveSchema(current,root);
+      if(depth>6 || current.$ref&&seen.includes(current.$ref)){target.append(el('p','更深层结构请查看完整契约 JSON。'));return;}
+      const nextSeen=current.$ref?[...seen,current.$ref]:seen;
+      for(const [key,definition] of Object.entries(resolved.properties||{})) {
+        const row=el('div');row.className='port-field';
+        row.append(el('code',key),el('span',typeName(definition,root)),el('small',resolved.required?.includes(key)?'必填':'可选'));
+        const description=definition.description || resolveSchema(definition,root).description;
+        if(description)row.append(el('p',description));target.append(row);
+        const nested=resolveSchema(definition,root);
+        if(nested.properties || nested.items || nested.prefixItems || nested.anyOf || nested.oneOf){
+          const detail=el('details');detail.className='nested-contract';detail.append(el('summary','展开 '+key+' 的字段与说明'));
+          fields(detail,definition,depth+1,nextSeen);target.append(detail);
+        }
+      }
+      const variants=resolved.anyOf||resolved.oneOf||resolved.prefixItems||(resolved.items?[resolved.items]:[]);
+      variants.forEach((variant,index)=>{const entry=resolveSchema(variant,root);target.append(el('strong',entry.title||'结构 '+(index+1)),el('p',variant.description||entry.description||typeName(variant,root)));fields(target,variant,depth+1,nextSeen);});
+      if(!resolved.properties&&!variants.length)target.append(el('code',typeName(resolved,root)));
     }
+    fields(parent,value);
   }
+
   function resourceSeries(resource) {
     // resourceId 固定为 kind:声明标识:version:digest；同名资源不一定属于同一系列。
     return resource.resourceId.split(':').slice(0,2).join(':');
@@ -128,6 +142,58 @@ const flowEditor = (() => {
     }
     return 0;
   }
+  let adviceModels = [], adviceRequest = 0;
+  async function refreshAdviceModels() {
+    const result=await window.agentPlatform.listEnvironments();
+    adviceModels=result.ok?result.data.flatMap(env=>env.connections.filter(c=>c.kind==='model'&&c.model).map(c=>({environmentId:env.environmentId,connectionId:c.connectionId,label:env.name+' / '+c.connectionId+' · '+c.model}))):[];
+    renderLibrary($('module-library'),$('module-search').value,r=>add(r));
+    if($('insert-dialog').open)renderInsertOptions();
+    render();
+  }
+  function adviceButton(resource) {
+    if(!resource || !['block','package'].includes(resource.kind) || !adviceModels.length)return null;
+    const control=button('用 AI 解释',()=>openAdvice(resource));control.className='resource-advice-button';
+    control.setAttribute('aria-label','用 AI 解释 '+resource.name);return control;
+  }
+  function openAdvice(resource) {
+    const dialog=$('advice-dialog'),output=$('advice-output'),generate=$('advice-generate');
+    const session=++adviceRequest;
+    $('advice-title').textContent='用 AI 解释 · '+resource.name;
+    output.replaceChildren(el('p','选择模型后生成解释，将结合点击生成时的当前草稿。'));
+    const select=$('advice-model');select.replaceChildren();
+    adviceModels.forEach((model,index)=>select.add(new Option(model.label,String(index))));
+    generate.disabled=!adviceModels.length;generate.textContent='生成解释';
+    generate.onclick=async()=>{
+      const model=adviceModels[Number(select.value)];if(!model)return;
+      const snapshot=clone(content),snapshotRevision=revision;
+      generate.disabled=true;select.disabled=true;generate.textContent='正在解释…';
+      output.replaceChildren(el('p','正在分析资源用途、当前草稿与可放置的位置…'));
+      try {
+        const response=await window.agentPlatform.explainResource({resourceId:resource.resourceId,model:{environmentId:model.environmentId,connectionId:model.connectionId},content:snapshot});
+        if(session!==adviceRequest)return;
+        if(!response.ok){output.replaceChildren(el('p',response.error.message));return;}
+        const {advice,usage}=response.data;
+        output.replaceChildren(el('h4','这个'+kindNames[resource.kind]+'有什么用'),el('p',advice.purpose));
+        output.append(el('h4','当前草稿适用性 · '+({suitable:'适合',conditional:'有前提',unsuitable:'不适合',unknown:'信息不足'})[advice.suitability]),el('p',advice.assessment));
+        output.append(el('h4','建议放置位置'));
+        if(!advice.placements.length)output.append(el('p','暂无可推荐的位置。'));
+        const findNode=(nodes,id)=>{for(const n of nodes){if(n.nodeId===id)return n;const found=findNode([...(n.body||[]),...(n.thenBranch?.nodes||[]),...(n.elseBranch?.nodes||[]),...(n.condition?[n.condition]:[])],id);if(found)return found;}};
+        for(const place of advice.placements){
+          const anchor=place.nodeId?findNode(snapshot.flow,place.nodeId):null;
+          const label=place.position==='start'?'顶层流程开头':(anchor?nodeName(anchor):place.nodeId)+'（'+place.nodeId+'）'+(place.position==='before'?'之前':'之后');
+          output.append(el('strong',label),el('p',place.reason));
+        }
+        if(advice.requirements.length){output.append(el('h4','使用前需要满足'));const list=el('ul');advice.requirements.forEach(text=>list.append(el('li',text)));output.append(list);}
+        output.append(el('p',usage.quality==='exact'?`本次用量：输入 ${usage.inputTokens} / 输出 ${usage.outputTokens} token`:'供应商未提供准确用量'));
+        if(snapshotRevision!==revision)output.append(el('p','草稿已变化，以上解释基于生成时的快照，请重新生成。'));
+      } catch {if(session===adviceRequest)output.replaceChildren(el('p','解释请求失败，请检查模型连接后重试。'));}
+      finally {if(session===adviceRequest){generate.disabled=false;select.disabled=false;generate.textContent='重新生成';}}
+    };
+    select.disabled=false;dialog.showModal();
+  }
+  $('advice-close').onclick=()=>$('advice-dialog').close();
+  $('advice-dialog').addEventListener('close',()=>{adviceRequest++;});
+
   function renderLibrary(target, query, choose) {
     target.replaceChildren();
     const activeTab=target.id==='module-library'?libraryTab:insertTab;
@@ -154,7 +220,9 @@ const flowEditor = (() => {
           item.dataset.resourceId=resource.resourceId;
         }
         item.append(el('small',resource.description || '添加到流程中配置输入与输出'),el('b','＋'));
-        target.append(item);count++;
+        const wrapper=el('div');wrapper.className='resource-choice';wrapper.append(item);
+        const explain=adviceButton(resource);if(explain)wrapper.append(explain);
+        target.append(wrapper);count++;
       }
     }
     if(target.id === 'module-library') {
@@ -348,6 +416,7 @@ const flowEditor = (() => {
     }
     condition.append(conditionSelect);parent.append(condition,el('p','主数据：'+incoming+'；条件结果只选择路径。'));
     const resource=resources.find(r=>r.resourceId===node.condition.artifactRef);
+    const explain=adviceButton(resource);if(explain)parent.append(explain);
     const preview=el('div');portPreview(preview,resource?.primaryContract);parent.append(preview);
     referenceEditor(parent,node.condition,resource,scope,automatic);
     parent.append(el('p','条件出口：bool（true / false），保存时严格校验。'));
@@ -366,6 +435,7 @@ const flowEditor = (() => {
       const icon=el('span',({block:'▦',package:'✦',service:'▣',if:'⑂',repeat:'↻',while:'↻'})[node.kind]);icon.className='node-icon';
       const title=el('div');title.className='node-title';title.append(el('small',kindNames[node.kind]+' · '+node.nodeId+(resource ? ' · v'+resource.version+(resource.archived ? ' · 已归档' : '') : '')),el('h4',nodeName(node)));
       const actions=el('div');actions.className='node-actions';
+      const explain=adviceButton(resource);if(explain)actions.append(explain);
       for(const [text,delta] of [['↑',-1],['↓',1]]) {
         const move=button(text,()=>{const next=index+delta;[nodes[index],nodes[next]]=[nodes[next],nodes[index]];changed();render(node.nodeId);});
         move.disabled=index+delta<0||index+delta>=nodes.length;move.setAttribute('aria-label',(delta<0?'上移':'下移')+' '+nodeName(node));actions.append(move);
@@ -550,7 +620,7 @@ const flowEditor = (() => {
   async function refresh() {
     const result = await window.agentPlatform.listResources();
     if (!result.ok) { $('load-result').textContent = result.error.message; return; }
-    resources = result.data; await refreshChoices();
+    resources = result.data; await refreshChoices(); await refreshAdviceModels();
     await refreshDrafts(); await refreshSaved(); render();
   }
   async function refreshDrafts() {
@@ -770,5 +840,5 @@ const flowEditor = (() => {
   };
   renderTabs();renderLibrary($('module-library'),'',resource=>add(resource));
   render();
-  return {refresh, validate};
+  return {refresh, validate, refreshAdviceModels};
 })();

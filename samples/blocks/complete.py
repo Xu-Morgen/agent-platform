@@ -112,9 +112,9 @@ def normalize_text(original: str, options: Options) -> str:
 
 @block(
     id='sample-normalize',
-    version='2.0.0',  # 相同 id/version 不能对应不同源码；归档也不会释放版本号。
+    version='3.0.0',  # 相同 id/version 不能对应不同源码；归档也不会释放版本号。
     name='API 查询与文本整理',
-    description='演示 API 响应校验、嵌套选项、可选附件、进度上报、文本处理与明确失败。',
+    description='按 query 向已绑定 API 查询文本，再按 options 整理空白、大小写及前缀；输出文本、字符数和是否改变。可作服务首步，需要配置 API 连接与路径；无参考输入。',
     api=True,  # 需要 async 入口与关键字参数 api: BlockAPI；连接和路径在节点配置。
     # 全部参数必须直接写字面量；不接受变量、函数调用或 **kwargs 展开。
     dependencies=[],  # 标准库与平台内置 Pydantic 无需声明；第三方库应填写已验证版本。

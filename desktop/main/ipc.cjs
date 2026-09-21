@@ -79,6 +79,7 @@ const operations = {
   validateFlowNode: (body) => ['POST', '/flows/validate-node', body],
   validateFlowPorts: (body) => ['POST', '/flows/validate-ports', body],
   loadResource: (body) => ['POST', '/catalog/load', body],
+  explainResource: (body) => ['POST', '/resource-advice', body],
   listResources: () => ['GET', '/catalog'],
   listContractGroups: () => ['GET', '/contracts'],
   listServiceComponents: () => ['GET', '/service-components'],
@@ -139,7 +140,7 @@ function registerConfigurationBridge(backend) {
         // 诊断使用连接自己的超时；普通配置操作保持原有 10 秒限制。
         const diagnostic = name === 'connectionModels' || name === 'testConnection';
         const seconds = body?.connection?.timeoutSeconds ?? 60;
-        const timeout = diagnostic && Number.isFinite(seconds) && seconds > 0
+        const timeout = name === 'explainResource' ? 305000 : diagnostic && Number.isFinite(seconds) && seconds > 0
           ? Math.min(Math.ceil(seconds * 1000) + 5000, 2147483647) : 10000;
         const response = await fetch(`${backend.address}/api/v1${routePath}`, {
           method, headers: { 'Content-Type': 'application/json' },

@@ -148,6 +148,14 @@
       <p id="history-result" role="status"></p>
       <div id="history-view"></div>
       </details>
+  <dialog id="advice-dialog" aria-labelledby="advice-title">
+    <div class="panel-heading"><h3 id="advice-title">用 AI 解释</h3><button id="advice-close" type="button">关闭</button></div>
+    <p>结合当前草稿提供建议，接线是否兼容以平台校验为准。发送资源说明、契约和流程结构，不发送输入示例或连接凭据。</p>
+    <label>解释使用的模型<select id="advice-model"></select></label>
+    <p class="field-hint">使用环境中已配置的模型；连通性以本次调用为准。每次生成调用一次，输出上限 2500 token，最长等待 300 秒。关闭窗口不会撤回已发送的请求。</p>
+    <button id="advice-generate" type="button">生成解释</button>
+    <div id="advice-output" role="status" aria-live="polite"></div>
+  </dialog>
       <dialog id="insert-dialog" aria-labelledby="insert-title"><div class="insert-heading"><div><h3 id="insert-title">添加处理步骤</h3><p id="insert-context"></p></div><button id="insert-close" type="button" aria-label="关闭添加步骤">关闭</button></div><label>搜索资源与服务 <input id="insert-search" type="search" placeholder="名称或用途…"></label><div id="insert-tabs" class="selection-tabs" role="tablist" aria-label="步骤类别"></div><div id="insert-options"></div></dialog>
       <dialog id="contract-dialog" aria-labelledby="contract-title"><div class="insert-heading"><h3 id="contract-title">选择契约</h3><button id="contract-close" type="button">关闭</button></div><p>相同结构与约束合并为一个契约，列出全部来源。含自定义运行时校验的不同契约保持独立。</p><label>搜索契约 <input id="contract-search" type="search" placeholder="字段、类型、名称或来源…"></label><div id="contract-tabs" class="selection-tabs" role="tablist" aria-label="契约来源"></div><div id="contract-options"></div></dialog>
     </section>

@@ -15,6 +15,7 @@ Score = Annotated[float, Field(ge=0, le=1, allow_inf_nan=False)]
 
 
 class Item(StrictModel):
+    """批次中的一个待处理文本条目。"""
     item_id: ItemId = Field(description='批次内唯一的条目标识')
     text: str = Field(min_length=1, max_length=2000, description='非纯空白文本')
 
@@ -27,6 +28,7 @@ class Item(StrictModel):
 
 
 class Input(StrictModel):
+    """批量文本处理入口，含条目、说明、语言与分数区间；独立契约不执行处理。"""
     attachment: TaskFile | None = Field(default=None, description='可选已保存任务附件；页面根据契约显示选择控件')
     items: list[Item] = Field(min_length=1, max_length=20, description='待处理条目')
     note: str | None = Field(description='必填但可为 null；没有默认值')
@@ -46,12 +48,14 @@ class Input(StrictModel):
 
 
 class Result(StrictModel):
-    item_id: ItemId
-    score: Score
-    accepted: bool
+    """单条处理结果，保留输入标识并记录实际评分和接受结论。"""
+    item_id: ItemId = Field(description='与输入条目对应的稳定标识，便于关联处理结果。')
+    score: Score = Field(description='该条目的实际评分，有限数值，范围为 0～1。')
+    accepted: bool = Field(description='执行节点按业务规则判定是否接受；契约本身不计算评分或作出判定。')
 
 
 class Output(StrictModel):
+    """批次处理出口，含逐条结果和整体说明。"""
     results: list[Result] = Field(min_length=1, max_length=20, description='由执行节点实际生成的结果')
     summary: str = Field(min_length=1, description='结果说明')
     reviewer_note: str | None = Field(default=None, description='可省略，也可以显式为 null')

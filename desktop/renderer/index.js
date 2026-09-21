@@ -62,6 +62,7 @@ document.querySelector('#environment-form').addEventListener('submit', async eve
       : await window.agentPlatform.createEnvironment(body);
     if (!result.ok) { environmentResult.textContent = errorText(result.error); return; }
     await refreshEnvironments(result.data.environmentId);
+    await flowEditor.refreshAdviceModels();
     environmentResult.textContent = `环境已保存 · ${result.data.name} · ${result.data.connections.length} 个连接`;
   } catch (error) {
     environmentResult.textContent = error instanceof SyntaxError ? 'connections：JSON 格式无效' : error.message;

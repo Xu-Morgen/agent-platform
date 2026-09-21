@@ -30,4 +30,4 @@ my-package/
 
 旧清单和旧节点配置会被严格校验拒绝，不自动猜测迁移。修改同一会话已加载的包内容后，需由维护者更新包版本，或在新会话加载。代码、Prompt、README 等目录内容都参与版本摘要。
 
-当前模板版本为 2.0.0。旧裸输入包须改为 NodeInput，并把 Prompt 改用 input.primary / input.references[0] 路径；重新加载后从服务页保存新实例，旧快照仅供查看。
+当前模板版本为 3.0.0。旧裸输入包须改为 NodeInput，并把 Prompt 改用 input.primary / input.references[0] 路径；重新加载后从服务页保存新实例，旧快照仅供查看。

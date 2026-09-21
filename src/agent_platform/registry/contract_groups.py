@@ -78,9 +78,14 @@ def canonical_schema(schema):
 
 
 def contract_groups(catalog):
-    from .catalog import ContractResource
-    groups = {}
-    for resource in catalog.list():
+    from .catalog import ContractResource, version_order
+    groups, display_ranks, latest = {}, {}, {}
+    resources = catalog.list()
+    for resource in resources:
+        if resource.kind != 'contract':
+            series = tuple(resource.resource_id.split(':')[:2])
+            latest[series] = max(latest.get(series, version_order(resource.version)), version_order(resource.version))
+    for resource in resources:
         entries = [('value', resource.resource_id)] if resource.kind == 'contract' else [
             ('primary', resource.primary_contract), ('output', resource.output_contract)]
         for direction, reference in entries:
@@ -97,6 +102,12 @@ def contract_groups(catalog):
                 identity = 'shared:' + digest
             group = groups.setdefault(identity, {'contractId': identity, 'aliases': [], 'schema': {**schema, 'x-contract-id': identity},
                 'sources': [], 'runtimeValidation': independent})
+            # 展示采用最新版的说明，验证身份和历史快照仍使用原来的规范结构。
+            current = resource.kind == 'contract' or version_order(resource.version) == latest[tuple(resource.resource_id.split(':')[:2])]
+            rank = (not resource.archived, current, json.dumps(schema).count('"description"'))
+            if identity not in display_ranks or rank > display_ranks[identity]:
+                group['schema'] = {**schema, 'x-contract-id': identity}
+                display_ranks[identity] = rank
             group['aliases'].append(reference)
             group['sources'].append({'resourceId': resource.resource_id, 'kind': resource.kind, 'name': resource.name,
                                      'version': resource.version, 'direction': direction, 'archived': resource.archived})

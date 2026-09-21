@@ -1,20 +1,24 @@
 {
   "Document": {
     "additionalProperties": false,
+    "description": "原文来源：文档读取块输出，规划包输入；正文与行号索引必须一致。",
     "properties": {
       "fileName": {
+        "description": "上传文档的原始文件名，用于辨认题目依据的来源。",
         "minLength": 1,
         "pattern": "\\S",
         "title": "Filename",
         "type": "string"
       },
       "text": {
+        "description": "完整原文正文，供出题与引文核验使用；不截断或概括。",
         "minLength": 1,
         "pattern": "\\S",
         "title": "Text",
         "type": "string"
       },
       "numberedText": {
+        "description": "带有从 1 开始显式行号的完整正文；出题及审题引用这些行号，不作为页码。",
         "minLength": 1,
         "pattern": "\\S",
         "title": "Numberedtext",
@@ -33,18 +37,22 @@
     "$defs": {
       "Evidence": {
         "additionalProperties": false,
+        "description": "可回查到原文的证据片段，供确定性核验使用。",
         "properties": {
           "startLine": {
+            "description": "引文起始行（含），对应原文 text.splitlines()，从 1 开始。",
             "minimum": 1,
             "title": "Startline",
             "type": "integer"
           },
           "endLine": {
+            "description": "引文结束行（含），不得早于起始行或超过原文。",
             "minimum": 1,
             "title": "Endline",
             "type": "integer"
           },
           "quote": {
+            "description": "从声明行号范围逐字摘录的原文，用于核验依据真实存在。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Quote",
@@ -61,13 +69,16 @@
       },
       "InsufficientPlan": {
         "additionalProperties": false,
+        "description": "原文不足的明确结果，不能当作成功规划继续出题。",
         "properties": {
           "status": {
             "const": "insufficient_source",
+            "description": "资料判定：sufficient 可据此出题；insufficient_source 表示原文不足。",
             "title": "Status",
             "type": "string"
           },
           "reason": {
+            "description": "该判定或问题的具体原因，说明缺少什么资料或题目哪里不成立。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Reason",
@@ -83,8 +94,10 @@
       },
       "PlanItem": {
         "additionalProperties": false,
+        "description": "一题的出题意图、难度和原文依据。",
         "properties": {
           "questionId": {
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "enum": [
               "essay-1",
               "choice-1",
@@ -94,6 +107,7 @@
             "type": "string"
           },
           "type": {
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "enum": [
               "essay",
               "single_choice",
@@ -103,18 +117,21 @@
             "type": "string"
           },
           "knowledgePoint": {
+            "description": "本题考查的具体知识点；三题规划应覆盖不同知识点。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Knowledgepoint",
             "type": "string"
           },
           "objective": {
+            "description": "希望通过本题检验的理解或应用能力，指导出题与审题。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Objective",
             "type": "string"
           },
           "difficulty": {
+            "description": "预期难度：easy 基础、medium 理解应用、hard 综合分析。",
             "enum": [
               "easy",
               "medium",
@@ -124,6 +141,7 @@
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -145,13 +163,16 @@
       },
       "SufficientPlan": {
         "additionalProperties": false,
+        "description": "可执行的三题规划，由核验规划块交给出题步骤。",
         "properties": {
           "status": {
             "const": "sufficient",
+            "description": "资料判定：sufficient 可据此出题；insufficient_source 表示原文不足。",
             "title": "Status",
             "type": "string"
           },
           "items": {
+            "description": "按论述、单选、填空顺序的三个出题规划，每项包含不同知识点及原文依据。",
             "items": {
               "$ref": "#/$defs/PlanItem"
             },
@@ -170,6 +191,7 @@
       }
     },
     "additionalProperties": false,
+    "description": "规划包输出，下一步由核验块分辨资料是否足够。",
     "properties": {
       "decision": {
         "anyOf": [
@@ -180,6 +202,7 @@
             "$ref": "#/$defs/InsufficientPlan"
           }
         ],
+        "description": "出题规划结果：资料充足时携带三题规划，资料不足时携带原因。",
         "title": "Decision"
       }
     },
@@ -193,18 +216,22 @@
     "$defs": {
       "Evidence": {
         "additionalProperties": false,
+        "description": "可回查到原文的证据片段，供确定性核验使用。",
         "properties": {
           "startLine": {
+            "description": "引文起始行（含），对应原文 text.splitlines()，从 1 开始。",
             "minimum": 1,
             "title": "Startline",
             "type": "integer"
           },
           "endLine": {
+            "description": "引文结束行（含），不得早于起始行或超过原文。",
             "minimum": 1,
             "title": "Endline",
             "type": "integer"
           },
           "quote": {
+            "description": "从声明行号范围逐字摘录的原文，用于核验依据真实存在。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Quote",
@@ -221,8 +248,10 @@
       },
       "PlanItem": {
         "additionalProperties": false,
+        "description": "一题的出题意图、难度和原文依据。",
         "properties": {
           "questionId": {
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "enum": [
               "essay-1",
               "choice-1",
@@ -232,6 +261,7 @@
             "type": "string"
           },
           "type": {
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "enum": [
               "essay",
               "single_choice",
@@ -241,18 +271,21 @@
             "type": "string"
           },
           "knowledgePoint": {
+            "description": "本题考查的具体知识点；三题规划应覆盖不同知识点。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Knowledgepoint",
             "type": "string"
           },
           "objective": {
+            "description": "希望通过本题检验的理解或应用能力，指导出题与审题。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Objective",
             "type": "string"
           },
           "difficulty": {
+            "description": "预期难度：easy 基础、medium 理解应用、hard 综合分析。",
             "enum": [
               "easy",
               "medium",
@@ -262,6 +295,7 @@
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -283,13 +317,16 @@
       }
     },
     "additionalProperties": false,
+    "description": "可执行的三题规划，由核验规划块交给出题步骤。",
     "properties": {
       "status": {
         "const": "sufficient",
+        "description": "资料判定：sufficient 可据此出题；insufficient_source 表示原文不足。",
         "title": "Status",
         "type": "string"
       },
       "items": {
+        "description": "按论述、单选、填空顺序的三个出题规划，每项包含不同知识点及原文依据。",
         "items": {
           "$ref": "#/$defs/PlanItem"
         },
@@ -310,30 +347,36 @@
     "$defs": {
       "Essay": {
         "additionalProperties": false,
+        "description": "论述题：题干、参考答案、得分点与原文依据。",
         "properties": {
           "questionId": {
             "const": "essay-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "essay",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Stem",
             "type": "string"
           },
           "referenceAnswer": {
+            "description": "标准答案；论述题为参考作答，单选题为唯一正确选项字母。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Referenceanswer",
             "type": "string"
           },
           "scoringPoints": {
+            "description": "论述题的具体得分要点，供判分和审查可评分性。",
             "items": {
               "minLength": 1,
               "pattern": "\\S",
@@ -344,6 +387,7 @@
             "type": "array"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -365,18 +409,22 @@
       },
       "Evidence": {
         "additionalProperties": false,
+        "description": "可回查到原文的证据片段，供确定性核验使用。",
         "properties": {
           "startLine": {
+            "description": "引文起始行（含），对应原文 text.splitlines()，从 1 开始。",
             "minimum": 1,
             "title": "Startline",
             "type": "integer"
           },
           "endLine": {
+            "description": "引文结束行（含），不得早于起始行或超过原文。",
             "minimum": 1,
             "title": "Endline",
             "type": "integer"
           },
           "quote": {
+            "description": "从声明行号范围逐字摘录的原文，用于核验依据真实存在。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Quote",
@@ -393,24 +441,29 @@
       },
       "FillBlank": {
         "additionalProperties": false,
+        "description": "填空题：显式空位、主答案与可接受答案范围。",
         "properties": {
           "questionId": {
             "const": "blank-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "fill_blank",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "____",
             "title": "Stem",
             "type": "string"
           },
           "referenceAnswers": {
+            "description": "按题干空位顺序列出的主答案，数量必须与空位一致。",
             "items": {
               "minLength": 1,
               "pattern": "\\S",
@@ -421,6 +474,7 @@
             "type": "array"
           },
           "acceptedAnswers": {
+            "description": "每个空位可接受的答案列表；与空位顺序对应，且必须包含该空的主答案。",
             "items": {
               "items": {
                 "minLength": 1,
@@ -434,6 +488,7 @@
             "type": "array"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -455,26 +510,31 @@
       },
       "Options": {
         "additionalProperties": false,
+        "description": "单选题选项集合。",
         "properties": {
           "A": {
+            "description": "单选题 A 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "A",
             "type": "string"
           },
           "B": {
+            "description": "单选题 B 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "B",
             "type": "string"
           },
           "C": {
+            "description": "单选题 C 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "C",
             "type": "string"
           },
           "D": {
+            "description": "单选题 D 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "D",
@@ -492,27 +552,33 @@
       },
       "SingleChoice": {
         "additionalProperties": false,
+        "description": "单选题：四个选项、唯一答案及解释。",
         "properties": {
           "questionId": {
             "const": "choice-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "single_choice",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Stem",
             "type": "string"
           },
           "options": {
-            "$ref": "#/$defs/Options"
+            "$ref": "#/$defs/Options",
+            "description": "单选题的 A、B、C、D 四个选项；应有唯一正确答案及有效干扰项。"
           },
           "referenceAnswer": {
+            "description": "标准答案；论述题为参考作答，单选题为唯一正确选项字母。",
             "enum": [
               "A",
               "B",
@@ -523,12 +589,14 @@
             "type": "string"
           },
           "explanation": {
+            "description": "说明单选题正确答案成立的原因，并依据原文排除歧义。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Explanation",
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -551,8 +619,10 @@
       }
     },
     "additionalProperties": false,
+    "description": "出题与修订包的输出，在结构校验之外检查题型顺序、选项与空位答案关系。",
     "properties": {
       "questions": {
+        "description": "固定顺序的三道题：论述、单选、填空各一道；包含答案和可核验的原文依据。",
         "items": {
           "anyOf": [
             {
@@ -582,18 +652,22 @@
     "$defs": {
       "Evidence": {
         "additionalProperties": false,
+        "description": "可回查到原文的证据片段，供确定性核验使用。",
         "properties": {
           "startLine": {
+            "description": "引文起始行（含），对应原文 text.splitlines()，从 1 开始。",
             "minimum": 1,
             "title": "Startline",
             "type": "integer"
           },
           "endLine": {
+            "description": "引文结束行（含），不得早于起始行或超过原文。",
             "minimum": 1,
             "title": "Endline",
             "type": "integer"
           },
           "quote": {
+            "description": "从声明行号范围逐字摘录的原文，用于核验依据真实存在。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Quote",
@@ -610,8 +684,10 @@
       },
       "Finding": {
         "additionalProperties": false,
+        "description": "关联到稳定题目 ID 的一条审题意见。",
         "properties": {
           "questionId": {
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "enum": [
               "essay-1",
               "choice-1",
@@ -621,6 +697,7 @@
             "type": "string"
           },
           "code": {
+            "description": "问题类别：依据缺失、答案错误、歧义、干扰项弱、不可评分、覆盖、难度、泄露答案或其他。",
             "enum": [
               "unsupported",
               "incorrect_answer",
@@ -636,6 +713,7 @@
             "type": "string"
           },
           "severity": {
+            "description": "blocking 阻止通过；advisory 为改进建议，不单独阻断通过。",
             "enum": [
               "blocking",
               "advisory"
@@ -644,12 +722,14 @@
             "type": "string"
           },
           "reason": {
+            "description": "该判定或问题的具体原因，说明缺少什么资料或题目哪里不成立。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Reason",
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -658,6 +738,7 @@
             "type": "array"
           },
           "suggestion": {
+            "description": "针对该题的可操作修改建议，供定向修订包使用。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Suggestion",
@@ -677,13 +758,16 @@
       }
     },
     "additionalProperties": false,
+    "description": "审题包输出，额外校验覆盖三题、结论与问题清单的一致性。",
     "properties": {
       "phase": {
         "const": "reviewed",
+        "description": "审题阶段：awaiting_review 待审；reviewed 已完成审题。",
         "title": "Phase",
         "type": "string"
       },
       "verdict": {
+        "description": "pass 通过；revise 定向修订；regenerate 重新出题；insufficient_source 原文不足。",
         "enum": [
           "pass",
           "revise",
@@ -694,6 +778,7 @@
         "type": "string"
       },
       "checkedQuestionIds": {
+        "description": "按固定顺序记录已审查的三个题目 ID，必须覆盖全部题目。",
         "items": {
           "enum": [
             "essay-1",
@@ -708,6 +793,7 @@
         "type": "array"
       },
       "findings": {
+        "description": "逐题问题清单；修订或重新出题时不能为空，通过时不得保留阻断问题。",
         "items": {
           "$ref": "#/$defs/Finding"
         },
@@ -715,6 +801,7 @@
         "type": "array"
       },
       "rationale": {
+        "description": "整体审题结论及依据，用于解释通过、修订、重出或资料不足。",
         "minLength": 1,
         "pattern": "\\S",
         "title": "Rationale",
@@ -735,9 +822,11 @@
     "$defs": {
       "AwaitingReview": {
         "additionalProperties": false,
+        "description": "更新题目后使用的待审标记，不能用于最终验收。",
         "properties": {
           "phase": {
             "const": "awaiting_review",
+            "description": "审题阶段：awaiting_review 待审；reviewed 已完成审题。",
             "title": "Phase",
             "type": "string"
           }
@@ -750,20 +839,24 @@
       },
       "Document": {
         "additionalProperties": false,
+        "description": "原文来源：文档读取块输出，规划包输入；正文与行号索引必须一致。",
         "properties": {
           "fileName": {
+            "description": "上传文档的原始文件名，用于辨认题目依据的来源。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Filename",
             "type": "string"
           },
           "text": {
+            "description": "完整原文正文，供出题与引文核验使用；不截断或概括。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Text",
             "type": "string"
           },
           "numberedText": {
+            "description": "带有从 1 开始显式行号的完整正文；出题及审题引用这些行号，不作为页码。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Numberedtext",
@@ -780,30 +873,36 @@
       },
       "Essay": {
         "additionalProperties": false,
+        "description": "论述题：题干、参考答案、得分点与原文依据。",
         "properties": {
           "questionId": {
             "const": "essay-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "essay",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Stem",
             "type": "string"
           },
           "referenceAnswer": {
+            "description": "标准答案；论述题为参考作答，单选题为唯一正确选项字母。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Referenceanswer",
             "type": "string"
           },
           "scoringPoints": {
+            "description": "论述题的具体得分要点，供判分和审查可评分性。",
             "items": {
               "minLength": 1,
               "pattern": "\\S",
@@ -814,6 +913,7 @@
             "type": "array"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -835,18 +935,22 @@
       },
       "Evidence": {
         "additionalProperties": false,
+        "description": "可回查到原文的证据片段，供确定性核验使用。",
         "properties": {
           "startLine": {
+            "description": "引文起始行（含），对应原文 text.splitlines()，从 1 开始。",
             "minimum": 1,
             "title": "Startline",
             "type": "integer"
           },
           "endLine": {
+            "description": "引文结束行（含），不得早于起始行或超过原文。",
             "minimum": 1,
             "title": "Endline",
             "type": "integer"
           },
           "quote": {
+            "description": "从声明行号范围逐字摘录的原文，用于核验依据真实存在。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Quote",
@@ -863,24 +967,29 @@
       },
       "FillBlank": {
         "additionalProperties": false,
+        "description": "填空题：显式空位、主答案与可接受答案范围。",
         "properties": {
           "questionId": {
             "const": "blank-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "fill_blank",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "____",
             "title": "Stem",
             "type": "string"
           },
           "referenceAnswers": {
+            "description": "按题干空位顺序列出的主答案，数量必须与空位一致。",
             "items": {
               "minLength": 1,
               "pattern": "\\S",
@@ -891,6 +1000,7 @@
             "type": "array"
           },
           "acceptedAnswers": {
+            "description": "每个空位可接受的答案列表；与空位顺序对应，且必须包含该空的主答案。",
             "items": {
               "items": {
                 "minLength": 1,
@@ -904,6 +1014,7 @@
             "type": "array"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -925,8 +1036,10 @@
       },
       "Finding": {
         "additionalProperties": false,
+        "description": "关联到稳定题目 ID 的一条审题意见。",
         "properties": {
           "questionId": {
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "enum": [
               "essay-1",
               "choice-1",
@@ -936,6 +1049,7 @@
             "type": "string"
           },
           "code": {
+            "description": "问题类别：依据缺失、答案错误、歧义、干扰项弱、不可评分、覆盖、难度、泄露答案或其他。",
             "enum": [
               "unsupported",
               "incorrect_answer",
@@ -951,6 +1065,7 @@
             "type": "string"
           },
           "severity": {
+            "description": "blocking 阻止通过；advisory 为改进建议，不单独阻断通过。",
             "enum": [
               "blocking",
               "advisory"
@@ -959,12 +1074,14 @@
             "type": "string"
           },
           "reason": {
+            "description": "该判定或问题的具体原因，说明缺少什么资料或题目哪里不成立。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Reason",
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -973,6 +1090,7 @@
             "type": "array"
           },
           "suggestion": {
+            "description": "针对该题的可操作修改建议，供定向修订包使用。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Suggestion",
@@ -992,26 +1110,31 @@
       },
       "Options": {
         "additionalProperties": false,
+        "description": "单选题选项集合。",
         "properties": {
           "A": {
+            "description": "单选题 A 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "A",
             "type": "string"
           },
           "B": {
+            "description": "单选题 B 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "B",
             "type": "string"
           },
           "C": {
+            "description": "单选题 C 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "C",
             "type": "string"
           },
           "D": {
+            "description": "单选题 D 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "D",
@@ -1029,8 +1152,10 @@
       },
       "PlanItem": {
         "additionalProperties": false,
+        "description": "一题的出题意图、难度和原文依据。",
         "properties": {
           "questionId": {
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "enum": [
               "essay-1",
               "choice-1",
@@ -1040,6 +1165,7 @@
             "type": "string"
           },
           "type": {
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "enum": [
               "essay",
               "single_choice",
@@ -1049,18 +1175,21 @@
             "type": "string"
           },
           "knowledgePoint": {
+            "description": "本题考查的具体知识点；三题规划应覆盖不同知识点。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Knowledgepoint",
             "type": "string"
           },
           "objective": {
+            "description": "希望通过本题检验的理解或应用能力，指导出题与审题。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Objective",
             "type": "string"
           },
           "difficulty": {
+            "description": "预期难度：easy 基础、medium 理解应用、hard 综合分析。",
             "enum": [
               "easy",
               "medium",
@@ -1070,6 +1199,7 @@
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -1091,8 +1221,10 @@
       },
       "Questions": {
         "additionalProperties": false,
+        "description": "三题的结构契约，供消费端接收；关系约束另由核验块检查。",
         "properties": {
           "questions": {
+            "description": "固定顺序的三道题：论述、单选、填空各一道；包含答案和可核验的原文依据。",
             "items": {
               "anyOf": [
                 {
@@ -1120,13 +1252,16 @@
       },
       "Review": {
         "additionalProperties": false,
+        "description": "审题结果的结构契约，供合并审题块接收。",
         "properties": {
           "phase": {
             "const": "reviewed",
+            "description": "审题阶段：awaiting_review 待审；reviewed 已完成审题。",
             "title": "Phase",
             "type": "string"
           },
           "verdict": {
+            "description": "pass 通过；revise 定向修订；regenerate 重新出题；insufficient_source 原文不足。",
             "enum": [
               "pass",
               "revise",
@@ -1137,6 +1272,7 @@
             "type": "string"
           },
           "checkedQuestionIds": {
+            "description": "按固定顺序记录已审查的三个题目 ID，必须覆盖全部题目。",
             "items": {
               "enum": [
                 "essay-1",
@@ -1151,6 +1287,7 @@
             "type": "array"
           },
           "findings": {
+            "description": "逐题问题清单；修订或重新出题时不能为空，通过时不得保留阻断问题。",
             "items": {
               "$ref": "#/$defs/Finding"
             },
@@ -1158,6 +1295,7 @@
             "type": "array"
           },
           "rationale": {
+            "description": "整体审题结论及依据，用于解释通过、修订、重出或资料不足。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Rationale",
@@ -1176,27 +1314,33 @@
       },
       "SingleChoice": {
         "additionalProperties": false,
+        "description": "单选题：四个选项、唯一答案及解释。",
         "properties": {
           "questionId": {
             "const": "choice-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "single_choice",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Stem",
             "type": "string"
           },
           "options": {
-            "$ref": "#/$defs/Options"
+            "$ref": "#/$defs/Options",
+            "description": "单选题的 A、B、C、D 四个选项；应有唯一正确答案及有效干扰项。"
           },
           "referenceAnswer": {
+            "description": "标准答案；论述题为参考作答，单选题为唯一正确选项字母。",
             "enum": [
               "A",
               "B",
@@ -1207,12 +1351,14 @@
             "type": "string"
           },
           "explanation": {
+            "description": "说明单选题正确答案成立的原因，并依据原文排除歧义。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Explanation",
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -1235,13 +1381,16 @@
       },
       "SufficientPlan": {
         "additionalProperties": false,
+        "description": "可执行的三题规划，由核验规划块交给出题步骤。",
         "properties": {
           "status": {
             "const": "sufficient",
+            "description": "资料判定：sufficient 可据此出题；insufficient_source 表示原文不足。",
             "title": "Status",
             "type": "string"
           },
           "items": {
+            "description": "按论述、单选、填空顺序的三个出题规划，每项包含不同知识点及原文依据。",
             "items": {
               "$ref": "#/$defs/PlanItem"
             },
@@ -1260,15 +1409,19 @@
       }
     },
     "additionalProperties": false,
+    "description": "贯穿审题与有限修订循环的完整状态；每一步接收并返回完整数据。",
     "properties": {
       "document": {
-        "$ref": "#/$defs/Document"
+        "$ref": "#/$defs/Document",
+        "description": "读取块产出的完整文档，含文件名、正文与带行号正文；后续依据核验的固定来源。"
       },
       "plan": {
-        "$ref": "#/$defs/SufficientPlan"
+        "$ref": "#/$defs/SufficientPlan",
+        "description": "已通过核验的三题规划；修订和重新出题仍使用同一规划。"
       },
       "current": {
-        "$ref": "#/$defs/Questions"
+        "$ref": "#/$defs/Questions",
+        "description": "当前待审查或修订的完整三题，后续更新块整体替换它。"
       },
       "review": {
         "anyOf": [
@@ -1279,9 +1432,11 @@
             "$ref": "#/$defs/Review"
           }
         ],
+        "description": "待审标记或最近一次完整审题结果；控制是否修订及采用何种修订路径。",
         "title": "Review"
       },
       "revisionRounds": {
+        "description": "已经采纳的修订或重新出题轮数；初始为 0，最多 2 轮，审题本身不加轮。",
         "maximum": 2,
         "minimum": 0,
         "title": "Revisionrounds",
@@ -1302,20 +1457,24 @@
     "$defs": {
       "Document": {
         "additionalProperties": false,
+        "description": "原文来源：文档读取块输出，规划包输入；正文与行号索引必须一致。",
         "properties": {
           "fileName": {
+            "description": "上传文档的原始文件名，用于辨认题目依据的来源。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Filename",
             "type": "string"
           },
           "text": {
+            "description": "完整原文正文，供出题与引文核验使用；不截断或概括。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Text",
             "type": "string"
           },
           "numberedText": {
+            "description": "带有从 1 开始显式行号的完整正文；出题及审题引用这些行号，不作为页码。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Numberedtext",
@@ -1332,6 +1491,7 @@
       }
     },
     "additionalProperties": false,
+    "description": "规划节点入口：主数据为完整原文，无参考输入。",
     "properties": {
       "primary": {
         "$ref": "#/$defs/Document"
@@ -1355,9 +1515,11 @@
     "$defs": {
       "AwaitingReview": {
         "additionalProperties": false,
+        "description": "更新题目后使用的待审标记，不能用于最终验收。",
         "properties": {
           "phase": {
             "const": "awaiting_review",
+            "description": "审题阶段：awaiting_review 待审；reviewed 已完成审题。",
             "title": "Phase",
             "type": "string"
           }
@@ -1370,20 +1532,24 @@
       },
       "Document": {
         "additionalProperties": false,
+        "description": "原文来源：文档读取块输出，规划包输入；正文与行号索引必须一致。",
         "properties": {
           "fileName": {
+            "description": "上传文档的原始文件名，用于辨认题目依据的来源。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Filename",
             "type": "string"
           },
           "text": {
+            "description": "完整原文正文，供出题与引文核验使用；不截断或概括。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Text",
             "type": "string"
           },
           "numberedText": {
+            "description": "带有从 1 开始显式行号的完整正文；出题及审题引用这些行号，不作为页码。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Numberedtext",
@@ -1400,30 +1566,36 @@
       },
       "Essay": {
         "additionalProperties": false,
+        "description": "论述题：题干、参考答案、得分点与原文依据。",
         "properties": {
           "questionId": {
             "const": "essay-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "essay",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Stem",
             "type": "string"
           },
           "referenceAnswer": {
+            "description": "标准答案；论述题为参考作答，单选题为唯一正确选项字母。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Referenceanswer",
             "type": "string"
           },
           "scoringPoints": {
+            "description": "论述题的具体得分要点，供判分和审查可评分性。",
             "items": {
               "minLength": 1,
               "pattern": "\\S",
@@ -1434,6 +1606,7 @@
             "type": "array"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -1455,18 +1628,22 @@
       },
       "Evidence": {
         "additionalProperties": false,
+        "description": "可回查到原文的证据片段，供确定性核验使用。",
         "properties": {
           "startLine": {
+            "description": "引文起始行（含），对应原文 text.splitlines()，从 1 开始。",
             "minimum": 1,
             "title": "Startline",
             "type": "integer"
           },
           "endLine": {
+            "description": "引文结束行（含），不得早于起始行或超过原文。",
             "minimum": 1,
             "title": "Endline",
             "type": "integer"
           },
           "quote": {
+            "description": "从声明行号范围逐字摘录的原文，用于核验依据真实存在。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Quote",
@@ -1483,24 +1660,29 @@
       },
       "FillBlank": {
         "additionalProperties": false,
+        "description": "填空题：显式空位、主答案与可接受答案范围。",
         "properties": {
           "questionId": {
             "const": "blank-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "fill_blank",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "____",
             "title": "Stem",
             "type": "string"
           },
           "referenceAnswers": {
+            "description": "按题干空位顺序列出的主答案，数量必须与空位一致。",
             "items": {
               "minLength": 1,
               "pattern": "\\S",
@@ -1511,6 +1693,7 @@
             "type": "array"
           },
           "acceptedAnswers": {
+            "description": "每个空位可接受的答案列表；与空位顺序对应，且必须包含该空的主答案。",
             "items": {
               "items": {
                 "minLength": 1,
@@ -1524,6 +1707,7 @@
             "type": "array"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -1545,8 +1729,10 @@
       },
       "Finding": {
         "additionalProperties": false,
+        "description": "关联到稳定题目 ID 的一条审题意见。",
         "properties": {
           "questionId": {
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "enum": [
               "essay-1",
               "choice-1",
@@ -1556,6 +1742,7 @@
             "type": "string"
           },
           "code": {
+            "description": "问题类别：依据缺失、答案错误、歧义、干扰项弱、不可评分、覆盖、难度、泄露答案或其他。",
             "enum": [
               "unsupported",
               "incorrect_answer",
@@ -1571,6 +1758,7 @@
             "type": "string"
           },
           "severity": {
+            "description": "blocking 阻止通过；advisory 为改进建议，不单独阻断通过。",
             "enum": [
               "blocking",
               "advisory"
@@ -1579,12 +1767,14 @@
             "type": "string"
           },
           "reason": {
+            "description": "该判定或问题的具体原因，说明缺少什么资料或题目哪里不成立。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Reason",
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -1593,6 +1783,7 @@
             "type": "array"
           },
           "suggestion": {
+            "description": "针对该题的可操作修改建议，供定向修订包使用。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Suggestion",
@@ -1612,6 +1803,7 @@
       },
       "GenerationInput": {
         "additionalProperties": false,
+        "description": "准备出题块输出的上下文封装，统一初稿与重新出题入口。",
         "properties": {
           "context": {
             "anyOf": [
@@ -1622,6 +1814,7 @@
                 "$ref": "#/$defs/QuestionState"
               }
             ],
+            "description": "初稿时为已核验规划；重新出题时为含旧题及审题意见的完整状态。原文与规划另按顺序作为参考输入。",
             "title": "Context"
           }
         },
@@ -1633,26 +1826,31 @@
       },
       "Options": {
         "additionalProperties": false,
+        "description": "单选题选项集合。",
         "properties": {
           "A": {
+            "description": "单选题 A 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "A",
             "type": "string"
           },
           "B": {
+            "description": "单选题 B 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "B",
             "type": "string"
           },
           "C": {
+            "description": "单选题 C 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "C",
             "type": "string"
           },
           "D": {
+            "description": "单选题 D 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "D",
@@ -1670,8 +1868,10 @@
       },
       "PlanItem": {
         "additionalProperties": false,
+        "description": "一题的出题意图、难度和原文依据。",
         "properties": {
           "questionId": {
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "enum": [
               "essay-1",
               "choice-1",
@@ -1681,6 +1881,7 @@
             "type": "string"
           },
           "type": {
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "enum": [
               "essay",
               "single_choice",
@@ -1690,18 +1891,21 @@
             "type": "string"
           },
           "knowledgePoint": {
+            "description": "本题考查的具体知识点；三题规划应覆盖不同知识点。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Knowledgepoint",
             "type": "string"
           },
           "objective": {
+            "description": "希望通过本题检验的理解或应用能力，指导出题与审题。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Objective",
             "type": "string"
           },
           "difficulty": {
+            "description": "预期难度：easy 基础、medium 理解应用、hard 综合分析。",
             "enum": [
               "easy",
               "medium",
@@ -1711,6 +1915,7 @@
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -1732,15 +1937,19 @@
       },
       "QuestionState": {
         "additionalProperties": false,
+        "description": "贯穿审题与有限修订循环的完整状态；每一步接收并返回完整数据。",
         "properties": {
           "document": {
-            "$ref": "#/$defs/Document"
+            "$ref": "#/$defs/Document",
+            "description": "读取块产出的完整文档，含文件名、正文与带行号正文；后续依据核验的固定来源。"
           },
           "plan": {
-            "$ref": "#/$defs/SufficientPlan"
+            "$ref": "#/$defs/SufficientPlan",
+            "description": "已通过核验的三题规划；修订和重新出题仍使用同一规划。"
           },
           "current": {
-            "$ref": "#/$defs/Questions"
+            "$ref": "#/$defs/Questions",
+            "description": "当前待审查或修订的完整三题，后续更新块整体替换它。"
           },
           "review": {
             "anyOf": [
@@ -1751,9 +1960,11 @@
                 "$ref": "#/$defs/Review"
               }
             ],
+            "description": "待审标记或最近一次完整审题结果；控制是否修订及采用何种修订路径。",
             "title": "Review"
           },
           "revisionRounds": {
+            "description": "已经采纳的修订或重新出题轮数；初始为 0，最多 2 轮，审题本身不加轮。",
             "maximum": 2,
             "minimum": 0,
             "title": "Revisionrounds",
@@ -1772,8 +1983,10 @@
       },
       "Questions": {
         "additionalProperties": false,
+        "description": "三题的结构契约，供消费端接收；关系约束另由核验块检查。",
         "properties": {
           "questions": {
+            "description": "固定顺序的三道题：论述、单选、填空各一道；包含答案和可核验的原文依据。",
             "items": {
               "anyOf": [
                 {
@@ -1801,13 +2014,16 @@
       },
       "Review": {
         "additionalProperties": false,
+        "description": "审题结果的结构契约，供合并审题块接收。",
         "properties": {
           "phase": {
             "const": "reviewed",
+            "description": "审题阶段：awaiting_review 待审；reviewed 已完成审题。",
             "title": "Phase",
             "type": "string"
           },
           "verdict": {
+            "description": "pass 通过；revise 定向修订；regenerate 重新出题；insufficient_source 原文不足。",
             "enum": [
               "pass",
               "revise",
@@ -1818,6 +2034,7 @@
             "type": "string"
           },
           "checkedQuestionIds": {
+            "description": "按固定顺序记录已审查的三个题目 ID，必须覆盖全部题目。",
             "items": {
               "enum": [
                 "essay-1",
@@ -1832,6 +2049,7 @@
             "type": "array"
           },
           "findings": {
+            "description": "逐题问题清单；修订或重新出题时不能为空，通过时不得保留阻断问题。",
             "items": {
               "$ref": "#/$defs/Finding"
             },
@@ -1839,6 +2057,7 @@
             "type": "array"
           },
           "rationale": {
+            "description": "整体审题结论及依据，用于解释通过、修订、重出或资料不足。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Rationale",
@@ -1857,27 +2076,33 @@
       },
       "SingleChoice": {
         "additionalProperties": false,
+        "description": "单选题：四个选项、唯一答案及解释。",
         "properties": {
           "questionId": {
             "const": "choice-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "single_choice",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Stem",
             "type": "string"
           },
           "options": {
-            "$ref": "#/$defs/Options"
+            "$ref": "#/$defs/Options",
+            "description": "单选题的 A、B、C、D 四个选项；应有唯一正确答案及有效干扰项。"
           },
           "referenceAnswer": {
+            "description": "标准答案；论述题为参考作答，单选题为唯一正确选项字母。",
             "enum": [
               "A",
               "B",
@@ -1888,12 +2113,14 @@
             "type": "string"
           },
           "explanation": {
+            "description": "说明单选题正确答案成立的原因，并依据原文排除歧义。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Explanation",
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -1916,13 +2143,16 @@
       },
       "SufficientPlan": {
         "additionalProperties": false,
+        "description": "可执行的三题规划，由核验规划块交给出题步骤。",
         "properties": {
           "status": {
             "const": "sufficient",
+            "description": "资料判定：sufficient 可据此出题；insufficient_source 表示原文不足。",
             "title": "Status",
             "type": "string"
           },
           "items": {
+            "description": "按论述、单选、填空顺序的三个出题规划，每项包含不同知识点及原文依据。",
             "items": {
               "$ref": "#/$defs/PlanItem"
             },
@@ -1941,6 +2171,7 @@
       }
     },
     "additionalProperties": false,
+    "description": "出题节点入口：主数据为上下文；参考依次为完整原文、核验后的规划。",
     "properties": {
       "primary": {
         "$ref": "#/$defs/GenerationInput"
@@ -1972,9 +2203,11 @@
     "$defs": {
       "AwaitingReview": {
         "additionalProperties": false,
+        "description": "更新题目后使用的待审标记，不能用于最终验收。",
         "properties": {
           "phase": {
             "const": "awaiting_review",
+            "description": "审题阶段：awaiting_review 待审；reviewed 已完成审题。",
             "title": "Phase",
             "type": "string"
           }
@@ -1987,20 +2220,24 @@
       },
       "Document": {
         "additionalProperties": false,
+        "description": "原文来源：文档读取块输出，规划包输入；正文与行号索引必须一致。",
         "properties": {
           "fileName": {
+            "description": "上传文档的原始文件名，用于辨认题目依据的来源。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Filename",
             "type": "string"
           },
           "text": {
+            "description": "完整原文正文，供出题与引文核验使用；不截断或概括。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Text",
             "type": "string"
           },
           "numberedText": {
+            "description": "带有从 1 开始显式行号的完整正文；出题及审题引用这些行号，不作为页码。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Numberedtext",
@@ -2017,30 +2254,36 @@
       },
       "Essay": {
         "additionalProperties": false,
+        "description": "论述题：题干、参考答案、得分点与原文依据。",
         "properties": {
           "questionId": {
             "const": "essay-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "essay",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Stem",
             "type": "string"
           },
           "referenceAnswer": {
+            "description": "标准答案；论述题为参考作答，单选题为唯一正确选项字母。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Referenceanswer",
             "type": "string"
           },
           "scoringPoints": {
+            "description": "论述题的具体得分要点，供判分和审查可评分性。",
             "items": {
               "minLength": 1,
               "pattern": "\\S",
@@ -2051,6 +2294,7 @@
             "type": "array"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -2072,18 +2316,22 @@
       },
       "Evidence": {
         "additionalProperties": false,
+        "description": "可回查到原文的证据片段，供确定性核验使用。",
         "properties": {
           "startLine": {
+            "description": "引文起始行（含），对应原文 text.splitlines()，从 1 开始。",
             "minimum": 1,
             "title": "Startline",
             "type": "integer"
           },
           "endLine": {
+            "description": "引文结束行（含），不得早于起始行或超过原文。",
             "minimum": 1,
             "title": "Endline",
             "type": "integer"
           },
           "quote": {
+            "description": "从声明行号范围逐字摘录的原文，用于核验依据真实存在。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Quote",
@@ -2100,24 +2348,29 @@
       },
       "FillBlank": {
         "additionalProperties": false,
+        "description": "填空题：显式空位、主答案与可接受答案范围。",
         "properties": {
           "questionId": {
             "const": "blank-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "fill_blank",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "____",
             "title": "Stem",
             "type": "string"
           },
           "referenceAnswers": {
+            "description": "按题干空位顺序列出的主答案，数量必须与空位一致。",
             "items": {
               "minLength": 1,
               "pattern": "\\S",
@@ -2128,6 +2381,7 @@
             "type": "array"
           },
           "acceptedAnswers": {
+            "description": "每个空位可接受的答案列表；与空位顺序对应，且必须包含该空的主答案。",
             "items": {
               "items": {
                 "minLength": 1,
@@ -2141,6 +2395,7 @@
             "type": "array"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -2162,8 +2417,10 @@
       },
       "Finding": {
         "additionalProperties": false,
+        "description": "关联到稳定题目 ID 的一条审题意见。",
         "properties": {
           "questionId": {
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "enum": [
               "essay-1",
               "choice-1",
@@ -2173,6 +2430,7 @@
             "type": "string"
           },
           "code": {
+            "description": "问题类别：依据缺失、答案错误、歧义、干扰项弱、不可评分、覆盖、难度、泄露答案或其他。",
             "enum": [
               "unsupported",
               "incorrect_answer",
@@ -2188,6 +2446,7 @@
             "type": "string"
           },
           "severity": {
+            "description": "blocking 阻止通过；advisory 为改进建议，不单独阻断通过。",
             "enum": [
               "blocking",
               "advisory"
@@ -2196,12 +2455,14 @@
             "type": "string"
           },
           "reason": {
+            "description": "该判定或问题的具体原因，说明缺少什么资料或题目哪里不成立。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Reason",
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -2210,6 +2471,7 @@
             "type": "array"
           },
           "suggestion": {
+            "description": "针对该题的可操作修改建议，供定向修订包使用。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Suggestion",
@@ -2229,26 +2491,31 @@
       },
       "Options": {
         "additionalProperties": false,
+        "description": "单选题选项集合。",
         "properties": {
           "A": {
+            "description": "单选题 A 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "A",
             "type": "string"
           },
           "B": {
+            "description": "单选题 B 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "B",
             "type": "string"
           },
           "C": {
+            "description": "单选题 C 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "C",
             "type": "string"
           },
           "D": {
+            "description": "单选题 D 选项正文；四个选项内容不得重复。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "D",
@@ -2266,8 +2533,10 @@
       },
       "PlanItem": {
         "additionalProperties": false,
+        "description": "一题的出题意图、难度和原文依据。",
         "properties": {
           "questionId": {
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "enum": [
               "essay-1",
               "choice-1",
@@ -2277,6 +2546,7 @@
             "type": "string"
           },
           "type": {
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "enum": [
               "essay",
               "single_choice",
@@ -2286,18 +2556,21 @@
             "type": "string"
           },
           "knowledgePoint": {
+            "description": "本题考查的具体知识点；三题规划应覆盖不同知识点。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Knowledgepoint",
             "type": "string"
           },
           "objective": {
+            "description": "希望通过本题检验的理解或应用能力，指导出题与审题。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Objective",
             "type": "string"
           },
           "difficulty": {
+            "description": "预期难度：easy 基础、medium 理解应用、hard 综合分析。",
             "enum": [
               "easy",
               "medium",
@@ -2307,6 +2580,7 @@
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -2328,15 +2602,19 @@
       },
       "QuestionState": {
         "additionalProperties": false,
+        "description": "贯穿审题与有限修订循环的完整状态；每一步接收并返回完整数据。",
         "properties": {
           "document": {
-            "$ref": "#/$defs/Document"
+            "$ref": "#/$defs/Document",
+            "description": "读取块产出的完整文档，含文件名、正文与带行号正文；后续依据核验的固定来源。"
           },
           "plan": {
-            "$ref": "#/$defs/SufficientPlan"
+            "$ref": "#/$defs/SufficientPlan",
+            "description": "已通过核验的三题规划；修订和重新出题仍使用同一规划。"
           },
           "current": {
-            "$ref": "#/$defs/Questions"
+            "$ref": "#/$defs/Questions",
+            "description": "当前待审查或修订的完整三题，后续更新块整体替换它。"
           },
           "review": {
             "anyOf": [
@@ -2347,9 +2625,11 @@
                 "$ref": "#/$defs/Review"
               }
             ],
+            "description": "待审标记或最近一次完整审题结果；控制是否修订及采用何种修订路径。",
             "title": "Review"
           },
           "revisionRounds": {
+            "description": "已经采纳的修订或重新出题轮数；初始为 0，最多 2 轮，审题本身不加轮。",
             "maximum": 2,
             "minimum": 0,
             "title": "Revisionrounds",
@@ -2368,8 +2648,10 @@
       },
       "Questions": {
         "additionalProperties": false,
+        "description": "三题的结构契约，供消费端接收；关系约束另由核验块检查。",
         "properties": {
           "questions": {
+            "description": "固定顺序的三道题：论述、单选、填空各一道；包含答案和可核验的原文依据。",
             "items": {
               "anyOf": [
                 {
@@ -2397,13 +2679,16 @@
       },
       "Review": {
         "additionalProperties": false,
+        "description": "审题结果的结构契约，供合并审题块接收。",
         "properties": {
           "phase": {
             "const": "reviewed",
+            "description": "审题阶段：awaiting_review 待审；reviewed 已完成审题。",
             "title": "Phase",
             "type": "string"
           },
           "verdict": {
+            "description": "pass 通过；revise 定向修订；regenerate 重新出题；insufficient_source 原文不足。",
             "enum": [
               "pass",
               "revise",
@@ -2414,6 +2699,7 @@
             "type": "string"
           },
           "checkedQuestionIds": {
+            "description": "按固定顺序记录已审查的三个题目 ID，必须覆盖全部题目。",
             "items": {
               "enum": [
                 "essay-1",
@@ -2428,6 +2714,7 @@
             "type": "array"
           },
           "findings": {
+            "description": "逐题问题清单；修订或重新出题时不能为空，通过时不得保留阻断问题。",
             "items": {
               "$ref": "#/$defs/Finding"
             },
@@ -2435,6 +2722,7 @@
             "type": "array"
           },
           "rationale": {
+            "description": "整体审题结论及依据，用于解释通过、修订、重出或资料不足。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Rationale",
@@ -2453,27 +2741,33 @@
       },
       "SingleChoice": {
         "additionalProperties": false,
+        "description": "单选题：四个选项、唯一答案及解释。",
         "properties": {
           "questionId": {
             "const": "choice-1",
+            "description": "稳定题目标识：essay-1 论述题、choice-1 单选题、blank-1 填空题；用于关联规划、审题与修订。",
             "title": "Questionid",
             "type": "string"
           },
           "type": {
             "const": "single_choice",
+            "description": "题型标记：essay 论述、single_choice 单选、fill_blank 填空。",
             "title": "Type",
             "type": "string"
           },
           "stem": {
+            "description": "展示给答题者的题干；填空题用连续四个下划线 ____ 标示每个空位。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Stem",
             "type": "string"
           },
           "options": {
-            "$ref": "#/$defs/Options"
+            "$ref": "#/$defs/Options",
+            "description": "单选题的 A、B、C、D 四个选项；应有唯一正确答案及有效干扰项。"
           },
           "referenceAnswer": {
+            "description": "标准答案；论述题为参考作答，单选题为唯一正确选项字母。",
             "enum": [
               "A",
               "B",
@@ -2484,12 +2778,14 @@
             "type": "string"
           },
           "explanation": {
+            "description": "说明单选题正确答案成立的原因，并依据原文排除歧义。",
             "minLength": 1,
             "pattern": "\\S",
             "title": "Explanation",
             "type": "string"
           },
           "evidence": {
+            "description": "支持本题、规划或审题意见的原文引文及行号；确定性块逐条核验。",
             "items": {
               "$ref": "#/$defs/Evidence"
             },
@@ -2512,13 +2808,16 @@
       },
       "SufficientPlan": {
         "additionalProperties": false,
+        "description": "可执行的三题规划，由核验规划块交给出题步骤。",
         "properties": {
           "status": {
             "const": "sufficient",
+            "description": "资料判定：sufficient 可据此出题；insufficient_source 表示原文不足。",
             "title": "Status",
             "type": "string"
           },
           "items": {
+            "description": "按论述、单选、填空顺序的三个出题规划，每项包含不同知识点及原文依据。",
             "items": {
               "$ref": "#/$defs/PlanItem"
             },
@@ -2537,6 +2836,7 @@
       }
     },
     "additionalProperties": false,
+    "description": "审题和修订节点入口：主数据为完整题目状态，无参考输入。",
     "properties": {
       "primary": {
         "$ref": "#/$defs/QuestionState"
