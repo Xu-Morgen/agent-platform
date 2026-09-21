@@ -10,13 +10,13 @@ ResourceId = Annotated[str, Field(min_length=1)]
 
 
 class PortReference(StrictModel):
-    kind: Literal['input', 'node', 'carry']
+    kind: Literal['input', 'node', 'carry', 'item']
     node_id: Identifier | None = None
 
     @model_validator(mode='after')
     def node_required(self):
         if (self.kind == 'input') != (self.node_id is None):
-            raise ValueError('node/carry 引用必须声明 nodeId；input 不声明 nodeId')
+            raise ValueError('node/carry/item 引用必须声明 nodeId；input 不声明 nodeId')
         return self
 
 
@@ -137,8 +137,39 @@ class WhileNode(StrictModel):
         return self
 
 
-FlowNode = Annotated[ModuleNode | ServiceNode | IfNode | RepeatNode | WhileNode, Field(discriminator='kind')]
-for _model in (Branch, RepeatNode, WhileNode):
+class SwitchCase(Branch):
+    value: str
+
+
+class SwitchNode(StrictModel):
+    node_id: Identifier
+    kind: Literal['switch']
+    router: ModuleNode
+    output_contract: ResourceId
+    cases: list[SwitchCase] = Field(min_length=1)
+
+    @model_validator(mode='after')
+    def routing_block(self):
+        if self.router.kind != 'block':
+            raise ValueError('switch 路由必须是 Python 通用块')
+        values = [case.value for case in self.cases]
+        if len(set(values)) != len(values):
+            raise ValueError('switch 分支枚举值不得重复')
+        return self
+
+
+class ForeachNode(StrictModel):
+    node_id: Identifier
+    kind: Literal['foreach']
+    source: PortReference
+    array_path: list[Annotated[str, Field(min_length=1)]] = Field(default_factory=list)
+    max_items: Annotated[int, Field(gt=0)]
+    item_output_contract: ResourceId
+    body: list['FlowNode'] = Field(min_length=1)
+
+
+FlowNode = Annotated[ModuleNode | ServiceNode | IfNode | RepeatNode | WhileNode | ForeachNode | SwitchNode, Field(discriminator='kind')]
+for _model in (Branch, SwitchCase, SwitchNode, RepeatNode, WhileNode, ForeachNode):
     _model.model_rebuild()
 
 
@@ -150,7 +181,11 @@ def walk_nodes(nodes, prefix=('flow',)):
             yield node.condition, (*path, 'condition')
             for branch in ('then_branch', 'else_branch'):
                 yield from walk_nodes(getattr(node, branch).nodes, (*path, 'thenBranch' if branch == 'then_branch' else 'elseBranch', 'nodes'))
-        elif isinstance(node, (RepeatNode, WhileNode)):
+        elif isinstance(node, SwitchNode):
+            yield node.router, (*path, 'router')
+            for case_index, case in enumerate(node.cases):
+                yield from walk_nodes(case.nodes, (*path, 'cases', case_index, 'nodes'))
+        elif isinstance(node, (RepeatNode, WhileNode, ForeachNode)):
             if isinstance(node, WhileNode):
                 yield node.condition, (*path, 'condition')
             yield from walk_nodes(node.body, (*path, 'body'))
