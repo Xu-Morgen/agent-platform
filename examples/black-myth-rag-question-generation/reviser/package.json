@@ -1,0 +1,15 @@
+{
+  "packageId": "rag-question-reviser",
+  "version": "1.0.0",
+  "name": "按审查意见定向修订",
+  "description": "主数据 State，参考 tuple[()]，输出 Questions。固定知识库证据内出题。",
+  "contractRefs": {
+    "input": "models:Entry",
+    "output": "models:Output"
+  },
+  "prompt": "prompt.txt",
+  "budgetDefaults": {
+    "loopLimit": 2,
+    "tokenLimit": 65536
+  }
+}

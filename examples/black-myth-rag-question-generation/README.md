@@ -1,0 +1,41 @@
+# 知识库三题出题
+
+独立于旧全文出题实例的业务资源，首版支持单选、判断、论述各一道。根据任务固定的知识库修订检索并出题，题干限定“根据材料”；材料观点不被当作已核实的现实事实。当前实施进度见 [实验计划](../../docs/black-myth-rag-experiment-plan.md)。
+
+## 资源与契约
+
+`contracts.py` 是唯一契约源，使用 `sync_contracts.py` 同步到 8 个 Prompt 包和 19 个独立块；`--check` 检查副本一致性。同步工具不导入资源、不绑定环境、不创建服务。修改契约后须同步资源并升级版本，再从页面重新导入；既有实例不自动改变。
+
+页面加载本目录 8 个包目录、`blocks/*.py`，以及默认 `resources/rag/blocks/` 中的 `list_documents.py`、`read_docx.py`、`lexical_search.py`、`select_evidence.py`。从独立 `contracts.py` 加载 `Request`、`Result`、`QuestionEnvelope`、`State`；可从资源端口选择其他契约。
+
+## 页面拼图
+
+所有流程在正式服务页配置；下面是操作说明，不是手写实例导入协议。普通节点默认选择高级参考空列表，只有表中列出的节点添加参考。输出来源均选对应分支最后节点。
+
+1. 服务输入 `Request`，输出 `Result`。解析请求包 → 规范化块（参考服务输入）。
+2. 请求 switch，路由 `route_request`，统一出口 `Result`。unsupported 分支为 `unsupported` 块。supported 分支继续下列步骤。
+3. `prepare_retrieval` → 默认列举/读取/词面检索/整理证据四块 → 规划包（参考规范化输出）→ `merge_plan`（依次参考整理证据输出、规范化输出）。
+4. 资料 switch，路由 `route_plan`，统一出口 `Result`。insufficient_source 分支为 `insufficient` 块。sufficient 分支继续。
+5. foreach 从规范化节点输出选择 `items`，最大 3 项，每项出口 `QuestionEnvelope`。体内 `prepare_question`（参考 `merge_plan` 输出）→ 题型 switch（路由 `route_question`，统一出口 `QuestionEnvelope`）。single_choice/true_false/essay 各为对应生成包 → 对应 `wrap_*` 块。switch 后 `verify_question`，参考当前迭代 `prepare_question` 输出。
+6. foreach 后 `collect`（参考 `merge_plan` 输出）→ 整体审题包 → `merge_review`（参考 `collect` 输出）。
+7. while，条件 `needs_revision`，最多 2 轮，携带 `State`。体内 switch，路由 `route_review`，统一出口 `State`。pass/insufficient_source 为空分支，显式返回本轮 while 携带值。revise/regenerate 分支为对应修订/重出包 → `apply_revision`（参考本轮 while 携带值）→ 审题包 → `merge_review`（参考该分支 `apply_revision` 输出）。分支出口选各自最后节点；while 更新携带值为该 switch 输出。
+8. while 后 `finish`，作为资料充足分支最后输出；外层两个 switch 均返回完整 `Result`。
+
+所有 package 节点绑定现有模型连接；块不绑定模型。建议验收时 retryLimit=0，单任务 loopLimit=14（解析/规划/三次生成/初审共 6 次，最多两轮各修订与审题 2 次；预算留量不代表额外授权），真实验收必须额外累计全部任务实际尝试次数。while 最大两轮与状态轮数检查同时限制修订。具体正式实例预算及实际调用数记录在验收报告。
+
+请求示例中的知识库必须通过任务页选择，不能自行编造标识：
+
+```json
+{
+  "requirement": "根据关于黑神话的材料出三道题：一道单选题、一道判断题、一道论述题。",
+  "knowledge": {"knowledgeId": "kb_实际标识", "revisionId": null}
+}
+```
+
+## 业务结果与证据
+
+消费端读取 `result.status`。`completed` 表示准确三题且审题通过；`insufficient_source` 带本次检索的缺项、范围和受限情况；`unsupported_request` 说明支持范围；`quality_not_met` 保留两轮修订后仍存在的问题和完整审查历史。平台任务完成只代表业务结果有效返回，不代表题目合格。
+
+引用由 fragmentId 对应结果上下文里的固定知识库修订、文档版本、片段原文、摘要和段落定位。确定性检查证明引文属于登记证据，不证明材料事实或答案语义正确。单选唯一性、判断反证、论述可评分性和跨题重复仍需审题及人工核对。所有修订使用相同规划和证据，不能暗中扩大检索。
+
+默认检索采用词面匹配；可在页面用兼容资源替换检索块并保存新实例。空检索不会生成成功空题目；技术错误保持任务失败，不转换成资料不足。原始 DOCX 与完整真实调用记录仅保存在已授权本地数据目录，不提交 Git。

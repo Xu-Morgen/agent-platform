@@ -1,0 +1,15 @@
+{
+  "packageId": "rag-question-essay",
+  "version": "1.0.0",
+  "name": "根据证据生成论述题",
+  "description": "主数据 Generation，参考 tuple[()]，输出 Essay。固定知识库证据内出题。",
+  "contractRefs": {
+    "input": "models:Entry",
+    "output": "models:Output"
+  },
+  "prompt": "prompt.txt",
+  "budgetDefaults": {
+    "loopLimit": 2,
+    "tokenLimit": 65536
+  }
+}

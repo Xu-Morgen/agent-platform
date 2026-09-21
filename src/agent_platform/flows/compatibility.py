@@ -36,6 +36,10 @@ def assignable(source, target, source_root=None, target_root=None, seen=None):
                  'minItems', 'maxItems', 'pattern', 'format', 'multipleOf'}
     for key in (source.keys() | target.keys()) - cosmetic - supported:
         raise Incompatible(f'无法静态证明约束 {key}，请使用明确契约转换块')
+    # 空 Schema 是任意 JSON 值（例如检索参数中的 JsonValue）。
+    # 仅接收端无约束时放行；无约束出口仍不能赋给具体类型入口。
+    if not target.keys() - cosmetic:
+        return
     if 'anyOf' in source:
         for variant in source['anyOf']:
             assignable(variant, target, sr, tr, seen)
