@@ -1,0 +1,7 @@
+{
+  "packageId": "rag-grounded-answer",
+  "version": "1.0.0",
+  "name": "基于证据回答",
+  "description": "只根据选用证据回答查询，输出精确引文；资料不足明确说明本次检索范围的不足。不执行读取或检索。无参考输入。",
+  "contractRefs": {"input": "models:Entry", "output": "models:GroundedAnswer"}
+}
