@@ -13,6 +13,10 @@
 | [三类资源专项计划](2026-09-21/resource-plan.md) | 块、包、契约的阶段改进及旧版样例基线 |
 | [文档出题质量验收记录](2026-09-21/document-question-quality-validation.md) | 初版 10 次真实调用及人工通过证据、后续行号修复与未复验说明 |
 
+## 2026-09-21 控制流补完
+
+[数组遍历与枚举分支](2026-09-21/control-flow-expansion-plan.md)：flow-6 协议、静态校验、foreach/switch 执行与编辑器、真实 Python 块及 Electron/PostgreSQL 生命周期验收。当前操作见[控制流手册](../control-flow.md)。
+
 ## 2026-09-21 桌面 UI 与任务并发
 
 [整体 UI 优化记录](2026-09-21/ui-refresh.md)：统一四个工作区的视觉与响应式布局，包含验证结果与边界。

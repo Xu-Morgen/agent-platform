@@ -110,7 +110,7 @@ LangGraph 继续执行配置者定义的图，当前 `checkpointer=None`。平�
 
 实现依据：[PostgreSQL 启停](https://www.postgresql.org/docs/current/app-pg-ctl.html)、[初始化](https://www.postgresql.org/docs/current/app-initdb.html)、[Psycopg 事务](https://www.psycopg.org/psycopg3/docs/basic/transactions.html)、[Fernet](https://cryptography.io/en/latest/fernet/)。
 
-## flow-5 协议升级
+## flow-5 协议升级（历史记录）
 
 恢复时先检查 compilerVersion；旧实例保留原始 flow 和摘要，不用新协议解析，也不阻止历史列表或数据库启动。旧版本禁止执行与回退，页面提示重新加载升级资源并保存新实例；新实例包含 NodeInput 声明、参考模式与完整条件源码的资源快照。2026-09-20 在隔离 PostgreSQL 16 数据目录验证了新快照运行、停库重启、源码字节恢复、旧历史只读与升级保存，原历史文档保持不变。块验证使用已有 Python 环境及真实子进程通信，没有重新安装依赖。
 
@@ -121,4 +121,4 @@ LangGraph 继续执行配置者定义的图，当前 `checkpointer=None`。平�
 
 `flow-5` 及更早实例保留原始源码、拼图、实例身份、摘要和引用，只能查看历史，不能复制、执行或回退激活。升级前已保存的服务需要通过服务页重新配置并保存新实例；含固定子服务的父流程应先重新保存叶子服务，再明确选择其新实例。不会静默升级旧引用。
 
-C4 已通过 JSON 仓储恢复断言验证新快照摘要稳定、嵌套路由资源收集、旧协议只读和重新保存；实际桌面 PostgreSQL 重启验收结果见控制流计划的 C6 记录。
+2026-09-21 已通过 JSON 仓储恢复断言验证新快照摘要稳定、嵌套路由资源收集、旧协议只读和重新保存。正式 Electron 页面保存 foreach/switch 服务后，隔离 PostgreSQL 停库重启并加载原固定实例，再次真实执行成功；主动取消和应用退出终态跨重启保留。详见[控制流归档记录](archive/2026-09-21/control-flow-expansion-plan.md)。

@@ -138,9 +138,13 @@ if 条件与分支首节点都收到进入 if 的主数据及同样的默认参�
 | if | nodeId、condition、outputContract、thenBranch、elseBranch | condition 是 kind=block 的完整节点，独立执行并返回严格 bool；两条分支均有 nodes（默认 []）和必填 output 接线，共用出口契约 |
 | repeat | nodeId、count、carry、body | count 为非负整数；body 默认 []；0 次返回初始 carry |
 | while | nodeId、maxIterations、condition、carry、body | condition 是一个 kind=block 的完整节点，输出严格 bool；body 默认 []；maxIterations 是正整数 |
+| foreach | nodeId、source、arrayPath、maxItems、itemOutputContract、body | 完整来源中选择数组；逐项独立执行非空 body，返回派生 items 集合 |
+| switch | nodeId、router、outputContract、cases | router 为有限字符串 Literal 出口的 Python 块；cases 完整覆盖枚举，单次执行一个分支 |
 | carry | contract、initial、update | 携带值类型、初始接线、每轮结束更新接线，三项均必填 |
 
 if.condition 与 while.condition 使用相同的完整块节点格式；其 nodeId 也必须全局唯一，可以单独配置 references。while 达到上限后条件仍为真会失败。循环体以 carry 读当前状态；外部从容器节点出口读取结果，不能越过作用域读取内部节点。这些是服务编排字段，不是资源或包生命周期钩子。
+
+foreach/switch 页面配置、作用域与可复制的教学资源源码见[数组遍历与枚举分支手册](../docs/control-flow.md)。`item` 完整来源指向可见 foreach 的当前元素，不支持更新；普通节点不开放字段映射。
 
 ## 5. 保存、版本与外部调用
 
@@ -173,11 +177,11 @@ if.condition 与 while.condition 使用相同的完整块节点格式；其 node
 
 ## 升级旧协议
 
-flow-5 不执行旧裸输入或 if 端口引用。旧服务版本与任务终态仍可查看，不允许直接调用、回退激活或复制为可执行草稿。请重新加载 3.0.0 资源，通过服务页重建流程并为原服务保存新实例；不会静默改写旧快照。
+flow-6 不执行 flow-5 及更早协议快照，包括旧裸输入或 if 端口引用。旧服务版本与任务终态仍可查看，不允许直接调用、回退激活或复制为可执行草稿。现有 NodeInput 资源可复用；请通过服务页重建流程并为原服务保存新实例；不会静默改写旧快照。
 
 ## 质量流程与模板版本
 
-当前通用模板仍为 flow-5 的 `NodeInput` 资源，最小包与块版本为 3.0.0，完整包补充参考用途后为 4.0.0；文档出题业务的版本独立管理，出题包现为 6.0.0，不意味着所有通用模板都必须同号升级。不要只改版本号而不检查源码内容和快照冲突。
+当前通用模板使用兼容 flow-6 的 `NodeInput` 资源，最小包与块版本为 3.0.0，完整包补充参考用途后为 4.0.0；文档出题业务的版本独立管理，出题包现为 6.0.0，不意味着所有通用模板都必须同号升级。不要只改版本号而不检查源码内容和快照冲突。
 
 [文档质量实例](../examples/document-question-generation/README.md)放在 examples，samples 保持三类最小/完整模板。业务质量状态、审题枚举、修订次数不写入平台核心或摘要模板。业务模式可参考：模型只输出严格声明的决策，Python 条件块返回 bool；状态更新块用简单参考保留模型调用前主数据，显式增加轮次；循环零次退出后仍需最终验收。
 
