@@ -1,10 +1,10 @@
 """按结构化控制流检查保证可用的端口，不执行模块。"""
 from dataclasses import dataclass
 from ..contracts.base import StrictModel
-from ..contracts.flows import ModuleNode, ServiceNode, IfNode, RepeatNode, WhileNode, ConstantValue, PortReference
+from ..contracts.flows import ModuleNode, ServiceNode, IfNode, RepeatNode, WhileNode, ForeachNode, SwitchNode, ConstantValue, PortReference
 from ..contracts.errors import PlatformError, ValidationIssue
 from pydantic import Field, ValidationError
-from .compatibility import assignable, Incompatible
+from .compatibility import assignable, Incompatible, array_item_schema, collection_schema, string_enum_values
 from ..contracts.node_input import input_schemas
 
 
@@ -28,13 +28,16 @@ def validate_flow(draft, catalog):
     def contract(ref):
         return Port(catalog.contract(ref).schema, ref)
     def source_port(source, scope, carry):
+        if isinstance(source, Port):
+            return source
         if source.kind == 'input':
             port = contract(draft.input_contract)
         else:
             mapping = scope if source.kind == 'node' else carry
-            if source.node_id not in mapping:
+            key = ('item', source.node_id) if source.kind == 'item' else source.node_id
+            if key not in mapping:
                 raise Incompatible('引用未执行、前向或作用域外的节点/携带值')
-            port = mapping[source.node_id]
+            port = mapping[key]
         return port
     def bind(bindings, expected, scope, carry, path, node):
         if len(bindings) != 1:
@@ -87,13 +90,45 @@ def validate_flow(draft, catalog):
                     child = catalog.service(node)
                     assignable(primary.schema, child.schema['input'])
                     port = Port(child.schema['output'], kind='service')
-                elif isinstance(node, IfNode):
-                    module(node.condition, primary, defaults, scope, carry, (*path, 'condition'), condition=True)
+                elif isinstance(node, (IfNode, SwitchNode)):
+                    if isinstance(node, IfNode):
+                        module(node.condition, primary, defaults, scope, carry, (*path, 'condition'), condition=True)
+                        branches = [(('thenBranch',), node.then_branch), (('elseBranch',), node.else_branch)]
+                    else:
+                        try:
+                            routed = module(node.router, primary, defaults, scope, carry, (*path, 'router'))
+                            values = string_enum_values(routed.schema)
+                        except (Incompatible, PlatformError) as exc:
+                            report(str(exc), (*path, 'router'), node.router.node_id)
+                            continue
+                        if set(values) != {case.value for case in node.cases}:
+                            report('switch 分支必须完整覆盖路由枚举，且不能含声明外的值', (*path, 'cases'), node.node_id)
+                        branches = [(('cases', i), case) for i, case in enumerate(node.cases)]
                     port = contract(node.output_contract)
                     previous = PortReference(kind='node', node_id=nodes[index - 1].node_id) if index else incoming
-                    for name, branch in [('thenBranch', node.then_branch), ('elseBranch', node.else_branch)]:
-                        child = sequence(branch.nodes, scope, carry, (*path, name, 'nodes'), previous, defaults)
-                        bind(branch.output, port, child, carry, (*path, name, 'output'), node.node_id)
+                    for branch_path, branch in branches:
+                        child = sequence(branch.nodes, scope, carry, (*path, *branch_path, 'nodes'), previous, defaults)
+                        bind(branch.output, port, child, carry, (*path, *branch_path, 'output'), node.node_id)
+                elif isinstance(node, ForeachNode):
+                    try:
+                        selected = source_port(node.source, scope, carry)
+                    except Incompatible as exc:
+                        report(str(exc), (*path, 'source'), node.node_id, node.source)
+                        continue
+                    try:
+                        item = Port(array_item_schema(selected.schema, node.array_path))
+                    except Incompatible as exc:
+                        report(str(exc), (*path, 'arrayPath'), node.node_id, node.source)
+                        continue
+                    expected = contract(node.item_output_contract)
+                    inner = {**carry, ('item', node.node_id): item}
+                    child = sequence(node.body, scope, inner, (*path, 'body'), item)
+                    if node.body[-1].node_id in child:
+                        try:
+                            assignable(child[node.body[-1].node_id].schema, expected.schema)
+                        except Incompatible as exc:
+                            report(str(exc), (*path, 'itemOutputContract'), node.node_id)
+                    port = Port(collection_schema(expected.schema), kind='foreach')
                 else:
                     port = contract(node.carry.contract)
                     bind(node.carry.initial, port, scope, carry, (*path, 'carry', 'initial'), node.node_id)

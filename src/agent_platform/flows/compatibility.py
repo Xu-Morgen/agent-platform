@@ -92,3 +92,34 @@ def assignable(source, target, source_root=None, target_root=None, seen=None):
                 assignable(value, expected, sr, tr, seen)
     elif st == 'array':
         assignable(source.get('items', {}), target.get('items', {}), sr, tr, seen)
+
+
+def array_item_schema(schema, path):
+    """仅沿确定且必需的对象字段定位数组；保留局部引用的定义。"""
+    root = schema
+    current = resolve(schema, root)
+    for field in path:
+        if current.get('type') != 'object' or field not in current.get('required', []):
+            raise Incompatible('数组路径必须经过确定、非可空的必填对象字段')
+        if field not in current.get('properties', {}):
+            raise Incompatible('数组路径字段不存在')
+        current = resolve(current['properties'][field], root)
+    if current.get('type') != 'array' or not isinstance(current.get('items'), dict):
+        raise Incompatible('所选字段必须是确定的数组；可空或不确定结构请先用通用块规范化')
+    return {**current['items'], **({'$defs': root['$defs']} if '$defs' in root else {})}
+
+
+def collection_schema(item_schema):
+    # defs 置于文档根；元素的自定义校验身份仍留在 items 内。
+    return {'type': 'object', 'properties': {'items': {'type': 'array',
+            'items': {k: v for k, v in item_schema.items() if k != '$defs'}}},
+            'required': ['items'], 'additionalProperties': False,
+            **({'$defs': item_schema['$defs']} if '$defs' in item_schema else {})}
+
+
+def string_enum_values(schema):
+    schema = resolve(schema, schema)
+    values = schema.get('enum', [schema['const']] if 'const' in schema else [])
+    if schema.get('type') != 'string' or not values or any(type(value) is not str for value in values):
+        raise Incompatible('switch 路由出口必须是有限字符串 Literal 或字符串枚举')
+    return values
