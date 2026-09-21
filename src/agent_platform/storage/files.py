@@ -17,8 +17,9 @@ def file_error(code, message):
 
 
 class TaskFiles:
-    def __init__(self, store, root=None, *, max_bytes=50 * 1024 * 1024, pending_ttl=86400):
+    def __init__(self, store, root=None, *, max_bytes=50 * 1024 * 1024, pending_ttl=86400, collection='task_files'):
         self.store = store
+        self.collection = collection
         self._temporary = None
         if root is None:
             if store.durable:
@@ -31,7 +32,7 @@ class TaskFiles:
         self.root.mkdir(parents=True, exist_ok=True)
         self.max_bytes, self.pending_ttl = max_bytes, pending_ttl
         self.lock = RLock()
-        self.items = store.read('task_files')
+        self.items = store.read(self.collection)
         self.cleanup()
 
     def close(self):
@@ -87,7 +88,7 @@ class TaskFiles:
             with self.lock:
                 os.replace(temporary, target)
                 document = {'reference': reference.model_dump(mode='json'), 'createdAt': time.time(), 'runIds': [], 'deleted': False}
-                self.store.write([('task_files', file_id, document)])
+                self.store.write([(self.collection, file_id, document)])
                 self.items[file_id] = document
             return reference
         except OSError as exc:
@@ -127,7 +128,7 @@ class TaskFiles:
             self.resolve(reference)
             old = self.items[reference.file_id]
             updated = {**old, 'runIds': [*old['runIds'], run_id]}
-            documents.append(('task_files', reference.file_id, updated))
+            documents.append((self.collection, reference.file_id, updated))
         return documents
 
     def accept_bindings(self, documents):
@@ -142,7 +143,7 @@ class TaskFiles:
             if document['runIds']:
                 raise file_error('FILE_REFERENCE_INVALID', '历史任务文件保留，不允许从上传区删除')
             updated = {**document, 'deleted': True}
-            self.store.write([('task_files', file_id, updated)])
+            self.store.write([(self.collection, file_id, updated)])
             self.items[file_id] = updated
             self._path(file_id).unlink(missing_ok=True)
 

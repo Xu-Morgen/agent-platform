@@ -5,6 +5,7 @@
     '/environments': '环境配置',
     '/services': '服务配置',
     '/tasks': '任务调用',
+    '/knowledge': '文档与知识库',
     '/settings': '平台设置',
   };
   const scrollPositions = new Map();

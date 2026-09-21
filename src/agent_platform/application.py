@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI):
             app.state.credentials.clear()
             app.state.catalog.close()
             app.state.files.close()
+            app.state.knowledge.close()
             app.state.store.close()
 
 
@@ -77,6 +78,10 @@ def _create_app(store) -> FastAPI:
     from .contracts.files import FileReference
     import os
     app.state.files = TaskFiles(store, max_bytes=int(os.environ.get('AGENT_PLATFORM_FILE_MAX_BYTES', 50 * 1024 * 1024)))
+    from .repositories.knowledge import KnowledgeRepository
+    app.state.knowledge = KnowledgeRepository(store)
+    from .knowledge_routes import register_knowledge_routes
+    register_knowledge_routes(app)
     app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs, app.state.files)
 
     from .runtime.worker import RunWorker

@@ -1,6 +1,14 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
+  listKnowledge: () => ipcRenderer.invoke('platform:listKnowledge'),
+  createKnowledge: (body) => ipcRenderer.invoke('platform:createKnowledge', body),
+  updateKnowledge: (id, body) => ipcRenderer.invoke('platform:updateKnowledge', id, body),
+  knowledgeDocuments: (id, query) => ipcRenderer.invoke('platform:knowledgeDocuments', id, query),
+  knowledgeVersions: (id, documentId) => ipcRenderer.invoke('platform:knowledgeVersions', id, documentId),
+  removeKnowledgeDocument: (id, documentId) => ipcRenderer.invoke('platform:removeKnowledgeDocument', id, documentId),
+  uploadKnowledgeDocument: (id, file, documentId) => ipcRenderer.invoke('platform:uploadKnowledgeDocument', id, webUtils.getPathForFile(file), documentId),
+  downloadKnowledgeOriginal: (id, versionId) => ipcRenderer.invoke('platform:downloadKnowledgeOriginal', id, versionId),
   prepareResource: (body) => ipcRenderer.invoke('platform:prepareResource', body),
   preparationStatus: (id) => ipcRenderer.invoke('platform:preparationStatus', id),
   cancelPreparation: (id) => ipcRenderer.invoke('platform:cancelPreparation', id),

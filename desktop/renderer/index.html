@@ -15,6 +15,7 @@
       <a href="#/environments"><span class="nav-icon" aria-hidden="true">⌘</span>环境配置</a>
       <a href="#/services"><span class="nav-icon" aria-hidden="true">◇</span>服务配置</a>
       <a href="#/tasks"><span class="nav-icon" aria-hidden="true">▷</span>任务调用</a>
+      <a href="#/knowledge">文档与知识库</a>
       <a href="#/settings"><span class="nav-icon" aria-hidden="true">⚙</span>平台设置</a>
     </nav>
     <details class="storage-details"><summary>本地存储与会话</summary><p class="session-note">正在读取存储状态…</p></details>
@@ -228,6 +229,21 @@
         </div>
       </div>
     </section>
+    <section data-page="knowledge" class="configuration-page" aria-label="文档与知识库" hidden>
+      <div class="editor-heading"><div><h3>文档与知识库</h3><p>保存 DOCX 原件并管理版本。读取和检索由服务中的通用块完成。</p></div></div>
+      <div class="settings-card">
+        <label>知识库 <select id="knowledge-select"><option value="">新建知识库</option></select></label>
+        <button id="knowledge-refresh" type="button">刷新</button>
+        <form id="knowledge-form"><label>名称 <input id="knowledge-name" required maxlength="200"></label><label><input id="knowledge-archived" type="checkbox">已归档</label><button type="submit">保存知识库</button></form>
+        <p id="knowledge-revision"></p>
+        <label>批量导入 DOCX <input id="knowledge-upload" type="file" accept=".docx" multiple disabled></label>
+        <p>同名文件作为独立文档导入；使用“替换版本”可更新原文档。移出及归档不会删除历史原件，磁盘占用会保留。</p>
+        <ul id="knowledge-import-results" aria-live="polite"></ul>
+      </div>
+      <p id="knowledge-status" role="status"></p>
+      <div id="knowledge-documents"></div>
+      <button id="knowledge-prev" type="button">上一页</button><span id="knowledge-page"></span><button id="knowledge-next" type="button">下一页</button>
+    </section>
     <section data-page="settings" class="configuration-page" aria-label="平台设置" hidden>
       <div class="editor-heading"><div><span class="section-eyebrow">PLATFORM SETTINGS</span><h3>平台设置</h3><p>管理整个工作台的运行配置，适用于所有服务。</p></div><span class="editor-badge">重启后生效</span></div>
       <form id="platform-settings-form" class="settings-card platform-settings-card">
@@ -250,6 +266,7 @@
   <script src="flow-editor.js"></script>
   <script src="task-files.js"></script>
   <script src="task-node-names.js"></script>
+  <script src="knowledge.js"></script>
   <script src="platform-settings.js"></script>
   <script src="index.js"></script>
 </body>

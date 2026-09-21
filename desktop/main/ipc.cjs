@@ -64,6 +64,12 @@ module.exports = { registerHealthBridge, registerResourcePathBridge };
 
 // 路由由主进程固定，页面不能指定任意 URL 或 HTTP 方法。
 const operations = {
+  listKnowledge: () => ['GET', '/knowledge'],
+  createKnowledge: (body) => ['POST', '/knowledge', body],
+  updateKnowledge: (id, body) => ['PUT', `/knowledge/${encodeURIComponent(id)}`, body],
+  knowledgeDocuments: (id, query = {}) => ['GET', `/knowledge/${encodeURIComponent(id)}/documents?${new URLSearchParams(query)}`],
+  knowledgeVersions: (id, documentId) => ['GET', `/knowledge/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/versions`],
+  removeKnowledgeDocument: (id, documentId) => ['DELETE', `/knowledge/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}`],
   prepareResource: (body) => ['POST', '/preparations', body],
   preparationStatus: (id) => ['GET', `/preparations/${encodeURIComponent(id)}`],
   cancelPreparation: (id) => ['POST', `/preparations/${encodeURIComponent(id)}/cancel`],
@@ -106,6 +112,36 @@ const operations = {
   updateEnvironment: (id, body) => ['PUT', `/environments/${encodeURIComponent(id)}`, body],
 };
 function registerConfigurationBridge(backend) {
+  ipcMain.removeHandler('platform:uploadKnowledgeDocument');
+  ipcMain.handle('platform:uploadKnowledgeDocument', async (event, id, filename, documentId) => {
+    if (event.senderFrame?.url.split('#')[0] !== pageURL || event.senderFrame !== event.sender.mainFrame) return failure('CONTRACT_VALIDATION_ERROR', '请求来源无效');
+    if (!backend.address || typeof filename !== 'string' || !path.isAbsolute(filename)) return failure('FILE_SAVE_FAILED', '请选择本地 DOCX');
+    let stream;
+    try {
+      stream = require('node:fs').createReadStream(filename);
+      const query = new URLSearchParams({ name: path.basename(filename), ...(documentId ? { documentId } : {}) });
+      const response = await fetch(`${backend.address}/api/v1/knowledge/${encodeURIComponent(id)}/documents?${query}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: stream, duplex: 'half', signal: AbortSignal.timeout(120000),
+      });
+      const data = await response.json();
+      return response.ok ? { ok: true, data } : { ok: false, error: data };
+    } catch { return failure('FILE_SAVE_FAILED', '原件导入失败，请检查文件与后端'); }
+    finally { stream?.destroy(); }
+  });
+  ipcMain.removeHandler('platform:downloadKnowledgeOriginal');
+  ipcMain.handle('platform:downloadKnowledgeOriginal', async (event, id, versionId) => {
+    if (event.senderFrame?.url.split('#')[0] !== pageURL || event.senderFrame !== event.sender.mainFrame) return failure('CONTRACT_VALIDATION_ERROR', '请求来源无效');
+    const owner = BrowserWindow.fromWebContents(event.sender);
+    if (!owner || !backend.address) return failure('BACKEND_UNAVAILABLE', '窗口或后端不可用');
+    try {
+      const target = await dialog.showSaveDialog(owner, { title: '保存文档原件', defaultPath: '文档原件.docx' });
+      if (target.canceled) return { ok: true, data: { cancelled: true } };
+      const response = await fetch(`${backend.address}/api/v1/knowledge/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/original`, { signal: AbortSignal.timeout(120000) });
+      if (!response.ok) return { ok: false, error: await response.json() };
+      await require('node:fs/promises').writeFile(target.filePath, Buffer.from(await response.arrayBuffer()));
+      return { ok: true, data: { cancelled: false } };
+    } catch { return failure('FILE_SAVE_FAILED', '原件获取或保存失败'); }
+  });
   ipcMain.removeHandler('platform:uploadTaskFile');
   ipcMain.handle('platform:uploadTaskFile', async (event, filename) => {
     if (event.senderFrame?.url.split('#')[0] !== pageURL || event.senderFrame !== event.sender.mainFrame) {
