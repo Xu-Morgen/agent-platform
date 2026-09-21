@@ -17,6 +17,7 @@ Electron 使用 `app.getPath('userData')/storage`；默认 Linux 路径为：
 ├── postgresql/       PostgreSQL 数据文件，包括 WAL 和系统目录
 ├── secrets.json      数据库认证及凭据加密主密钥，仅当前用户可读写
 ├── task-files/       上传副本与历史任务文件
+├── knowledge-originals/ 知识库不可变 DOCX 原件（逻辑移除仍保留）
 ├── runtimes/         独立 Python 环境、SDK、wheel 与模型缓存
 ├── postgresql.log    本地数据库日志
 └── desktop.lock      防止两个后端管理同一个目录
@@ -122,3 +123,5 @@ LangGraph 继续执行配置者定义的图，当前 `checkpointer=None`。平�
 `flow-5` 及更早实例保留原始源码、拼图、实例身份、摘要和引用，只能查看历史，不能复制、执行或回退激活。升级前已保存的服务需要通过服务页重新配置并保存新实例；含固定子服务的父流程应先重新保存叶子服务，再明确选择其新实例。不会静默升级旧引用。
 
 2026-09-21 已通过 JSON 仓储恢复断言验证新快照摘要稳定、嵌套路由资源收集、旧协议只读和重新保存。正式 Electron 页面保存 foreach/switch 服务后，隔离 PostgreSQL 停库重启并加载原固定实例，再次真实执行成功；主动取消和应用退出终态跨重启保留。详见[控制流归档记录](archive/2026-09-21/control-flow-expansion-plan.md)。
+
+知识库元数据通过现有文档存储的 `knowledge_bases`、`knowledge_revisions`、`knowledge_versions` 和 `knowledge_files` 集合保存，无新增数据库连接。任务记录的 `knowledgeBindings` 与 `evidence` 保存固定修订和候选/选用证据；旧任务记录缺省为空。原件与知识库历史没有自动物理回收。2026-09-21 已验证文档/服务/任务证据跨本地 PostgreSQL 停库重启恢复，操作见[知识库手册](knowledge.md)。

@@ -1,6 +1,6 @@
 # 外部资源研发手册：输入、注入与平台能力
 
-适用基线：2026-09-21，执行协议 **flow-5**，Python 3.12+。本文面向编写通用块、Prompt 业务包和独立契约的开发者，说明平台实际向资源提供什么、如何声明、如何配置及如何调用。示例以当前仓库实现为准；平台尚未提供独立发布的第三方 SDK 安装流程，资源在平台准备的 Python 环境中导入 `agent_platform`。
+适用基线：2026-09-21，执行协议 **flow-6**，Python 3.12+。本文面向编写通用块、Prompt 业务包和独立契约的开发者，说明平台实际向资源提供什么、如何声明、如何配置及如何调用。示例以当前仓库实现为准；平台尚未提供独立发布的第三方 SDK 安装流程，资源在平台准备的 Python 环境中导入 `agent_platform`。
 
 资源卡片现已展示逐位置参考数量、类型和用途；开发者通过模型文档字符串、`Field(description=...)` 和固定元组位置上的 `Annotated` 补充说明，具体见 [资源用途说明](resource-explanation.md)。说明变化也需递增包/块版本，已有实例不会自动升级。
 
@@ -352,7 +352,8 @@ raise PlatformError(ErrorResponse(
 | 需求 | 当前处理方式 |
 | --- | --- |
 | 直接获取平台 PostgreSQL、repository、事务或主密钥 | 无资源注入接口；平台存储由桌面内部管理 |
-| 业务数据库连接、RAG、向量库、工具注册表 | 尚未提供统一注入能力；已有外部 JSON 服务可用 API 块对接 |
+| 本地知识库与最小 RAG | 已提供 TaskKnowledge、BlockContext 异步受控读取与证据登记；算法由普通资源实现，见[开发接口](knowledge-api.md) |
+| 业务数据库连接、向量库、工具注册表 | 尚未提供统一注入能力；已有外部 JSON 服务可用 API 块对接 |
 | 块内获取 LLM client、模型凭据或 PackageContext | 不提供；模型交互通过 Prompt 包节点 |
 | logger、任意事件总线、artifact 写入接口 | 不提供；步骤进度使用 context.progress，业务结果通过出口 |
 | runId、nodeId、全局任务对象、可修改预算或取消 token | 不提供公开资源参数；需要业务标识时在契约中明确传入 |
@@ -369,3 +370,18 @@ raise PlatformError(ErrorResponse(
 - [包含 API、附件及进度的完整块](../samples/blocks/complete.py)、[完整 Prompt 包](../samples/packages/complete/README.md)、[独立契约开发](../samples/contracts/README.md)。
 
 本文交付的是当前能力的研发说明，没有新增注入接口或改变运行协议。
+
+
+## 知识库访问
+
+输入字段使用 `TaskKnowledge`，平台在提交时固定当前修订；只在已绑定范围调用：
+
+```python
+from agent_platform.contracts.knowledge import TaskKnowledge, KnowledgePageRequest
+
+# 函数依然只声明 *, context: BlockContext；业务输入不携带平台路径。
+reference = await context.knowledge_resolve(value.primary.knowledge)
+page = await context.knowledge_list(KnowledgePageRequest(reference=reference, limit=20))
+```
+
+异步方法、严格契约、上限和错误详见[知识库 API](knowledge-api.md)，可替换的完整资源见[默认 RAG](../resources/rag/README.md)。证据正文摘要和候选/选用关系在登记接口检查，最终回答及引用关系通过明确的核验块检查；这些关系不能依靠结构 Schema 推断为成立。自定义资源必须保留明确错误、准确扫描范围及自身解析身份，不直接访问平台数据库或私有原件目录。

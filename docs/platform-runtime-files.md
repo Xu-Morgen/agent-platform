@@ -63,3 +63,7 @@ def run(value: NodeInput[Input, tuple[()]], *, context: BlockContext) -> int:
 对于改造前未记录依赖锁的持久资源，首次成功恢复会补全当前经过验证的环境锁；原实例内容摘要、版本、任务历史保持原身份，之后继续使用固定锁。平台无法追溯从未记录过的历史安装状态。
 
 原生系统文件对话框与完整桌面操作仍待人工走查；控件逻辑验证不替代此项验收。
+
+## 知识库原件与任务文件的区别
+
+TaskFile 绑定单次任务；跨任务文档使用知识库管理及 `TaskKnowledge` 标准引用。提交任务时固定修订，通用块通过异步方法读取和登记证据（方法名为 `knowledge_resolve`、`knowledge_list`、`knowledge_metadata`、`knowledge_file`、`knowledge_record`）。这些访问由父进程代理，不注入数据库或密钥。`knowledge_file` 返回当前块调用的临时副本路径，按只读约定使用；调用退出即清理，原件不会交给块直接修改。完整契约和上限见[知识库接口](knowledge-api.md)。

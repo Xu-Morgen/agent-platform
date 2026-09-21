@@ -13,6 +13,10 @@
 | [三类资源专项计划](2026-09-21/resource-plan.md) | 块、包、契约的阶段改进及旧版样例基线 |
 | [文档出题质量验收记录](2026-09-21/document-question-quality-validation.md) | 初版 10 次真实调用及人工通过证据、后续行号修复与未复验说明 |
 
+## 2026-09-21 文档与知识库平台基础
+
+[文档管理、知识库与最小 RAG 实施记录](2026-09-21/knowledge-rag-plan.md)：K1–K6 平台能力、普通可替换资源、Electron/PostgreSQL/子进程离线验证。按用户最新范围，黑神话出题及真实模型验收移交独立实验，未认定通过。当前使用见[知识库手册](../knowledge.md)。
+
 ## 2026-09-21 控制流补完
 
 [数组遍历与枚举分支](2026-09-21/control-flow-expansion-plan.md)：flow-6 协议、静态校验、foreach/switch 执行与编辑器、真实 Python 块及 Electron/PostgreSQL 生命周期验收。当前操作见[控制流手册](../control-flow.md)。
