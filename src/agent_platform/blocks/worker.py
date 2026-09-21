@@ -45,9 +45,21 @@ class RemoteAPI:
             raise validation_exception(exc, stage='api.output', code='OUTPUT_VALIDATION_ERROR') from None
 
 
-class RemoteContext:
+from .context import BlockContext
+
+
+class RemoteContext(BlockContext):
     def __init__(self, files, models):
         self.files, self.models = files, models
+
+    async def _knowledge_call(self, operation, request):
+        send('knowledge', operation=operation, request=request.model_dump(mode='json', by_alias=True))
+        message = receive()
+        if message['type'] == 'error':
+            raise PlatformError(ErrorResponse.model_validate(message['error']))
+        if message['type'] != 'result':
+            raise RuntimeError('知识库代理响应无效')
+        return message['value']
 
     def file(self, reference):
         from ..contracts.files import FileReference

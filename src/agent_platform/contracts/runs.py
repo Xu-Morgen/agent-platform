@@ -5,6 +5,7 @@ from pydantic import Field, JsonValue
 from .base import StrictModel
 from .environments import Environment
 from .errors import ErrorResponse
+from .knowledge import FixedKnowledgeReference, EvidenceRecord
 
 RunStatus = Literal['queued', 'running', 'completed', 'failed', 'cancelled']
 TERMINAL = frozenset(('completed', 'failed', 'cancelled'))
@@ -33,6 +34,8 @@ class Run(StrictModel):
     revision: int = Field(ge=1)
     environment_snapshot: list[Environment] = Field(default_factory=list)
     input: JsonValue
+    knowledge_bindings: list[FixedKnowledgeReference] = Field(default_factory=list)
+    evidence: list[EvidenceRecord] = Field(default_factory=list)
     status: RunStatus = 'queued'
     cancel_requested: bool = False
     cancel_phase: Literal['waiting_transport'] | None = None

@@ -5,8 +5,9 @@ from ..contracts.errors import ErrorResponse, PlatformError
 
 
 class BlockContext:
-    def __init__(self, *, files=None, run_id=None, models=None, progress=None):
+    def __init__(self, *, files=None, run_id=None, models=None, progress=None, knowledge=None):
         self._files, self._run_id = files, run_id
+        self._knowledge = knowledge
         self._models = MappingProxyType(dict(models or {}))
         self._progress = progress or (lambda event: None)
 
@@ -22,3 +23,29 @@ class BlockContext:
         if name not in self._models:
             raise PlatformError(ErrorResponse(code='DEPENDENCY_ERROR', stage='block.context', message='声明的模型文件未就绪'))
         return self._models[name]
+
+    async def knowledge_resolve(self, reference):
+        from ..contracts.knowledge import KnowledgeReference, FixedKnowledgeReference
+        return FixedKnowledgeReference.model_validate(await self._knowledge_call('resolve', KnowledgeReference.model_validate(reference)))
+
+    async def knowledge_list(self, request):
+        from ..contracts.knowledge import KnowledgePageRequest, KnowledgePage
+        return KnowledgePage.model_validate(await self._knowledge_call('list', KnowledgePageRequest.model_validate(request)))
+
+    async def knowledge_metadata(self, request):
+        from ..contracts.knowledge import DocumentReadRequest, DocumentVersion
+        return DocumentVersion.model_validate(await self._knowledge_call('metadata', DocumentReadRequest.model_validate(request)))
+
+    async def knowledge_file(self, request):
+        from pathlib import Path
+        from ..contracts.knowledge import DocumentReadRequest
+        return Path(await self._knowledge_call('file', DocumentReadRequest.model_validate(request)))
+
+    async def knowledge_record(self, evidence):
+        from ..contracts.knowledge import EvidenceRegistration, EvidenceRecord
+        return EvidenceRecord.model_validate(await self._knowledge_call('record', EvidenceRegistration.model_validate(evidence)))
+
+    async def _knowledge_call(self, operation, request):
+        if self._knowledge is None:
+            raise PlatformError(ErrorResponse(code='KNOWLEDGE_SCOPE_ERROR', stage='block.context', message='当前任务未绑定知识库访问能力'))
+        return await self._knowledge(operation, request.model_dump(mode='json', by_alias=True))

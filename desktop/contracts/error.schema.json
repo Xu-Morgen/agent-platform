@@ -170,6 +170,11 @@
   "properties": {
     "code": {
       "enum": [
+        "KNOWLEDGE_NOT_FOUND",
+        "KNOWLEDGE_ARCHIVED",
+        "KNOWLEDGE_SCOPE_ERROR",
+        "KNOWLEDGE_LIMIT_EXCEEDED",
+        "DOCUMENT_CORRUPTED",
         "DOCUMENT_READ_ERROR",
         "DOCUMENT_LIMIT_EXCEEDED",
         "PACKAGE_INPUT_INSUFFICIENT",

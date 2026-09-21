@@ -160,6 +160,15 @@ class ProcessBlock:
                             await send({'protocolVersion': 1, 'type': 'error', 'error': exc.error.model_dump(mode='json', by_alias=True)})
                         finally:
                             api_active = False
+                    elif message['type'] == 'knowledge':
+                        try:
+                            await checkpoint('knowledge_access', 'block')
+                            if context is None or context._knowledge is None:
+                                raise failed('KNOWLEDGE_SCOPE_ERROR', '当前任务未绑定知识库访问能力')
+                            result = await context._knowledge(message.get('operation'), message.get('request'))
+                            await send({'protocolVersion': 1, 'type': 'result', 'value': result})
+                        except PlatformError as exc:
+                            await send({'protocolVersion': 1, 'type': 'error', 'error': exc.error.model_dump(mode='json', by_alias=True)})
                     elif message['type'] == 'progress':
                         if context:
                             context.progress(message['message'], current=message.get('current'), total=message.get('total'))
