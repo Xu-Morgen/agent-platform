@@ -327,8 +327,12 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-collect', version='1.0.0', name='汇总并核验三题覆盖', description='主数据 Collection；参考 tuple[Planned]；输出 State。')
+@block(id='rag-question-collect', version='2.0.0', name='汇总并核验三题覆盖', description='主数据 Collection；参考 tuple[Planned]；输出 State。')
 def run(value: NodeInput[Collection, tuple[Planned]]) -> State:
-    questions = Questions(questions=[item.question for item in value.primary.items])
-    state = State(planned=value.references[0], current=questions, revision_rounds=0, history=[], awaiting_review=True)
-    return check_state(state)
+    try:
+        questions = Questions(questions=[item.question for item in value.primary.items])
+        state = State(planned=value.references[0], current=questions, revision_rounds=0, history=[], awaiting_review=True)
+        return check_state(state)
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

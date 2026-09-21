@@ -327,11 +327,15 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-prepare-retrieval', version='1.0.0', name='准备三题检索', description='主数据 Normalized；参考 tuple[()]；输出 RetrievalRequest。')
+@block(id='rag-question-prepare-retrieval', version='2.0.0', name='准备三题检索', description='主数据 Normalized；参考 tuple[()]；输出 RetrievalRequest。')
 def run(value: NodeInput[Normalized, tuple[()]]) -> RetrievalRequest:
-    data = value.primary
-    check_normalized(data)
-    if not data.supported:
-        raise ValueError('不支持的请求不得检索')
-    return RetrievalRequest(knowledge=data.request.knowledge, query=data.parsed.topic,
-        terms=data.parsed.terms, limits=data.request.limits)
+    try:
+        data = value.primary
+        check_normalized(data)
+        if not data.supported:
+            raise ValueError('不支持的请求不得检索')
+        return RetrievalRequest(knowledge=data.request.knowledge, query=data.parsed.topic,
+            terms=data.parsed.terms, limits=data.request.limits)
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

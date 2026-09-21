@@ -327,9 +327,13 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-needs-revision', version='1.0.0', name='是否继续有限修订', description='主数据 State；参考 tuple[()]；输出 bool。')
+@block(id='rag-question-needs-revision', version='2.0.0', name='是否继续有限修订', description='主数据 State；参考 tuple[()]；输出 bool。')
 def run(value: NodeInput[State, tuple[()]]) -> bool:
-    state = check_state(value.primary)
-    if state.awaiting_review:
-        raise ValueError('先完成审查才能判断修订')
-    return state.revision_rounds < 2 and state.history[-1].review.verdict in ('revise', 'regenerate')
+    try:
+        state = check_state(value.primary)
+        if state.awaiting_review:
+            raise ValueError('先完成审查才能判断修订')
+        return state.revision_rounds < 2 and state.history[-1].review.verdict in ('revise', 'regenerate')
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

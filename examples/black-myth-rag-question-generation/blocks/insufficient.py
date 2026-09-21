@@ -327,11 +327,15 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-insufficient', version='1.0.0', name='输出本次检索不足结论', description='主数据 Planned；参考 tuple[()]；输出 ValidatedResult。')
+@block(id='rag-question-insufficient', version='2.0.0', name='输出本次检索不足结论', description='主数据 Planned；参考 tuple[()]；输出 ValidatedResult。')
 def run(value: NodeInput[Planned, tuple[()]]) -> ValidatedResult:
-    planned = check_planned(value.primary)
-    decision = planned.planning.decision
-    if not isinstance(decision, Insufficient):
-        raise ValueError('资料充足不能输出不足分支')
-    return ValidatedResult(result=InsufficientResult(status='insufficient_source', reason=decision.reason,
-        missing=decision.missing, context=planned.context, history=[]))
+    try:
+        planned = check_planned(value.primary)
+        decision = planned.planning.decision
+        if not isinstance(decision, Insufficient):
+            raise ValueError('资料充足不能输出不足分支')
+        return ValidatedResult(result=InsufficientResult(status='insufficient_source', reason=decision.reason,
+            missing=decision.missing, context=planned.context, history=[]))
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

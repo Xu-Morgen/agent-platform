@@ -327,7 +327,11 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-route-plan', version='1.0.0', name='资料充分性路由', description='主数据 Planned；参考 tuple[()]；输出 Literal["sufficient", "insufficient_source"]。')
+@block(id='rag-question-route-plan', version='2.0.0', name='资料充分性路由', description='主数据 Planned；参考 tuple[()]；输出 Literal["sufficient", "insufficient_source"]。')
 def run(value: NodeInput[Planned, tuple[()]]) -> Literal['sufficient', 'insufficient_source']:
-    check_planned(value.primary)
-    return value.primary.planning.decision.status
+    try:
+        check_planned(value.primary)
+        return value.primary.planning.decision.status
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

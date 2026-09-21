@@ -327,9 +327,13 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-route-review', version='1.0.0', name='整体审题四类路由', description='主数据 State；参考 tuple[()]；输出 Literal["pass", "revise", "regenerate", "insufficient_source"]。')
+@block(id='rag-question-route-review', version='2.0.0', name='整体审题四类路由', description='主数据 State；参考 tuple[()]；输出 Literal["pass", "revise", "regenerate", "insufficient_source"]。')
 def run(value: NodeInput[State, tuple[()]]) -> Literal['pass', 'revise', 'regenerate', 'insufficient_source']:
-    state = check_state(value.primary)
-    if state.awaiting_review:
-        raise ValueError('尚无当前轮审题结论')
-    return state.history[-1].review.verdict
+    try:
+        state = check_state(value.primary)
+        if state.awaiting_review:
+            raise ValueError('尚无当前轮审题结论')
+        return state.history[-1].review.verdict
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

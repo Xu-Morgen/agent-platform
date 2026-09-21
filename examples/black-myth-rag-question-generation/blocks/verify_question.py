@@ -327,10 +327,14 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-verify-question', version='1.0.0', name='核验单题及引用', description='主数据 QuestionEnvelope；参考 tuple[Generation]；输出 QuestionEnvelope。')
+@block(id='rag-question-verify-question', version='2.0.0', name='核验单题及引用', description='主数据 QuestionEnvelope；参考 tuple[Generation]；输出 QuestionEnvelope。')
 def run(value: NodeInput[QuestionEnvelope, tuple[Generation]]) -> QuestionEnvelope:
-    question, generation = value.primary.question, value.references[0]
-    if (question.question_id, question.type) != (generation.item.question_id, generation.item.type):
-        raise ValueError('生成题目与当前请求不一致')
-    check_question(question, generation.context)
-    return value.primary
+    try:
+        question, generation = value.primary.question, value.references[0]
+        if (question.question_id, question.type) != (generation.item.question_id, generation.item.type):
+            raise ValueError('生成题目与当前请求不一致')
+        check_question(question, generation.context)
+        return value.primary
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

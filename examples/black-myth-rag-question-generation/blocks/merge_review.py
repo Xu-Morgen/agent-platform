@@ -327,12 +327,16 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-merge-review', version='1.0.0', name='登记三题审查历史', description='主数据 Review；参考 tuple[State]；输出 State。')
+@block(id='rag-question-merge-review', version='2.0.0', name='登记三题审查历史', description='主数据 Review；参考 tuple[State]；输出 State。')
 def run(value: NodeInput[Review, tuple[State]]) -> State:
-    old = check_state(value.references[0])
-    if not old.awaiting_review:
-        raise ValueError('不得重复审查已登记轮次')
-    check_review(value.primary, old.planned.context)
-    record = ReviewRecord(revision_round=old.revision_rounds, questions=old.current, review=value.primary)
-    return check_state(State(planned=old.planned, current=old.current,
-        revision_rounds=old.revision_rounds, history=[*old.history, record], awaiting_review=False))
+    try:
+        old = check_state(value.references[0])
+        if not old.awaiting_review:
+            raise ValueError('不得重复审查已登记轮次')
+        check_review(value.primary, old.planned.context)
+        record = ReviewRecord(revision_round=old.revision_rounds, questions=old.current, review=value.primary)
+        return check_state(State(planned=old.planned, current=old.current,
+            revision_rounds=old.revision_rounds, history=[*old.history, record], awaiting_review=False))
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

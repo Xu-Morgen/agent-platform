@@ -117,6 +117,7 @@ function taskInputNotice(text, error=false) {
   const notice=document.querySelector('#task-input-notice');notice.textContent=text;notice.dataset.error=String(error);
 }
 function taskResultPlaceholder(title, description) {
+  const businessStatus=document.querySelector('#task-business-status');businessStatus.hidden=true;businessStatus.textContent='';
   const empty=document.querySelector('#task-result-empty');empty.hidden=false;
   empty.replaceChildren(taskElement('span','↳'),taskElement('strong',title),taskElement('p',description));
   const result=document.querySelector('#task-result');result.hidden=true;result.textContent='';
@@ -234,6 +235,11 @@ async function pollTask(runId, generation) {
     if (generation !== taskQueryGeneration) return;
     if (result.ok) {
       const output=document.querySelector('#task-result');output.textContent=JSON.stringify(result.data.result,null,2);output.hidden=false;document.querySelector('#task-result-empty').hidden=true;
+      const value=result.data.result;
+      const status=typeof value?.status==='string'?value.status:typeof value?.result?.status==='string'?value.result.status:null;
+      const businessStatus=document.querySelector('#task-business-status');
+      businessStatus.hidden=status===null;
+      businessStatus.textContent=status===null?'':`业务状态：${status}。任务执行成功表示服务已返回结果，请按业务状态判断是否满足要求。`;
     } else { taskError.textContent=taskFailure(result.error);taskResultPlaceholder('结果读取失败','任务已完成，请重新打开任务获取结果。'); }
   } else {
     taskResultPlaceholder(run.status==='failed'?'本次任务未产生最终结果':run.status==='cancelled'?'任务已取消':'等待任务完成',run.status==='failed'?'查看错误信息后，可修改输入并重新提交。':run.status==='cancelled'?'可以查看已记录的执行步骤。':'执行成功后，返回的数据会自动显示在这里。');

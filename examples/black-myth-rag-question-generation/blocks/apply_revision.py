@@ -327,19 +327,23 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-apply-revision', version='1.0.0', name='采纳修订并重新待审', description='主数据 Questions；参考 tuple[State]；输出 State。')
+@block(id='rag-question-apply-revision', version='2.0.0', name='采纳修订并重新待审', description='主数据 Questions；参考 tuple[State]；输出 State。')
 def run(value: NodeInput[Questions, tuple[State]]) -> State:
-    old = check_state(value.references[0])
-    if old.awaiting_review or old.revision_rounds >= 2:
-        raise ValueError('修订必须有审查结论且不能超过两轮')
-    review = old.history[-1].review
-    if review.verdict not in ('revise', 'regenerate'):
-        raise ValueError('仅修订或重出结论允许更新题目')
-    check_coverage(value.primary.questions)
-    if review.verdict == 'revise':
-        targets = {f.question_id for f in review.findings}
-        for previous, current in zip(old.current.questions, value.primary.questions):
-            if previous.question_id not in targets and previous != current:
-                raise ValueError('定向修订不得修改未列出问题的题目')
-    return check_state(State(planned=old.planned, current=value.primary,
-        revision_rounds=old.revision_rounds + 1, history=old.history, awaiting_review=True))
+    try:
+        old = check_state(value.references[0])
+        if old.awaiting_review or old.revision_rounds >= 2:
+            raise ValueError('修订必须有审查结论且不能超过两轮')
+        review = old.history[-1].review
+        if review.verdict not in ('revise', 'regenerate'):
+            raise ValueError('仅修订或重出结论允许更新题目')
+        check_coverage(value.primary.questions)
+        if review.verdict == 'revise':
+            targets = {f.question_id for f in review.findings}
+            for previous, current in zip(old.current.questions, value.primary.questions):
+                if previous.question_id not in targets and previous != current:
+                    raise ValueError('定向修订不得修改未列出问题的题目')
+        return check_state(State(planned=old.planned, current=value.primary,
+            revision_rounds=old.revision_rounds + 1, history=old.history, awaiting_review=True))
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

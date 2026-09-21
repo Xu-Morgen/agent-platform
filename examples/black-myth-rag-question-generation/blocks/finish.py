@@ -327,17 +327,21 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-finish', version='1.0.0', name='生成三题最终业务结论', description='主数据 State；参考 tuple[()]；输出 ValidatedResult。')
+@block(id='rag-question-finish', version='2.0.0', name='生成三题最终业务结论', description='主数据 State；参考 tuple[()]；输出 ValidatedResult。')
 def run(value: NodeInput[State, tuple[()]]) -> ValidatedResult:
-    state = check_state(value.primary)
-    if state.awaiting_review:
-        raise ValueError('当前题目尚未审查')
-    review = state.history[-1].review
-    if review.verdict == 'pass':
-        result = Completed(status='completed', state=state)
-    elif review.verdict == 'insufficient_source':
-        result = InsufficientResult(status='insufficient_source', reason=review.rationale,
-            missing=review.missing, context=state.planned.context, history=state.history)
-    else:
-        result = QualityNotMet(status='quality_not_met', reason=review.rationale, state=state)
-    return ValidatedResult(result=result)
+    try:
+        state = check_state(value.primary)
+        if state.awaiting_review:
+            raise ValueError('当前题目尚未审查')
+        review = state.history[-1].review
+        if review.verdict == 'pass':
+            result = Completed(status='completed', state=state)
+        elif review.verdict == 'insufficient_source':
+            result = InsufficientResult(status='insufficient_source', reason=review.rationale,
+                missing=review.missing, context=state.planned.context, history=state.history)
+        else:
+            result = QualityNotMet(status='quality_not_met', reason=review.rationale, state=state)
+        return ValidatedResult(result=result)
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

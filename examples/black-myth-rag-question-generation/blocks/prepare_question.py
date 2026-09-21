@@ -327,12 +327,16 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-prepare-question', version='1.0.0', name='准备当前题目证据', description='主数据 RequestItem；参考 tuple[Planned]；输出 Generation。')
+@block(id='rag-question-prepare-question', version='2.0.0', name='准备当前题目证据', description='主数据 RequestItem；参考 tuple[Planned]；输出 Generation。')
 def run(value: NodeInput[RequestItem, tuple[Planned]]) -> Generation:
-    planned = check_planned(value.references[0])
-    if not isinstance(planned.planning.decision, Sufficient):
-        raise ValueError('仅资料充足规划可以生成题目')
-    matches = [i for i in planned.planning.decision.items if i.question_id == value.primary.question_id and i.type == value.primary.type]
-    if len(matches) != 1:
-        raise ValueError('当前请求项必须准确匹配规划')
-    return Generation(item=matches[0], context=planned.context)
+    try:
+        planned = check_planned(value.references[0])
+        if not isinstance(planned.planning.decision, Sufficient):
+            raise ValueError('仅资料充足规划可以生成题目')
+        matches = [i for i in planned.planning.decision.items if i.question_id == value.primary.question_id and i.type == value.primary.type]
+        if len(matches) != 1:
+            raise ValueError('当前请求项必须准确匹配规划')
+        return Generation(item=matches[0], context=planned.context)
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

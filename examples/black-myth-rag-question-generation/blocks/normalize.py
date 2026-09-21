@@ -327,15 +327,19 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-normalize', version='1.0.0', name='规范化三题请求', description='主数据 ParsedRequest；参考 tuple[Request]；输出 Normalized。')
+@block(id='rag-question-normalize', version='2.0.0', name='规范化三题请求', description='主数据 ParsedRequest；参考 tuple[Request]；输出 Normalized。')
 def run(value: NodeInput[ParsedRequest, tuple[Request]]) -> Normalized:
-    parsed, request = value.primary, value.references[0]
-    counts = {}
-    for demand in parsed.demands:
-        counts[demand.type] = counts.get(demand.type, 0) + demand.count
-    supported = counts == dict.fromkeys(KINDS, 1) and not parsed.unsupported_constraints
-    result = Normalized(request=request, parsed=parsed, supported=supported,
-        reason='支持单选、判断、论述各一道' if supported else '首版只支持单选、判断、论述各一道；不支持其他题型、数量或附加约束',
-        items=[RequestItem(question_id=i, type=k) for i, k in zip(IDS, KINDS)] if supported else [])
-    check_normalized(result)
-    return result
+    try:
+        parsed, request = value.primary, value.references[0]
+        counts = {}
+        for demand in parsed.demands:
+            counts[demand.type] = counts.get(demand.type, 0) + demand.count
+        supported = counts == dict.fromkeys(KINDS, 1) and not parsed.unsupported_constraints
+        result = Normalized(request=request, parsed=parsed, supported=supported,
+            reason='支持单选、判断、论述各一道' if supported else '首版只支持单选、判断、论述各一道；不支持其他题型、数量或附加约束',
+            items=[RequestItem(question_id=i, type=k) for i, k in zip(IDS, KINDS)] if supported else [])
+        check_normalized(result)
+        return result
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None

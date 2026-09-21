@@ -327,6 +327,10 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-wrap-judgment', version='1.0.0', name='封装判断题', description='主数据 Judgment；参考 tuple[()]；输出 QuestionEnvelope。')
+@block(id='rag-question-wrap-judgment', version='2.0.0', name='封装判断题', description='主数据 Judgment；参考 tuple[()]；输出 QuestionEnvelope。')
 def run(value: NodeInput[Judgment, tuple[()]]) -> QuestionEnvelope:
-    return QuestionEnvelope(question=value.primary)
+    try:
+        return QuestionEnvelope(question=value.primary)
+    except ValueError as exc:
+        from agent_platform.contracts.errors import ErrorResponse, PlatformError
+        raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='block.rag_question', message=str(exc))) from None
