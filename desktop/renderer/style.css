@@ -161,6 +161,18 @@ main:has(.configuration-page:not([hidden])) .page-header button { padding: 5px 1
 .flow-branch { min-width: 0; background: #fafbfe; border: 1px solid #e4e9f1; border-radius: 10px; padding: 12px; }
 .flow-branch > h5 { color: #479b81; text-align: center; font-size: 12px; }
 .flow-branch[data-branch="elseBranch"] > h5 { color: #ba9458; }
+.switch-outlets { padding: 14px 16px; border-top: 1px solid #eee7d9; background: #fffcf6; }
+.switch-outlets h5 { margin: 0 0 10px; color: #67583f; font-size: 12px; }
+.switch-outlets p { font-size: 12px; color: var(--text-muted); }
+.switch-outlet-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.switch-outlet { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; max-width: 100%; padding: 6px 10px; border: 1px solid #ddceb4; border-radius: 6px; background: #fff; color: #67583f; }
+.switch-outlet code, .switch-branch-title code { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+.switch-outlet.is-missing { border-color: #d99d81; color: #9b492c; }
+.switch-outlet small { font-size: 11px; }
+.switch-outlets > button { margin-top: 12px; }
+.flow-branch > .switch-branch-title { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; padding: 10px; border-bottom: 2px solid #d9ae67; background: #fff8e9; color: #67583f; }
+.switch-branch-title > span { font-size: 11px; font-weight: normal; }
+
 .branch-output, .loop-update { font-size: 11px; padding: 10px 0; }
 .flow-merge { text-align: center; padding: 10px; border-top: 1px solid #eee7d9; background: #fffcf6; color: #b19870; font-size: 11px; border-radius: 0 0 12px 12px; }
 .loop-body { margin: 0 16px; border-left: 2px dashed #d9bd8e; padding: 12px 0 0 16px; }

@@ -461,26 +461,56 @@ const flowEditor = (() => {
     }
     parent.append(panel);
   }
+  function switchValues(node) {
+    const root=resources.find(r=>r.resourceId===node.router?.artifactRef)?.schemas.output||{};
+    const out=resolveSchema(root,root),values=out.enum||(out.const!==undefined?[out.const]:[]);
+    return out.type==='string'&&values.length&&values.every(value=>typeof value==='string')?values:[];
+  }
+  function switchOverview(parent,node) {
+    const values=switchValues(node),panel=el('section');panel.className='switch-outlets';
+    panel.setAttribute('aria-label','枚举分支出口');
+    panel.append(el('h5',values.length?'枚举出口 · '+values.length+' 条路径，每次执行一条':'枚举出口 · 待选择路由块'));
+    if(!values.length)panel.append(el('p','在配置中选择路由块后，这里会列出所有枚举及其分支。'));
+    const list=el('div');list.className='switch-outlet-list';
+    for(const value of [...new Set([...values,...node.cases.map(c=>c.value)])]){
+      const index=node.cases.findIndex(c=>c.value===value),declared=values.includes(value);
+      const label=el('span');label.className='switch-outlet';
+      label.append(el('code',JSON.stringify(value)));
+      if(!declared||index<0){label.classList.add('is-missing');label.append(el('small',declared?'待创建分支':'不在当前枚举中'));}
+      list.append(label);
+    }
+    panel.append(list);
+    const matched=values.length&&node.cases.length===values.length&&values.every(value=>node.cases.filter(c=>c.value===value).length===1);
+    if(values.length&&!matched)panel.append(button('按路由枚举同步出口',()=>{
+      const removed=node.cases.filter(c=>!values.includes(c.value));
+      if(removed.some(c=>c.nodes.length)&&!window.confirm('同步将删除声明外分支及其中节点，继续？'))return;
+      for(const c of removed)for(const n of allNodes(c.nodes))delete content.nodeConfigurations[n.nodeId];
+      node.cases=values.map(value=>node.cases.find(c=>c.value===value)||{value,nodes:[],output:[]});changed();render();
+    }));
+    parent.append(panel);
+  }
   function conditionEditor(parent,node,scope,incoming,automatic, routing=false){
-    if(routing)node={condition:node.router};
-    if(node.condition?.kind!=='block'){
+    const conditionNode=routing?node.router:node.condition;
+    if(conditionNode?.kind!=='block'){
       parent.append(el('p','此条件使用旧引用协议。请删除该控制节点并重新添加 Python 条件块。'));return;
     }
     const condition=el('label',routing?'Python 路由块 · 返回有限字符串枚举':'Python 条件块 · 独立执行并返回严格 bool');
     const available=latestResources().filter(r=>r.kind==='block');
-    const conditionSelect=choices(available.map(r=>[r.resourceId,r.name+' · v'+r.version]),node.condition.artifactRef,value=>{
-      node.condition.artifactRef=value;delete content.nodeConfigurations[node.condition.nodeId];changed();render();
+    const conditionSelect=choices(available.map(r=>[r.resourceId,r.name+' · v'+r.version]),conditionNode.artifactRef,value=>{
+      conditionNode.artifactRef=value;delete content.nodeConfigurations[conditionNode.nodeId];
+      if(routing&&!node.cases.length)node.cases=switchValues(node).map(value=>({value,nodes:[],output:[]}));
+      changed();render();
     });
-    if(node.condition.artifactRef&&!available.some(r=>r.resourceId===node.condition.artifactRef)){
+    if(conditionNode.artifactRef&&!available.some(r=>r.resourceId===conditionNode.artifactRef)){
       const selected=conditionSelect.selectedOptions[0];selected.textContent='保留当前固定引用（不在最新可选列表中）';selected.disabled=true;
     }
     condition.append(conditionSelect);parent.append(condition,el('p','主数据：'+incoming+'；条件结果只选择路径。'));
-    const resource=resources.find(r=>r.resourceId===node.condition.artifactRef);
+    const resource=resources.find(r=>r.resourceId===conditionNode.artifactRef);
     const explain=adviceButton(resource);if(explain)parent.append(explain);
     const preview=el('div');portPreview(preview,resource?.primaryContract);parent.append(preview);
-    referenceEditor(parent,node.condition,resource,scope,automatic);
+    referenceEditor(parent,conditionNode,resource,scope,automatic);
     parent.append(el('p',routing?'路由出口：有限字符串枚举，所有枚举值必须有且只有一个分支。':'条件出口：bool（true / false），保存时严格校验。'));
-    if(resource?.apiRequired)parent.append(button('配置通用块 API',()=>configure(node.condition,resource)));
+    if(resource?.apiRequired)parent.append(button('配置通用块 API',()=>configure(conditionNode,resource)));
   }
   function sequence(parent, nodes, inherited, incoming='服务完整输入', incomingReference='无（零项）') {
     parent.classList.add('flow-sequence');
@@ -510,6 +540,7 @@ const flowEditor = (() => {
       const previousInput=index ? nodeName(nodes[index-1])+' 的完整输出' : incoming;
       let inputText=previousInput;
       if(node.kind==='if')inputText='条件 → 成立 / 否则';
+      if(node.kind==='switch')inputText='枚举路由 → 选择下方一条路径';
       if(node.body)inputText=node.kind==='foreach'?'数组 → 逐项处理 → items 集合':'初始值 → 每轮处理 → 更新携带值';
       summary.append(el('span','输入 · '+inputText),el('span','输出 · '+(outputRef(node)?contractLabel(outputRef(node)):'待选择契约')));
       if(node.kind==='block'||node.kind==='package')referenceSummary(summary,resource);
@@ -536,23 +567,14 @@ const flowEditor = (() => {
         detail.append(button('查看固定实例内容',()=>viewHistory(node.serviceId,node.instanceId)));
       } else if(node.kind==='if'||node.kind==='switch') {
         conditionEditor(detail,node,scope,previousInput,automatic,node.kind==='switch');
-        if(node.kind==='switch'){
-          const root=resources.find(r=>r.resourceId===node.router.artifactRef)?.schemas.output||{};
-          const out=resolveSchema(root,root),values=out.enum||(out.const!==undefined?[out.const]:[]);
-          if(out.type==='string'&&values.length&&values.every(v=>typeof v==='string')){
-            detail.append(button('按路由枚举同步出口',()=>{
-              const removed=node.cases.filter(c=>!values.includes(c.value));
-              if(removed.some(c=>c.nodes.length)&&!window.confirm('同步将删除声明外分支及其中节点，继续？'))return;
-              for(const c of removed)for(const n of allNodes(c.nodes))delete content.nodeConfigurations[n.nodeId];
-              node.cases=values.map(value=>node.cases.find(c=>c.value===value)||{value,nodes:[],output:[]});changed();render();
-            }));
-          }else detail.append(el('p','请选择输出为有限字符串枚举的通用块。'));
-        }
+        if(node.kind==='switch')switchOverview(card,node);
         contractChoice(detail,'契约 · 分支输出契约',node.outputContract,v=>node.outputContract=v);
         const branches=el('div');branches.className='flow-branches';
         const entries=node.kind==='if'?[['thenBranch','成立 · true',node.thenBranch],['elseBranch','否则 · false',node.elseBranch]]:node.cases.map((c,i)=>['cases.'+i,c.value,c]);
         for(const [key,title,branchValue] of entries){
-          const branch=el('div');branch.className='flow-branch';branch.dataset.branch=key;branch.append(el('h5',title));
+          const branch=el('div');branch.className='flow-branch';branch.dataset.branch=key;
+          if(node.kind==='switch'){const heading=el('h5');heading.className='switch-branch-title';heading.append(el('span','路由结果为'),el('code',JSON.stringify(title)));branch.append(heading);}
+          else branch.append(el('h5',title));
           const branchNodes=el('div');sequence(branchNodes,branchValue.nodes,scope,previousInput,automatic);branch.append(branchNodes);
           const output=el('details');output.className='branch-output';output.dataset.detailKey=node.nodeId+':'+key;output.append(el('summary','本分支返回什么'));
           bindingSection(output,'分支出口',branchValue.output,node.outputContract,[...scope,...branchValue.nodes]);branch.append(output);branches.append(branch);
