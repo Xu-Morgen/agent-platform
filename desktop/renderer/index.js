@@ -3,10 +3,13 @@ const healthButton = document.querySelector('#health');
 
 async function refreshHealth() {
   healthButton.disabled = true;
-  status.textContent = '后端启动中…';
+  status.textContent = '正在检查连接…';
+  status.dataset.state = 'loading';
+  status.removeAttribute('title');
   try {
     const result = await window.agentPlatform.health();
     if (!result.ok) {
+      status.dataset.state = 'error';
       status.textContent = `${result.error.code === 'STARTUP_ERROR' ? '启动失败' : '健康检查失败'}：${result.error.message}`;
       return;
     }
@@ -16,10 +19,14 @@ async function refreshHealth() {
     await flowEditor.refresh();
     await refreshPlatform();
     await refreshRunHistory();
-    status.textContent = `后端已就绪：${result.address}`;
-    healthButton.disabled = false;
+    status.textContent = '后端已就绪';
+    status.title = `后端地址：${result.address}`;
+    status.dataset.state = 'ready';
   } catch {
     status.textContent = '桌面请求桥不可用';
+    status.dataset.state = 'error';
+  } finally {
+    healthButton.disabled = false;
   }
 }
 healthButton.addEventListener('click', refreshHealth);

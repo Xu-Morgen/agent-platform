@@ -9,29 +9,40 @@
 </head>
 <body>
   <aside class="sidebar">
-    <h1>Agent Platform</h1>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">A</span><div><h1>Agent Platform</h1><span>本地 Agent 工作台</span></div></div><p class="nav-label">工作空间</p>
     <nav aria-label="主导航">
-      <a href="#/overview">平台概览</a>
-      <a href="#/environments">环境配置</a>
-      <a href="#/services">服务配置</a>
-      <a href="#/tasks">任务调用</a>
+      <a href="#/overview"><span class="nav-icon" aria-hidden="true">◫</span>平台概览</a>
+      <a href="#/environments"><span class="nav-icon" aria-hidden="true">⌘</span>环境配置</a>
+      <a href="#/services"><span class="nav-icon" aria-hidden="true">◇</span>服务配置</a>
+      <a href="#/tasks"><span class="nav-icon" aria-hidden="true">▷</span>任务调用</a>
     </nav>
-    <p class="session-note">正在读取存储状态…</p>
+    <details class="storage-details"><summary>本地存储与会话</summary><p class="session-note">正在读取存储状态…</p></details>
   </aside>
   <main>
     <header class="page-header">
-      <h2 id="page-title" tabindex="-1">平台概览</h2>
+      <div class="page-heading"><span class="workspace-label">工作空间 /</span><h2 id="page-title" tabindex="-1">平台概览</h2></div>
     <p id="status" role="status">后端启动中…</p>
     <button id="health" disabled>检查健康状态</button>
     </header>
     <section data-page="overview" aria-label="平台概览">
-      <h3>开始使用</h3>
-      <p>配置连接环境，加载并保存服务，然后提交任务查看运行结果。</p>
-      <div class="module-cards">
-        <a href="#/environments"><strong>环境配置</strong><span>管理模型、API 连接和凭据</span></a>
-        <a href="#/services"><strong>服务配置</strong><span>加载本地定义，配置预算和管理版本</span></a>
-        <a href="#/tasks"><strong>任务调用</strong><span>提交输入，查询进度、用量和结果</span></a>
+      <div class="overview-hero">
+        <div><span class="section-eyebrow">AGENT WORKSPACE</span><h3>从一个想法，<br>到可运行的服务。</h3><p>连接模型、编排流程、追踪结果。<br>在一个工作台中完成 Agent 服务的构建与运行。</p><a class="hero-action" href="#/services">开始编排服务 <span aria-hidden="true">→</span></a></div>
+        <div class="overview-flow" aria-label="服务执行流程示意">
+          <span class="diagram-caption">一个流程，清晰的每一步</span>
+          <div><span class="diagram-step">01</span><strong>定义输入</strong><small>用契约明确数据结构</small></div>
+          <span class="diagram-line" aria-hidden="true">↓</span>
+          <div><span class="diagram-step">02</span><strong>组合处理步骤</strong><small>业务包 · 通用块 · 条件分支</small></div>
+          <span class="diagram-line" aria-hidden="true">↓</span>
+          <div><span class="diagram-step">03</span><strong>运行并查看结果</strong><small>每一步执行都有记录</small></div>
+        </div>
       </div>
+      <div class="overview-heading"><div><h3>你的工作空间</h3><p>从连接配置到任务结果，按需进入各个工作区。</p></div><span class="editor-badge">构建 · 运行 · 追踪</span></div>
+      <div class="module-cards">
+        <a href="#/environments"><span class="module-icon" aria-hidden="true">⌘</span><strong>环境配置</strong><span>管理模型与 API 连接，让流程连接到所需的外部服务。</span><b>配置连接 <span aria-hidden="true">↗</span></b></a>
+        <a href="#/services"><span class="module-icon" aria-hidden="true">◇</span><strong>服务配置</strong><span>组合业务包与通用块，校验流程并保存可调用的服务。</span><b>编排服务 <span aria-hidden="true">↗</span></b></a>
+        <a href="#/tasks"><span class="module-icon" aria-hidden="true">▷</span><strong>任务调用</strong><span>提交输入，跟踪执行步骤与用量，查看结果和历史记录。</span><b>运行任务 <span aria-hidden="true">↗</span></b></a>
+      </div>
+      <div class="overview-note"><strong>从简单流程开始</strong><p>普通计算块可直接编排；需要调用模型或外部 API 时，先配置连接环境。未完成的流程可以随时保存为草稿。</p></div>
     </section>
     <section data-page="environments" class="configuration-page" aria-label="环境配置" hidden>
       <div class="editor-heading"><div><span class="section-eyebrow">CONNECTIONS</span><h3>连接模型与外部服务</h3><p>在这里管理可复用的连接，编排流程时按需绑定到节点。</p></div><span class="editor-badge">环境配置</span></div>
