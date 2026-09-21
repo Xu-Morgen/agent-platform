@@ -239,6 +239,7 @@ def compile_flow(draft, catalog):
                                         context.token_policy, context.api_transport)
                 nested.prefix = context.qualified(node.node_id) + '/'
                 nested.files = getattr(context, 'files', None)
+                nested.knowledge = getattr(context, 'knowledge', None)
                 ct = current_context.set(nested)
             pt = execution_path.set((*execution_path.get(), (context.qualified(node.node_id) if context else node.node_id)))
             try:

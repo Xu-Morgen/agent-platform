@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from .contracts.knowledge import (
     KnowledgeBase, KnowledgeWrite, KnowledgeUpdate, KnowledgeReference, KnowledgePageRequest,
     KnowledgePage, DocumentVersion, DocumentReadRequest, KnowledgeRevision,
+    KnowledgeId, RevisionId, DocumentId, VersionId,
 )
 
 
@@ -19,30 +20,30 @@ def register_knowledge_routes(app):
         return repository.create(value)
 
     @app.put('/api/v1/knowledge/{knowledge_id}', response_model=KnowledgeBase)
-    async def update_knowledge(knowledge_id: str, value: KnowledgeUpdate):
+    async def update_knowledge(knowledge_id: KnowledgeId, value: KnowledgeUpdate):
         return repository.update(knowledge_id, value)
 
     @app.get('/api/v1/knowledge/{knowledge_id}/documents', response_model=KnowledgePage)
-    async def documents(knowledge_id: str, revision_id: str | None = Query(None, alias='revisionId'),
+    async def documents(knowledge_id: KnowledgeId, revision_id: RevisionId | None = Query(None, alias='revisionId'),
                         offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200)):
         reference = repository.resolve(KnowledgeReference(knowledge_id=knowledge_id, revision_id=revision_id))
         return repository.page(KnowledgePageRequest(reference=reference, offset=offset, limit=limit))
 
     @app.post('/api/v1/knowledge/{knowledge_id}/documents', response_model=DocumentVersion, status_code=201)
-    async def import_document(knowledge_id: str, request: Request, name: str = Query(min_length=1, max_length=255),
-                              document_id: str | None = Query(None, alias='documentId')):
+    async def import_document(knowledge_id: KnowledgeId, request: Request, name: str = Query(min_length=1, max_length=255),
+                              document_id: DocumentId | None = Query(None, alias='documentId')):
         return await repository.import_document(knowledge_id, name, request.stream(), document_id)
 
     @app.delete('/api/v1/knowledge/{knowledge_id}/documents/{document_id}', response_model=KnowledgeRevision)
-    async def remove_document(knowledge_id: str, document_id: str):
+    async def remove_document(knowledge_id: KnowledgeId, document_id: DocumentId):
         return repository.remove(knowledge_id, document_id)
 
     @app.get('/api/v1/knowledge/{knowledge_id}/documents/{document_id}/versions', response_model=list[DocumentVersion])
-    async def versions(knowledge_id: str, document_id: str):
+    async def versions(knowledge_id: KnowledgeId, document_id: DocumentId):
         return repository.history(knowledge_id, document_id)
 
     @app.get('/api/v1/knowledge/{knowledge_id}/versions/{version_id}/original')
-    async def original(knowledge_id: str, version_id: str):
+    async def original(knowledge_id: KnowledgeId, version_id: VersionId):
         # 管理页面可获取逻辑移除前的旧版本，执行块仍必须经过任务绑定检查。
         from .repositories.knowledge import knowledge_error
         raw = repository.versions.get(version_id)

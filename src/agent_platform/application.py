@@ -82,7 +82,7 @@ def _create_app(store) -> FastAPI:
     app.state.knowledge = KnowledgeRepository(store)
     from .knowledge_routes import register_knowledge_routes
     register_knowledge_routes(app)
-    app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs, app.state.files)
+    app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs, app.state.files, app.state.knowledge)
 
     from .runtime.worker import RunWorker
     app.state.worker = RunWorker(app.state.submission, concurrency=app.state.settings.active_run_concurrency)

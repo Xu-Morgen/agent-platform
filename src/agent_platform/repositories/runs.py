@@ -66,6 +66,19 @@ class RunRepository:
             self._save(run)
             return run.model_copy(deep=True)
 
+    def append_evidence(self, run_id, evidence):
+        from ..contracts.knowledge import EvidenceRecord
+        from .knowledge import knowledge_error
+        evidence = EvidenceRecord.model_validate(evidence)
+        with self.lock:
+            run = self.get(run_id)
+            if run.status != 'running' or run.cancel_requested:
+                raise knowledge_error('KNOWLEDGE_SCOPE_ERROR', '任务不再接受证据登记')
+            if len(run.evidence) >= 100:
+                raise knowledge_error('KNOWLEDGE_LIMIT_EXCEEDED', '单任务证据登记超过 100 次上限')
+            run.evidence.append(evidence)
+            self._save(run)
+
     def finish(self, run_id, status, *, result=None, error=None):
         with self.lock:
             run = self.get(run_id)

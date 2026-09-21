@@ -1,6 +1,6 @@
 """知识库标准引用和受控读取协议；业务数据不携带私有存储路径。"""
 from typing import Annotated, Literal
-from pydantic import Field, JsonValue, model_validator
+from pydantic import Field, JsonValue
 from .base import StrictModel
 from .files import SHA256
 
@@ -83,7 +83,6 @@ class Evidence(StrictModel):
     reader: str = Field(min_length=1, max_length=300)
     score: float = 0.0
 
-    @model_validator(mode='after')
     def verify_digest(self):
         from hashlib import sha256
         if sha256(self.text.encode()).hexdigest() != self.sha256:
@@ -100,14 +99,19 @@ class EvidenceRegistration(StrictModel):
     selected: list[Evidence] = Field(max_length=100)
     parameters: dict[str, JsonValue] = Field(default_factory=dict)
 
-    @model_validator(mode='after')
     def verify_selection(self):
+        import json
+        if len(json.dumps(self.parameters, ensure_ascii=False).encode()) > 65536:
+            raise ValueError('证据参数超过 64 KiB 上限')
+        if len(set(self.scanned_versions)) != len(self.scanned_versions):
+            raise ValueError('扫描版本标识重复')
         candidates = {item.fragment_id: item for item in self.candidates}
         if len(candidates) != len(self.candidates):
             raise ValueError('候选片段标识重复')
         if len({item.fragment_id for item in self.selected}) != len(self.selected):
             raise ValueError('选用片段标识重复')
         for item in self.candidates:
+            item.verify_digest()
             if item.reference != self.reference or item.version_id not in self.scanned_versions:
                 raise ValueError('证据不属于本次扫描范围')
         for item in self.selected:

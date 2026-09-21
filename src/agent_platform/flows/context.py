@@ -27,9 +27,15 @@ class FlowRunContext(RunContext):
                     step.progress = event
                     self.runs.update(self.run_id, steps=steps)
                     break
-        context = BlockContext(files=getattr(self, 'files', None), run_id=self.run_id, progress=progress)
-        return await self.run_step('nodes.' + node_id,
-            lambda: artifact.invoke(value, api=api, context=context), kind='block')
+        from tempfile import TemporaryDirectory
+        from ..runtime.knowledge import TaskKnowledgeAccess
+        with TemporaryDirectory(prefix='agent-knowledge-read-') as directory:
+            access = TaskKnowledgeAccess(getattr(self, 'knowledge', None), self.runs, self.run_id,
+                self.qualified(node_id), artifact.content.digest, directory)
+            context = BlockContext(files=getattr(self, 'files', None), run_id=self.run_id,
+                                   progress=progress, knowledge=access)
+            return await self.run_step('nodes.' + node_id,
+                lambda: artifact.invoke(value, api=api, context=context), kind='block')
 
     async def call_model(self, node_id, value):
         binding = self.snapshot.draft.node_configurations[node_id].model

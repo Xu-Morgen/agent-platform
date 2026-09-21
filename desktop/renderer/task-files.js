@@ -1,9 +1,9 @@
 /* 按公开契约标注生成文件控件，其他字段继续使用 JSON 输入。 */
 (() => {
-  function fields(schema, input = {}) {
+  function fields(schema, input = {}, marker = 'x-platform-file') {
     const result = [];
     function walk(node, path, value, required, ancestors = []) {
-      if (node['x-platform-file']) { result.push({ path, required, formats: node['x-platform-file'].formats }); return; }
+      if (node[marker]) { result.push({ path, required, formats: node[marker].formats }); return; }
       if (node.$ref) {
         if (ancestors.includes(node.$ref)) return;
         walk(schema.$defs?.[node.$ref.split('/').pop()] || {}, path, value, required, [...ancestors, node.$ref]);
@@ -87,6 +87,7 @@
     if (pending) { const status = document.createElement('p');status.textContent = '正在选择并保存文件，请等待保存完成。';host.append(status); }
   }
   window.taskFiles = {
+    fields,
     get pending() { return pending > 0; },
     setSchema(value) {
       generation++;schema = value;saved.clear();onlyFiles = fileOnly(schema);

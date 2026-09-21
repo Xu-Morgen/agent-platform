@@ -74,6 +74,7 @@ class RunWorker:
         boundary.policies = policies
         context = FlowRunContext(run_id, snapshot, runs, model, token_policy, api_transport)
         context.files = self.submission.files
+        context.knowledge = self.submission.knowledge
         bt, ct = current_boundary.set(boundary), current_context.set(context)
         try:
             await boundary.check('run_start', run_id)

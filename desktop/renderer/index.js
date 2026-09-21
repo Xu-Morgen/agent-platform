@@ -140,12 +140,14 @@ async function showTaskService() {
   document.querySelector('#task-example').disabled=!selected;
   taskInputNotice('');
   window.taskFiles.setSchema({});
+  window.taskKnowledge.setSchema({});
   if (selected) {
     document.querySelector('#task-submit').disabled = true;
     const response = await window.agentPlatform.serviceSchema(selected.serviceId);
     if (generation !== taskSchemaGeneration) return;
     if (!response.ok) { taskInputNotice(taskFailure(response.error),true);return; }
     window.taskFiles.setSchema(response.data.input);
+    await window.taskKnowledge.setSchema(response.data.input);
     document.querySelector('#task-submit').disabled = taskSubmitting || window.taskFiles.pending;
   }
 }
@@ -196,6 +198,7 @@ async function pollTask(runId, generation) {
   document.querySelector('#task-cancel-status').textContent = run.cancelRequested
     ? (run.status === 'failed' ? '取消等待失败，请查看原始错误' : run.status === 'cancelled' ? '已取消'
       : run.cancelPhase === 'waiting_transport' ? '取消已受理，等待当前模型传输结束' : '取消已受理，等待停止执行') : '';
+  window.taskKnowledge.evidence(run);
   showUsage(run.usage, nodeNames);
   document.querySelector('#task-loop-count').textContent=run.usage.loops?.global ?? 0;
   const token=run.usage.tokens?.global;
@@ -264,7 +267,7 @@ document.querySelector('#task-form').addEventListener('submit', async event => {
   try {
     const selected = services.find(value => value.serviceId === taskServiceSelect.value);
     if (!selected) { taskInputNotice('请先选择已保存的服务',true); return; }
-    const input = window.taskFiles.input();
+    const input = window.taskKnowledge.input(window.taskFiles.input());
     const response = await window.agentPlatform.submitRun({ serviceId: selected.serviceId, expectedInstanceId: selected.activeInstanceId, input });
     if (!response.ok) { taskInputNotice(taskFailure(response.error),true); return; }
     taskInputNotice('任务已提交，可在任务详情中查看运行状态。');focusTaskInspection();

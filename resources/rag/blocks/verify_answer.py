@@ -7,6 +7,11 @@ from agent_platform.contracts.errors import PlatformError, ErrorResponse
 
 @block(id='rag-verify-answer', version='1.0.0', name='核验回答引用', description='主数据为模型回答，参考输入为生成时的证据上下文；检查每条引文确实来自本次选用证据。语义正确性仍需审查。')
 def run(value: NodeInput[GroundedAnswer, tuple[EvidenceContext]]) -> VerifiedAnswer:
+    try:
+        value.primary.citations_required()
+        value.references[0].evidence.verify_selection()
+    except ValueError as exc:
+        raise PlatformError(ErrorResponse(code='OUTPUT_VALIDATION_ERROR', stage='rag.citations', message=str(exc))) from None
     context = value.references[0]
     selected = {item.fragment_id: item for item in context.evidence.selected}
     for citation in value.primary.citations:

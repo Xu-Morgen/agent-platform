@@ -6,7 +6,7 @@
   const checked = response => { if (!response.ok) throw new Error(response.error.message); return response.data; };
   const current = () => bases.find(item => item.knowledgeId === el('select').value);
   function controls() {
-    for (const input of document.querySelectorAll('[data-page="knowledge"] input, [data-page="knowledge"] button, #knowledge-select')) input.disabled = busy;
+    for (const input of document.querySelectorAll('[data-page="knowledge"] input, [data-page="knowledge"] button, [data-page="knowledge"] select')) input.disabled = busy;
     el('upload').disabled = busy || !current() || current().archived;
     el('prev').disabled = busy || offset === 0;
     el('next').disabled = busy || next === null;
@@ -32,6 +32,23 @@
       const card = document.createElement('article'); card.className = 'settings-card';
       const title = document.createElement('h4'); title.textContent = item.originalName; card.append(title);
       const metadata = document.createElement('p'); metadata.textContent = `原件可读取 · ${item.size} 字节 · ${item.versionId} · SHA-256 ${item.sha256}`; card.append(metadata);
+      card.append(button('预览正文', async () => {
+        const serviceId = el('preview-service').value;
+        if (!serviceId) throw new Error('请先选择已保存的读取服务');
+        const request = { serviceId, input: { knowledge: page.reference, versionId: item.versionId } };
+        const run = checked(await api.submitRun(request));
+        el('preview-status').textContent = `预览任务 ${run.runId} 已提交，可在任务调用页查看历史与解析资源。`;
+        el('preview-result').textContent = '';
+        const poll = async () => {
+          try {
+            const latest = checked(await api.getRun(run.runId));
+            if (['queued', 'running'].includes(latest.status)) { setTimeout(poll, 500); return; }
+            el('preview-status').textContent = `预览任务 ${run.runId} · ${latest.status} · 实例 ${latest.instanceId}`;
+            el('preview-result').textContent = JSON.stringify(latest.error || latest.result, null, 2);
+          } catch (error) { el('preview-status').textContent = error.message; }
+        };
+        poll();
+      }));
       card.append(button('获取原件', async () => checked(await api.downloadKnowledgeOriginal(base.knowledgeId, item.versionId))));
       card.append(button('版本记录', async () => {
         const versions = checked(await api.knowledgeVersions(base.knowledgeId, item.documentId));
@@ -60,6 +77,11 @@
   }
   async function load(selected = el('select').value) {
     bases = checked(await api.listKnowledge());
+    const selectedService = el('preview-service').value;
+    const services = checked(await api.listServices());
+    el('preview-service').replaceChildren(new Option('请选择已保存的读取服务', ''));
+    for (const service of services) el('preview-service').append(new Option(service.name, service.serviceId));
+    el('preview-service').value = selectedService;
     el('select').replaceChildren(new Option('新建知识库', ''));
     for (const base of bases) el('select').add(new Option(`${base.name}${base.archived ? '（已归档）' : ''}`, base.knowledgeId));
     el('select').value = selected;

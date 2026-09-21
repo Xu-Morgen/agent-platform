@@ -1,5 +1,6 @@
 """原子受理：固定实际实例与环境后入队，不在 HTTP 中执行。"""
 from asyncio import Queue
+from contextlib import nullcontext
 from dataclasses import dataclass
 from ..contracts.flows import NodeConfiguration
 from ..flows.execution import checked, plain
@@ -16,9 +17,10 @@ class PendingRun:
 
 
 class RunSubmission:
-    def __init__(self, services, environments, runs, files=None):
+    def __init__(self, services, environments, runs, files=None, knowledge=None):
         self.services, self.environments, self.runs = services, environments, runs
         self.files = files
+        self.knowledge = knowledge
         self.queue = Queue()
         self.stopping = False
 
@@ -26,7 +28,7 @@ class RunSubmission:
         self.runs.store.check()
         if self.stopping:
             raise PlatformError(ErrorResponse(code='APPLICATION_EXIT', stage='runs.submit', message='应用正在退出'), 503)
-        with self.environments.lock:
+        with self.environments.lock, self.knowledge.lock if self.knowledge else nullcontext():
             service = self.services.get(request.service_id)
             if request.expected_instance_id and request.expected_instance_id != service.active_instance_id:
                 raise PlatformError(ErrorResponse(code='VERSION_CONFLICT', stage='runs.submit', message='当前实例已变化'), 409)
@@ -34,6 +36,10 @@ class RunSubmission:
             draft = snapshot.draft
             value = (checked(snapshot.catalog.contract(draft.input_contract), request.input, 'runs.input')
                      if validated_input is _UNVALIDATED else validated_input)
+            from .knowledge import bind_knowledge
+            bound, knowledge_bindings = bind_knowledge(snapshot.catalog.contract(draft.input_contract).schema, plain(value), self.knowledge)
+            if knowledge_bindings:
+                value = checked(snapshot.catalog.contract(draft.input_contract), bound, 'runs.input')
             from ..storage.files import file_references
             references = file_references(snapshot.catalog.contract(draft.input_contract).schema, plain(value))
             if references and self.files is None:
@@ -48,7 +54,7 @@ class RunSubmission:
             run = self.runs.create(service_id=service.service_id, instance_id=snapshot.instance_id,
                 files=self.files, references=references,
                 version=service.current.version, revision=service.current.revision,
-                input=plain(value), environment_snapshot=list(environments.values()))
+                input=plain(value), knowledge_bindings=knowledge_bindings, environment_snapshot=list(environments.values()))
             self.environments.occupy(environments, run.run_id)
             self.queue.put_nowait(PendingRun(run.run_id, snapshot))
             return run

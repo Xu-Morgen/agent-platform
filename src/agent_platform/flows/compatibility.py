@@ -30,7 +30,7 @@ def assignable(source, target, source_root=None, target_root=None, seen=None):
     if target.get('x-runtime-contract') and source.get('x-runtime-contract') != target['x-runtime-contract']:
         raise Incompatible('入口含自定义校验，需相同契约或显式转换块')
     # 递归 JSON 等循环引用以引用对截断，约束仍在首次访问时检查。
-    cosmetic = {'title', 'description', 'default', 'examples', '$defs', '$id', 'x-runtime-contract', 'x-contract-id'}
+    cosmetic = {'title', 'description', 'default', 'examples', '$defs', '$id', 'x-runtime-contract', 'x-contract-id', 'x-platform-knowledge'}
     supported = {'type', 'properties', 'required', 'additionalProperties', 'items', 'anyOf', 'enum', 'const',
                  'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'minLength', 'maxLength',
                  'minItems', 'maxItems', 'pattern', 'format', 'multipleOf'}

@@ -43,7 +43,8 @@ class BlockContext:
 
     async def knowledge_record(self, evidence):
         from ..contracts.knowledge import EvidenceRegistration, EvidenceRecord
-        return EvidenceRecord.model_validate(await self._knowledge_call('record', EvidenceRegistration.model_validate(evidence)))
+        request = EvidenceRegistration.model_validate(evidence)
+        return EvidenceRecord.model_validate(await self._knowledge_call('record', request))
 
     async def _knowledge_call(self, operation, request):
         if self._knowledge is None:

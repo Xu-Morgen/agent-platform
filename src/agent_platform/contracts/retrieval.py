@@ -1,6 +1,6 @@
 """可选的标准检索数据契约；算法由普通资源实现，平台执行器不依赖它。"""
 from typing import Literal
-from pydantic import Field, model_validator
+from pydantic import Field
 from .base import StrictModel
 from .knowledge import TaskKnowledge, FixedKnowledgeReference, DocumentVersion, Evidence, EvidenceRegistration
 
@@ -61,7 +61,6 @@ class GroundedAnswer(StrictModel):
     answer: str = Field(min_length=1, max_length=20000)
     citations: list[Citation] = Field(max_length=100)
 
-    @model_validator(mode='after')
     def citations_required(self):
         if self.status == 'answered' and not self.citations:
             raise ValueError('回答必须带有选用证据引用')
@@ -74,3 +73,9 @@ class VerifiedAnswer(StrictModel):
     result: GroundedAnswer
     context: EvidenceContext
     citation_check: Literal['passed'] = 'passed'
+
+
+class DocumentPreviewRequest(StrictModel):
+    knowledge: TaskKnowledge
+    version_id: str = Field(pattern=r'^dv_[a-f0-9]{32}$')
+    limits: RetrievalLimits = Field(default_factory=RetrievalLimits)
