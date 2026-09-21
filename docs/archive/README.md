@@ -64,3 +64,7 @@
 I5/I8 中的真实模型验收阻塞保留为当时记录；2026-09-17 用户已确认 V1 验证完成，后续又移除了原查重产品。无需按历史任务恢复旧入口、测试脚本或验收数据。
 
 - [2026-09-20 文档出题质量计划](2026-09-20/document-question-quality-plan.md)：Q1–Q5 完成，10 次授权真实调用、真实定向修订、用户人工评审通过及 Electron 页面保存/重启恢复；现行用法见[实例手册](../../examples/document-question-generation/README.md)。
+
+## 2026-09-21 知识库三题业务
+
+[实验实施计划](2026-09-21/black-myth-rag-experiment-plan.md)与[真实验收记录](2026-09-21/black-myth-rag-validation.md)：7 份授权 DOCX、27 个业务资源、正式页面 foreach/switch/while 服务、20 次真实调用及首轮失败修复。人工评阅待确认；未触发的远端分支不宣称通过。当前使用见[业务手册](../../examples/black-myth-rag-question-generation/README.md)。

@@ -93,7 +93,7 @@ WSL 图形窗口使用中文输入时，需检查 Linux 侧输入法及图形会
 
 节点输入与 Python 条件块、文件与依赖环境、文档出题质量流程的实施计划已归档。后续事项包括新版出题真实模型复验、备份恢复、历史与缓存的引用安全清理，以及按实际负载推进运行能力；权限与沙箱尚未交付；多 Agent 与断点续跑明确不考虑，不列入后续开发事项：预定义角色包与条件流程已覆盖现有协作需求，当前小任务不承担可靠续跑所需的状态一致性、副作用处理和恢复管理成本。完整理由见 [产品决策](docs/product-requirements.md#明确不考虑的能力2026-09-21)。
 
-[文档管理与最小 RAG 平台基础](docs/knowledge.md)已交付，离线、桌面与 PostgreSQL 恢复检查通过。按用户本次指令不进行真实模型验收；[黑神话知识库出题实验](docs/black-myth-rag-experiment-plan.md)单独开展，目前业务服务及真实质量验收未开始。
+[文档管理与最小 RAG 平台基础](docs/knowledge.md)及独立的[知识库三题业务](examples/black-myth-rag-question-generation/README.md)已交付。正式服务“知识库三题出题 · ds”支持单选、判断、论述各一题及逐题多文档证据；20 次授权真实调用通过默认/替换检索主路径、不支持请求和资料不足检查。人工评阅待用户确认；真实修订/重出等未触发路径见手册，旧全文出题实例不自动升级。
 
 从 [文档导航](docs/README.md) 查看产品、架构、使用手册和当前计划；当前能力与未完成边界统一见 [产品说明](docs/product-requirements.md)。此前计划及阶段验收记录已退役至 [历史归档](docs/archive/README.md)，仅用于追溯，不作为当前实施入口或新版验收结论；新计划在对应实施完成或退役后归档。
 
@@ -106,6 +106,7 @@ WSL 图形窗口使用中文输入时，需检查 Linux 侧输入法及图形会
 | `samples/contracts/` | 独立契约最小/完整实现、字段及校验钩子说明 |
 | `samples/USAGE.md` | 三类资源加载、服务接线、保存与调用示例 |
 | `resources/rag/` | 可替换的标准读取、检索、证据、回答与核验资源及手册 |
+| `examples/black-myth-rag-question-generation/` | 知识库三题契约、解析/规划/生成/审题包、流程块和使用手册 |
 | `examples/document-question-generation/` | 文档读取、规划、出题、审题和有限修订资源及实例手册 |
 | `scripts/export_contracts.py` | 从权威模型生成桌面控制协议 Schema |
 | `docs/` | 产品、架构、手册、协议及当前计划；已完成或退役计划与历史资料在 `docs/archive/` |

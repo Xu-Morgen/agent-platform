@@ -8,7 +8,7 @@
 
 实施前 `flow-5` 的权威定义在 [flows.py](../../../src/agent_platform/contracts/flows.py)，[保存校验](../../../src/agent_platform/flows/validation.py)与[执行器](../../../src/agent_platform/flows/execution.py)均要求 if/while 条件为严格 bool。repeat/while 通过 carry 更新整体状态。新增能力需要同步协议、校验、编译、快照与编辑器，不能只修改次数计算或放宽 bool 校验。
 
-关联：[文档管理与最小 RAG](knowledge-rag-plan.md)、[黑神话业务实验](../../black-myth-rag-experiment-plan.md)。先交付控制流，再用业务实验检验新节点；文档管理的数据设计可独立推进。
+关联：[文档管理与最小 RAG](knowledge-rag-plan.md)、[黑神话业务实验](black-myth-rag-experiment-plan.md)。先交付控制流，再用业务实验检验新节点；文档管理的数据设计可独立推进。
 
 ## 2. 数组遍历 foreach
 
