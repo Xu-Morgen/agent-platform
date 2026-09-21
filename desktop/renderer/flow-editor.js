@@ -489,22 +489,43 @@ const flowEditor = (() => {
     }));
     parent.append(panel);
   }
+  function controlOutputCandidate(value, routing, root=value, seen=new Set()) {
+    // 只排除 Schema 能明确证明不适用的出口；无法解析时留给后端预检。
+    if(!value||typeof value!=='object')return true;
+    if(value.$ref){
+      if(!value.$ref.startsWith('#/$defs/')||seen.has(value.$ref))return true;
+      const target=root.$defs?.[value.$ref.slice(8)];
+      if(!target)return true;
+      return controlOutputCandidate({...target,...Object.fromEntries(Object.entries(value).filter(([key])=>key!=='$ref'))},routing,root,new Set([...seen,value.$ref]));
+    }
+    if(!routing&&Array.isArray(value.anyOf))return value.anyOf.every(part=>controlOutputCandidate(part,false,root,seen));
+    if(!value.type)return routing&&Array.isArray(value.anyOf)?false:true;
+    if(value.type!==(routing?'string':'boolean'))return false;
+    if(!routing)return true;
+    const values=value.enum||(Object.hasOwn(value,'const')?[value.const]:[]);
+    return Array.isArray(values)&&values.length>0&&values.every(item=>typeof item==='string');
+  }
   function conditionEditor(parent,node,scope,incoming,automatic, routing=false){
     const conditionNode=routing?node.router:node.condition;
     if(conditionNode?.kind!=='block'){
       parent.append(el('p','此条件使用旧引用协议。请删除该控制节点并重新添加 Python 条件块。'));return;
     }
     const condition=el('label',routing?'Python 路由块 · 返回有限字符串枚举':'Python 条件块 · 独立执行并返回严格 bool');
-    const available=latestResources().filter(r=>r.kind==='block');
+    const blocks=latestResources().filter(r=>r.kind==='block');
+    const available=blocks.filter(r=>controlOutputCandidate(r.schemas.output,routing));
     const conditionSelect=choices(available.map(r=>[r.resourceId,r.name+' · v'+r.version]),conditionNode.artifactRef,value=>{
       conditionNode.artifactRef=value;delete content.nodeConfigurations[conditionNode.nodeId];
       if(routing&&!node.cases.length)node.cases=switchValues(node).map(value=>({value,nodes:[],output:[]}));
       changed();render();
     });
     if(conditionNode.artifactRef&&!available.some(r=>r.resourceId===conditionNode.artifactRef)){
-      const selected=conditionSelect.selectedOptions[0];selected.textContent='保留当前固定引用（不在最新可选列表中）';selected.disabled=true;
+      const selected=conditionSelect.selectedOptions[0],resource=resources.find(r=>r.resourceId===conditionNode.artifactRef);
+      selected.textContent=(resource?.name||'当前固定引用')+(resource&&!controlOutputCandidate(resource.schemas.output,routing)?'（出口类型不适用，请重新选择）':'（不在最新可选列表中）');selected.disabled=true;
     }
-    condition.append(conditionSelect);parent.append(condition,el('p','主数据：'+incoming+'；条件结果只选择路径。'));
+    condition.append(conditionSelect);parent.append(condition);
+    parent.append(el('p',(routing?'按有限字符串枚举出口筛选':'按 bool 出口筛选')+'；已隐藏 '+(blocks.length-available.length)+' 个出口不适用的块。输入与参考兼容性仍以保存校验为准。'));
+    if(!available.length)parent.append(el('p',routing?'暂无可选路由块，请先加载返回有限字符串 Literal 的通用块。':'暂无可选条件块，请先加载返回严格 bool 的通用块。'));
+    parent.append(el('p','主数据：'+incoming+'；条件结果只选择路径。'));
     const resource=resources.find(r=>r.resourceId===conditionNode.artifactRef);
     const explain=adviceButton(resource);if(explain)parent.append(explain);
     const preview=el('div');portPreview(preview,resource?.primaryContract);parent.append(preview);
