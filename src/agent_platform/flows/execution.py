@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 from langgraph.graph import START, END, StateGraph
 from langgraph.errors import GraphRecursionError
 from ..contracts.base import StrictModel
-from ..contracts.flows import FlowDraft, ModuleNode, ServiceNode, ConstantValue, IfNode, RepeatNode, WhileNode, PortReference
+from ..contracts.flows import FlowDraft, ModuleNode, ServiceNode, ConstantValue, IfNode, RepeatNode, WhileNode, ForeachNode, SwitchNode, PortReference
 from ..contracts.errors import PlatformError, ErrorResponse
 from ..runtime.context import current_context
 from ..runtime.boundary import checkpoint
@@ -73,7 +73,8 @@ def resolve(source, state):
     if isinstance(source, ConstantValue):
         return deepcopy(source.value)
     value = (state.input if source.kind == 'input' else
-             state.carry[source.node_id] if source.kind == 'carry' else state.outputs[source.node_id])
+             state.carry[source.node_id] if source.kind == 'carry' else
+             state.items[source.node_id] if source.kind == 'item' else state.outputs[source.node_id])
     return deepcopy(value)
 
 
@@ -88,6 +89,7 @@ class FlowState(StrictModel):
     input: Any
     outputs: dict[str, Any] = Field(default_factory=dict)
     carry: dict[str, Any] = Field(default_factory=dict)
+    items: dict[str, Any] = Field(default_factory=dict)
     primaries: dict[str, Any] = Field(default_factory=dict)
     result: Any = None
 
@@ -153,7 +155,7 @@ def compile_flow(draft, catalog):
             exc.error.node_id = node.node_id
             raise
 
-    def wrap(node, source, defaults, next_contract=None, next_node=None):
+    def wrap(node, source, defaults, next_contract=None, next_node=None, *, terminal=False):
         async def execute(state):
             stage = 'nodes.' + node.node_id
             try:
@@ -174,8 +176,8 @@ def compile_flow(draft, catalog):
                 if isinstance(next_node, (ModuleNode, ServiceNode)):
                     await validate_consumer(next_node, PortReference(kind='node', node_id=node.node_id),
                                             [('primary', node.node_id)], updated, node.node_id)
-                elif isinstance(next_node, IfNode):
-                    await validate_consumer(next_node.condition, PortReference(kind='node', node_id=node.node_id),
+                elif isinstance(next_node, (IfNode, SwitchNode)):
+                    await validate_consumer(next_node.condition if isinstance(next_node, IfNode) else next_node.router, PortReference(kind='node', node_id=node.node_id),
                                             [('primary', node.node_id)], updated, node.node_id)
                 if next_contract:
                     try:
@@ -184,7 +186,7 @@ def compile_flow(draft, catalog):
                         exc.error.source_node_id = node.node_id
                         exc.error.message = ('输出不符合下一步输入契约' if next_node else '输出不符合服务输出契约') + '：' + exc.error.message
                         raise
-                    if terminal_check.get():
+                    if terminal and terminal_check.get():
                         try:
                             await terminal_check.get()(plain(result))
                         except PlatformError as exc:
@@ -222,7 +224,8 @@ def compile_flow(draft, catalog):
                 updated = state.model_copy(deep=True)
                 updated.outputs[node.node_id] = plain(value)
                 updated.primaries[node.node_id] = deepcopy(incoming)
-                consumer = next_node.condition if isinstance(next_node, IfNode) else next_node
+                consumer = (next_node.condition if isinstance(next_node, IfNode) else
+                            next_node.router if isinstance(next_node, SwitchNode) else next_node)
                 if isinstance(consumer, (ModuleNode, ServiceNode)):
                     await validate_consumer(consumer, PortReference(kind='node', node_id=node.node_id),
                                             [('primary', node.node_id)], updated, node.node_id)
@@ -254,7 +257,7 @@ def compile_flow(draft, catalog):
                     'primaries': {**deepcopy(state.primaries), node.node_id: deepcopy(incoming)}}
         return guarded(node.node_id, execute)
 
-    def sequence(nodes, incoming, final_contract=None, incoming_defaults=()):
+    def sequence(nodes, incoming, final_contract=None, incoming_defaults=(), *, terminal=False):
         graph = StateGraph(FlowState)
         previous = START
         for index, node in enumerate(nodes):
@@ -264,27 +267,32 @@ def compile_flow(draft, catalog):
             if isinstance(node, (ModuleNode, ServiceNode)):
                 following = nodes[index + 1] if index + 1 < len(nodes) else None
                 expected = final_contract if following is None else None
-                operation = service_wrap(node, source, expected, following) if isinstance(node, ServiceNode) else wrap(node, source, defaults, expected, following)
+                operation = service_wrap(node, source, expected, following) if isinstance(node, ServiceNode) else wrap(node, source, defaults, expected, following, terminal=terminal)
                 graph.add_node(name, operation, retry_policy=None)
                 graph.add_edge(previous, name)
                 previous = name
-            elif isinstance(node, IfNode):
+            elif isinstance(node, (IfNode, SwitchNode)):
                 branches = {True: (sequence(node.then_branch.nodes, source, incoming_defaults=defaults), node.then_branch.output),
-                            False: (sequence(node.else_branch.nodes, source, incoming_defaults=defaults), node.else_branch.output)}
-                condition_run = wrap(node.condition, source, defaults)
-                def if_run(node, branches, condition_run, source):
+                            False: (sequence(node.else_branch.nodes, source, incoming_defaults=defaults), node.else_branch.output)} if isinstance(node, IfNode) else {
+                            case.value: (sequence(case.nodes, source, incoming_defaults=defaults), case.output) for case in node.cases}
+                routing_node = node.condition if isinstance(node, IfNode) else node.router
+                condition_run = wrap(routing_node, source, defaults)
+                def if_run(node, branches, condition_run, source, routing_node):
                     async def run(state):
-                        token = execution_path.set((*execution_path.get(), node.node_id + '.condition'))
+                        token = execution_path.set((*execution_path.get(), node.node_id + ('.condition' if isinstance(node, IfNode) else '.router')))
                         try:
                             condition_state = await condition_run(state.model_copy(deep=True))
                         finally:
                             execution_path.reset(token)
-                        decision = condition_state['outputs'][node.condition.node_id]
-                        if type(decision) is not bool:
+                        decision = condition_state['outputs'][routing_node.node_id]
+                        if isinstance(node, IfNode) and type(decision) is not bool:
                             raise PlatformError(ErrorResponse(code='OUTPUT_VALIDATION_ERROR', stage='flow.condition',
                                 node_id=node.condition.node_id, message='条件输出必须为严格 bool'))
+                        if isinstance(node, SwitchNode) and (type(decision) is not str or decision not in branches):
+                            raise PlatformError(ErrorResponse(code='OUTPUT_VALIDATION_ERROR', stage='flow.router',
+                                node_id=routing_node.node_id, message='路由输出不在声明的字符串枚举中'))
                         compiled, bindings = branches[decision]
-                        token = execution_path.set((*execution_path.get(), node.node_id + ('.then' if decision else '.else')))
+                        token = execution_path.set((*execution_path.get(), node.node_id + (('.then' if decision else '.else') if isinstance(node, IfNode) else '.case[' + decision + ']')))
                         try:
                             child = await compiled.ainvoke(state.model_dump())
                         finally:
@@ -294,7 +302,43 @@ def compile_flow(draft, catalog):
                         return {'outputs': {**deepcopy(state.outputs), node.node_id: plain(value)},
                                 'primaries': {**deepcopy(state.primaries), node.node_id: resolve(source, state)}}
                     return run
-                graph.add_node(name, guarded(node.node_id, if_run(node, branches, condition_run, source)))
+                graph.add_node(name, guarded(node.node_id, if_run(node, branches, condition_run, source, routing_node)))
+                graph.add_edge(previous, name)
+                previous = name
+            elif isinstance(node, ForeachNode):
+                child = sequence(node.body, PortReference(kind='item', node_id=node.node_id), node.item_output_contract)
+                def foreach_run(node, child, source):
+                    async def run(state):
+                        selected = plain(resolve(node.source, state))
+                        try:
+                            for field in node.array_path:
+                                selected = selected[field]
+                        except (KeyError, TypeError):
+                            raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='flow.foreach',
+                                node_id=node.node_id, field_path=['arrayPath'], message='数组路径不存在')) from None
+                        if type(selected) is not list:
+                            raise PlatformError(ErrorResponse(code='CONTRACT_VALIDATION_ERROR', stage='flow.foreach',
+                                node_id=node.node_id, field_path=['arrayPath'], message='所选来源不是数组'))
+                        if len(selected) > node.max_items:
+                            raise PlatformError(ErrorResponse(code='LOOP_ITERATION_LIMIT', stage='flow.foreach',
+                                node_id=node.node_id, field_path=['maxItems'], message='数组条数超过 maxItems，未执行任何元素'))
+                        results = []
+                        for index, item in enumerate(selected):
+                            await boundary('node_start', node.node_id)
+                            inner = state.model_copy(deep=True)
+                            inner.items[node.node_id] = deepcopy(item)
+                            token = execution_path.set((*execution_path.get(), f'{node.node_id}[{index}]'))
+                            try:
+                                updated = await child.ainvoke(inner.model_dump())
+                                value = await asyncio.to_thread(checked, catalog.contract(node.item_output_contract),
+                                    updated['outputs'][node.body[-1].node_id], 'nodes.' + node.node_id + '.output')
+                                results.append(plain(value))
+                            finally:
+                                execution_path.reset(token)
+                        return {'outputs': {**deepcopy(state.outputs), node.node_id: {'items': results}},
+                                'primaries': {**deepcopy(state.primaries), node.node_id: resolve(source, state)}}
+                    return run
+                graph.add_node(name, guarded(node.node_id, foreach_run(node, child, source)))
                 graph.add_edge(previous, name)
                 previous = name
             else:
@@ -347,7 +391,7 @@ def compile_flow(draft, catalog):
         return graph.compile(checkpointer=None)
 
     graph = StateGraph(FlowState)
-    compiled = sequence(draft.flow, PortReference(kind='input'), draft.output_contract)
+    compiled = sequence(draft.flow, PortReference(kind='input'), draft.output_contract, terminal=True)
     async def body(state):
         return await compiled.ainvoke(state.model_dump())
     graph.add_node('body', body)
