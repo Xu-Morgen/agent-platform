@@ -15,7 +15,7 @@ from ..runtime.context import current_context
 from ..runtime.boundary import checkpoint
 from .validation import validate_flow
 
-COMPILER_VERSION = 'flow-5'
+COMPILER_VERSION = 'flow-6'
 execution_path = ContextVar('flow_path', default=())
 step_counter = ContextVar('flow_steps', default=None)
 terminal_check = ContextVar('flow_terminal_check', default=None)

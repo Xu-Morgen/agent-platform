@@ -89,7 +89,7 @@ class ServiceManager:
 
     def require_supported(self, instance_id):
         if instance_id in self._unsupported:
-            raise invalid('旧实例执行协议不受支持；请重新加载升级后的资源，通过服务页保存新实例。历史记录仍可查看',
+            raise invalid('当前执行协议为 flow-6；flow-5 及更早实例仅供历史查看，请通过服务页重新配置并保存新实例',
                           ['instanceId'], code='VERSION_CONFLICT')
 
     def resolve_current(self, service_id):
@@ -178,7 +178,7 @@ class ServiceManager:
                 input=self.catalog.contract(value('inputContract', 'input_contract')).schema,
                 output=self.catalog.contract(value('outputContract', 'output_contract')).schema,
                 examples=flow.get('examples', []), configuration={}, executable=False,
-                upgrade_message='请升级资源并通过服务页保存新实例；此历史快照不可执行或回退激活')
+                upgrade_message='当前执行协议为 flow-6；请通过服务页重新配置并保存新实例，此历史快照不可复制、执行或回退激活')
         snapshot = self.snapshots.get(instance_id)
         return FlowHistory(version=version, flow=snapshot.draft, compiler_version=snapshot.compiler_version,
             configuration=snapshot.configuration, children={key: {

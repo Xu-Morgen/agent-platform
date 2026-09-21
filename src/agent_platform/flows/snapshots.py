@@ -78,8 +78,10 @@ def compile_snapshot(draft, catalog, *, include_runtime_identity=True):
                 packages[node.node_id] = catalog.artifact(node.artifact_ref)
         elif isinstance(node, ServiceNode):
             children[(node.service_id, node.instance_id)] = catalog.service(node)
-        elif node.kind == 'if':
+        elif node.kind in ('if', 'switch'):
             contracts.add(node.output_contract)
+        elif node.kind == 'foreach':
+            contracts.add(node.item_output_contract)
         else:
             contracts.add(node.carry.contract)
     for ref in resources:
