@@ -18,6 +18,7 @@ async function refreshHealth() {
     await refreshServices();
     await flowEditor.refresh();
     await refreshPlatform();
+    await window.platformSettings.refresh();
     await refreshRunHistory();
     status.textContent = '后端已就绪';
     status.title = `后端地址：${result.address}`;

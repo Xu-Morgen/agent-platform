@@ -1,4 +1,4 @@
-"""单 worker 消费固定快照，生命周期独立于提交连接。"""
+"""单后端内的有限并发消费者池；每次执行独立持有任务上下文。"""
 import asyncio
 from ..adapters.openai_chat import OpenAIChatAdapter
 from ..adapters.http import JsonTransport
@@ -12,22 +12,34 @@ from ..contracts.runs import TERMINAL
 
 
 class RunWorker:
-    def __init__(self, submission, boundary_factory=Boundary):
+    def __init__(self, submission, boundary_factory=Boundary, *, concurrency=None):
         self.submission = submission
         self.boundary_factory = boundary_factory
-        self.task = None
+        from ..contracts.settings import PlatformSettings
+        settings = PlatformSettings() if concurrency is None else PlatformSettings(run_concurrency=concurrency)
+        self.concurrency = settings.run_concurrency
+        self.tasks = []
         self.stop_lock = asyncio.Lock()
 
+    @property
+    def healthy(self):
+        return (not self.submission.stopping and len(self.tasks) == self.concurrency
+                and all(not task.done() for task in self.tasks))
+
     def start(self):
-        self.task = asyncio.create_task(self.consume(), name='run-worker')
+        if self.tasks or self.submission.stopping:
+            raise RuntimeError('任务执行器不能重复启动或在停止后重启')
+        self.tasks = [asyncio.create_task(self.consume(), name=f'run-worker-{index + 1}')
+                      for index in range(self.concurrency)]
 
     async def stop(self):
         async with self.stop_lock:
             self.submission.stopping = True
-            if self.task:
-                self.task.cancel()
-                await asyncio.gather(self.task, return_exceptions=True)
-                self.task = None
+            # 先同时取消全部消费者，再等待传输和上下文清理，最后处理排队任务。
+            for task in self.tasks:
+                task.cancel()
+            await asyncio.gather(*self.tasks, return_exceptions=True)
+            self.tasks.clear()
             while not self.submission.queue.empty():
                 pending = self.submission.queue.get_nowait()
                 try:
@@ -87,7 +99,9 @@ class RunWorker:
             try:
                 await boundary.check('cleanup', run_id)
             finally:
-                await asyncio.gather(model.close(), api_transport.close())
-                envs.release(run_id)
-                current_context.reset(ct)
-                current_boundary.reset(bt)
+                try:
+                    await asyncio.gather(model.close(), api_transport.close())
+                finally:
+                    envs.release(run_id)
+                    current_context.reset(ct)
+                    current_boundary.reset(bt)

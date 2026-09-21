@@ -15,6 +15,7 @@
       <a href="#/environments"><span class="nav-icon" aria-hidden="true">⌘</span>环境配置</a>
       <a href="#/services"><span class="nav-icon" aria-hidden="true">◇</span>服务配置</a>
       <a href="#/tasks"><span class="nav-icon" aria-hidden="true">▷</span>任务调用</a>
+      <a href="#/settings"><span class="nav-icon" aria-hidden="true">⚙</span>平台设置</a>
     </nav>
     <details class="storage-details"><summary>本地存储与会话</summary><p class="session-note">正在读取存储状态…</p></details>
   </aside>
@@ -227,6 +228,21 @@
         </div>
       </div>
     </section>
+    <section data-page="settings" class="configuration-page" aria-label="平台设置" hidden>
+      <div class="editor-heading"><div><span class="section-eyebrow">PLATFORM SETTINGS</span><h3>平台设置</h3><p>管理整个工作台的运行配置，适用于所有服务。</p></div><span class="editor-badge">重启后生效</span></div>
+      <form id="platform-settings-form" class="settings-card platform-settings-card">
+        <div class="panel-heading"><div><span class="section-eyebrow">任务执行</span><h4>任务并发</h4></div><button id="platform-settings-refresh" type="button">重新读取</button></div>
+        <p class="field-hint">同时执行的任务总数。超出上限的任务排队，每个任务内部仍按流程顺序执行。</p>
+        <dl class="settings-values"><div><dt>当前生效</dt><dd id="settings-active">—</dd></div><div><dt>已保存 · 下次启动使用</dt><dd id="settings-saved">—</dd></div></dl>
+        <label for="settings-concurrency">最大并发任务数 <span class="required-mark">*</span></label>
+        <input id="settings-concurrency" type="number" min="1" max="64" step="1" required disabled aria-describedby="settings-concurrency-hint">
+        <p id="settings-concurrency-hint" class="field-hint">范围 1～64，默认 4。设为 1 时按队列串行执行。</p>
+        <p id="settings-restart" class="info-callout" hidden>配置已保存。请退出并重新打开应用，使新的并发数生效；仅切换页面或刷新列表不会生效。</p>
+        <p id="settings-memory" class="info-callout" hidden>当前是开发用内存模式，配置不会跨重启保留。请使用默认持久化模式保存平台设置。</p>
+        <div class="config-actionbar"><div><strong>保存运行配置</strong><p>保存不影响当前任务。建议等待任务结束后再退出应用。</p></div><button id="settings-save" type="submit" class="primary-button" disabled>保存设置</button></div>
+        <p id="platform-settings-result" class="inline-status" role="status"></p>
+      </form>
+    </section>
   </main>
   <script src="input-events.js"></script>
   <script src="router.js"></script>
@@ -234,6 +250,7 @@
   <script src="flow-editor.js"></script>
   <script src="task-files.js"></script>
   <script src="task-node-names.js"></script>
+  <script src="platform-settings.js"></script>
   <script src="index.js"></script>
 </body>
 </html>

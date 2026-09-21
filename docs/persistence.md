@@ -72,6 +72,7 @@ Ubuntu 24.04 可显式执行一次用户级 PostgreSQL 安装脚本：
 | drafts | 可不完整的编辑草稿，不激活服务 |
 | instances | 已规范化拼图、摘要和编译器版本；引用不可变资源 |
 | services | 服务、当前实例指针和历史；与新实例写入同一事务，成功后才发布内存状态 |
+| settings | `platform` 记录保存全局任务并发数；首次补齐默认值 4，保存落库后返回，下次后端启动时应用 |
 | runs | 固定输入、版本、公开环境快照、步骤、用量、终态和结果；更新成功落库后返回 |
 
 格式版本表为 `agent_platform_meta`，版本为 1；数据表为 `agent_platform_documents`，使用 JSONB。`DocumentStore.write` 保证批次全部提交或全部回滚。领域仓储与数据库驱动分离，业务包不访问平台内部数据库。
@@ -100,7 +101,7 @@ LangGraph 继续执行配置者定义的图，当前 `checkpointer=None`。本�
 
 另已启动实际 Electron 窗口，确认页面就绪、显示本地 PostgreSQL 和实际数据目录，关闭后数据库进程退出。验证未调用真实模型或外部业务 API。
 
-后续需补：备份恢复工具、日志与历史保留/引用安全清理、数据库迁移及跨主版本升级、平台安装包。当前启动加载全部资源和任务，分页仅限制 API 返回量；单后端、单 worker，尚无多用户或大规模容量承诺。应用停止且确认数据库已关闭后可复制整个 storage 目录作离线备份；不要直接复制运行中的数据库目录作为一致性备份。
+后续需补：备份恢复工具、日志与历史保留/引用安全清理、数据库迁移及跨主版本升级、平台安装包。当前启动加载全部资源和任务，分页仅限制 API 返回量；单后端进程内使用可配置的任务消费者池（默认并发 4，见 [配置说明](../readme.md#任务并发配置)），尚无多用户或大规模容量承诺。应用停止且确认数据库已关闭后可复制整个 storage 目录作离线备份；不要直接复制运行中的数据库目录作为一致性备份。
 
 实现依据：[PostgreSQL 启停](https://www.postgresql.org/docs/current/app-pg-ctl.html)、[初始化](https://www.postgresql.org/docs/current/app-initdb.html)、[Psycopg 事务](https://www.psycopg.org/psycopg3/docs/basic/transactions.html)、[Fernet](https://cryptography.io/en/latest/fernet/)。
 

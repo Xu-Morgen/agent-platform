@@ -43,6 +43,9 @@ def _create_app(store) -> FastAPI:
     app = FastAPI(title='Agent Platform', lifespan=lifespan)
     app.state.ready = False
     app.state.store = store
+    from .repositories.settings import SettingsRepository
+    from .contracts.settings import PlatformSettingsWrite, PlatformSettingsView
+    app.state.settings = SettingsRepository(store)
     register_error_handlers(app)
     from .repositories.credentials import CredentialRepository
     from .repositories.environments import EnvironmentRepository
@@ -77,7 +80,15 @@ def _create_app(store) -> FastAPI:
     app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs, app.state.files)
 
     from .runtime.worker import RunWorker
-    app.state.worker = RunWorker(app.state.submission)
+    app.state.worker = RunWorker(app.state.submission, concurrency=app.state.settings.active_run_concurrency)
+
+    @app.get('/api/v1/settings', response_model=PlatformSettingsView)
+    async def platform_settings():
+        return app.state.settings.get()
+
+    @app.put('/api/v1/settings', response_model=PlatformSettingsView)
+    async def save_platform_settings(value: PlatformSettingsWrite):
+        return app.state.settings.save(value)
 
     @app.post('/api/v1/files', response_model=FileReference, status_code=201)
     async def upload_file(request: Request, name: str = Query(min_length=1, max_length=255)):
@@ -119,11 +130,13 @@ def _create_app(store) -> FastAPI:
     async def submit_run(value: RunSubmit):
         import asyncio
         from .flows.execution import checked
+        require_worker()
         snapshot = app.state.services.resolve_current(value.service_id)
         request = value.model_copy(deep=True)
         if request.expected_instance_id is None:
             request.expected_instance_id = snapshot.instance_id
         parsed = await asyncio.to_thread(checked, snapshot.catalog.contract(snapshot.draft.input_contract), value.input, 'runs.input')
+        require_worker()
         return app.state.submission.submit(request, validated_input=parsed)
 
     @app.post('/api/v1/drafts', response_model=DraftDocument, status_code=201)
@@ -269,6 +282,11 @@ def _create_app(store) -> FastAPI:
         return app.state.environments.save(value, environment_id)
 
 
+    def require_worker():
+        if not app.state.ready or not app.state.worker.healthy:
+            raise PlatformError(ErrorResponse(code='BACKEND_UNAVAILABLE', stage='runtime',
+                message='任务消费者池未就绪或已停止，请检查后端'), 503)
+
     @app.get('/api/v1/health', response_model=HealthResponse)
     async def health() -> HealthResponse:
         if not app.state.ready:
@@ -276,8 +294,7 @@ def _create_app(store) -> FastAPI:
                 code='BACKEND_UNAVAILABLE', stage='lifecycle', message='后端尚未就绪',
             ), 503)
         store.check()
-        if app.state.worker.task is None or app.state.worker.task.done():
-            raise PlatformError(ErrorResponse(code='BACKEND_UNAVAILABLE', stage='runtime', message='任务执行器已停止，请重启后端'), 503)
+        require_worker()
         return HealthResponse(status='ready')
 
     return app

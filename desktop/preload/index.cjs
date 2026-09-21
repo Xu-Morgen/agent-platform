@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
   uploadTaskFile: (file) => ipcRenderer.invoke('platform:uploadTaskFile', webUtils.getPathForFile(file)),
   removeTaskFile: (id) => ipcRenderer.invoke('platform:removeTaskFile', id),
   platformInfo: () => ipcRenderer.invoke('platform:platformInfo'),
+  platformSettings: () => ipcRenderer.invoke('platform:platformSettings'),
+  savePlatformSettings: (body) => ipcRenderer.invoke('platform:savePlatformSettings', body),
   listRuns: (query) => ipcRenderer.invoke('platform:listRuns', query),
   validateFlowPorts: (body) => ipcRenderer.invoke('platform:validateFlowPorts', body),
   validateFlowNode: (body) => ipcRenderer.invoke('platform:validateFlowNode', body),

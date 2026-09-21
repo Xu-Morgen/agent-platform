@@ -508,7 +508,7 @@ dialog::backdrop { background: #14243e80; backdrop-filter: blur(3px); }
   .sidebar { position: static; width: auto; padding: 16px; }
   .brand { padding: 0; }
   .nav-label { display: none; }
-  nav { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }
+  nav { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 16px; }
   nav a { justify-content: center; gap: 6px; padding: 9px 4px; font-size: 12px; }
   .nav-icon { font-size: 17px; width: 16px; }
   .storage-details { padding: 14px 0 0; }
@@ -530,3 +530,12 @@ dialog::backdrop { background: #14243e80; backdrop-filter: blur(3px); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* 平台级配置展示当前与已保存值，区别于连接环境。 */
+.platform-settings-card { max-width: 820px; }
+.settings-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.settings-values > div { padding: 16px; background: #f3f6fc; border: 1px solid var(--border); border-radius: 10px; }
+.settings-values dt { color: var(--text-muted); font-size: 12px; }
+.settings-values dd { margin: 6px 0 0; color: #2d4d85; font-size: 28px; font-weight: 600; }
+#settings-concurrency { max-width: 240px; }
+@media (max-width: 420px) { .settings-values { grid-template-columns: 1fr; } }

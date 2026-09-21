@@ -69,6 +69,8 @@ const operations = {
   cancelPreparation: (id) => ['POST', `/preparations/${encodeURIComponent(id)}/cancel`],
   removeTaskFile: (id) => ['DELETE', `/files/${encodeURIComponent(id)}`],
   platformInfo: () => ['GET', '/platform'],
+  platformSettings: () => ['GET', '/settings'],
+  savePlatformSettings: (body) => ['PUT', '/settings', body],
   listRuns: (query = {}) => ['GET', `/runs?${new URLSearchParams(query)}`],
   createDraft: (body) => ['POST', '/drafts', body],
   listDrafts: () => ['GET', '/drafts'],
