@@ -1,40 +1,34 @@
 # 文档导航
 
-节点输入与 Python 条件块已完成并[归档](archive/2026-09-20/node-input-and-python-conditions-plan.md)，当前用法见 [samples/USAGE](../samples/USAGE.md)。文档出题质量目标已[完成归档](archive/2026-09-20/document-question-quality-plan.md)，当前使用见[实例手册](../examples/document-question-generation/README.md)与[验收记录](document-question-quality-validation.md)；总体路线见 [Agent 平台定位与分步计划](agent-platform-roadmap.md)，存储能力见 [桌面 PostgreSQL 持久化与验证](persistence.md)。
+更新日期：2026-09-21。当前文档只保留产品说明、架构、操作手册与协议；计划、阶段交付和验收记录统一放入 [历史归档](archive/README.md)。归档中的待办不自动成为当前任务，归档也不表示验收通过。
 
-更新日期：2026-09-20。顶层只保留当前需求、架构、未完成计划和资源使用入口；已完成交付与过时设计集中保存在归档区。
+## 关键说明
 
-## 当前文档
-
-| 文档 | 何时查看 |
+| 文档 | 内容 |
 | --- | --- |
-| [产品需求](product-requirements.md) | 确认当前范围、职责边界与产品行为 |
-| [架构设计](architecture-design.md) | 修改流程、契约、快照、版本、预算或任务控制 |
-| [文档出题质量与自主修订计划](archive/2026-09-20/document-question-quality-plan.md) | 已完成的规划、审题、有限修订实施及验收记录 |
-| [产品细化计划](product-refinement.md) | 选择后续 R1–R4 工作，查看优先级与验收目标 |
-| [三类资源专项计划](resource-plan.md) | 推进通用块、Prompt 业务包和独立契约的体验改进 |
-| [资源用途说明与 AI 解释](resource-explanation.md) | 补充资源/字段说明、结合当前草稿请求模型解释及升级资源 |
-| [资源指导手册](resource-guide.md) | 查找模板、配置说明、加载、接线和调用步骤 |
-| [固定版本服务组合与契约选择](service-composition.md) | 将叶子服务加入拼图，选择固定版本、共享契约及查看嵌套记录 |
-| [外部资源研发手册](external-development-guide.md) | 查询全部公开注入能力、函数签名、数据来源、API/context 用法及完整代码示例 |
-| [平台运行文件与依赖](platform-runtime-files.md) | 依赖声明、独立环境、任务文件上传与运行上下文 |
-| [文档出题质量验收记录](document-question-quality-validation.md) | 10 次 ds 真实调用、基线对照、真实修订、人工通过及正式页面保存 |
-| [文档出题实例使用说明](../examples/document-question-generation/README.md) | 加载块、包与契约，配置线上模型，查看尚未完成的验收事项 |
+| [项目入口](../readme.md) | 启动、页面操作、任务并发设置与当前交付边界 |
+| [产品说明与边界](product-requirements.md) | 平台职责、已实现能力、未实现事项及验收限制 |
+| [架构说明](architecture-design.md) | flow-5、契约、快照、版本、任务调度、预算与取消 |
+| [本地 PostgreSQL](persistence.md) | 安装与启动、数据目录、凭据、持久化和故障恢复 |
+| [资源指导手册](resource-guide.md) | 三类模板入口、加载、版本升级与归档 |
+| [外部资源研发手册](external-development-guide.md) | NodeInput、函数签名、API/context、Prompt 与完整示例 |
+| [运行文件与依赖](platform-runtime-files.md) | 文件上传、独立环境、依赖锁、模型缓存与块子进程 |
+| [服务组合与契约选择](service-composition.md) | 一层固定版本服务嵌套、共享契约与参考用途展示 |
+| [资源用途与 AI 解释](resource-explanation.md) | 说明字段、基于草稿的解释、数据发送范围与升级方式 |
+| [模型协议](protocols/model.md) | 平台的 OpenAI 兼容请求、连接诊断与用量校验 |
+| [桌面控制协议](protocols/control.md) | Electron 与后端的启动、就绪和退出通信 |
 
-启动和使用见 [项目入口](../readme.md)，开发约定见 [AGENTS.md](../AGENTS.md)。模型接入与桌面进程通信按需查看 [模型协议](protocols/model.md) 和 [控制协议](protocols/control.md)。
+## 模板与业务示例
+
+- [samples](../samples/README.md) 与 [接线操作](../samples/USAGE.md)：通用块、Prompt 包、独立契约各提供最小和完整两套模板。
+- [文档出题实例](../examples/document-question-generation/README.md)：全文读取、规划、审题及有限修订；当前资源版本与真实模型待验收范围以该手册为准。
 
 ## 当前基线
 
-- V1 拼图闭环已由用户于 2026-09-17 确认验证完成；当前唯一实例入口为服务页拼图。
-- samples 每类只提供最小与最完整两套模板；通用块的 API 能力包含在 complete.py 中，原查重产品已移除。
-- 2026-09-18 起业务包收敛为声明式 Prompt 包，平台统一调用模型，数据处理由通用块完成。
-- 模型统一使用 OpenAI 兼容接口，token 按实际用量累计；API 环境保存 Base URL、凭据和超时，通用块节点选择连接并填写必填的 api.path，路径随实例版本保存。
-- 桌面自动启动本地 PostgreSQL，数据跨重启保留；已完成 Ubuntu 24.04 上的数据库、加密与生命周期检查。优先事项见 Agent 平台分步计划。
+平台使用 FastAPI、Pydantic、LangGraph、PostgreSQL 和 Electron。服务页 FlowDraft 是唯一实例配置入口；当前执行协议为 flow-5，模型只输出契约内的数据，Python 条件块控制分支和有限循环。旧协议历史只读，不执行或回退激活。按用户明确决定，不考虑多 Agent 与任务断点续跑，两者不列为后续待开发事项，详见 [产品说明](product-requirements.md)。
 
-## 归档与维护
+桌面自动管理本地数据库，资源、草稿、实例、设置与任务历史跨重启保留。单后端消费者池默认并发 4，支持 1～64；平台设置保存后重启生效，单任务内步骤按流程顺序执行。Python 通用块在独立子进程中执行，受信任代码不等于沙箱。
 
-[历史文档归档](archive/README.md) 保存 I1–I8 任务卡、交付证据、清理记录、旧迭代索引及精简前的需求与架构原文。历史阻塞状态、旧命令和旧协议只用于追溯，不作为当前开发入口。
+初版出题质量流程已有 10 次授权真实调用与人工评审记录；随后行号修复后的服务 2.0 及资源说明升级没有完成新一轮真实模型复验。AI 解释的真实远端效果、复杂文档 OCR、跨平台生命周期等限制见各手册，不能用历史或离线验收代替。
 
-新增文档优先补充现有主题；已完成记录或被替代的方案移入 `archive/日期/`，保留原文与归档说明，并同步修复引用。协议细节继续放在 `protocols/`，顶层导航仅链接仍需维护的内容。
-
-2026-09-20 较早一轮的平台改造、文档读取与一次出题实施方案及本地验收记录已移入[历史归档](archive/README.md)，本轮节点输入与 Python 条件块也已完成并归档，文档出题质量资源已实现并完成授权真实调用，质量计划也已通过人工评审和正式页面验证并归档。此前开发验收脚本与回归测试均已清理；后续遵循 [AGENTS.md](../AGENTS.md) 中的测试和任务计划生命周期规则。
+文档维护与任务清理遵循 [AGENTS.md](../AGENTS.md)。修改实现时同步相关说明；历史资料只作追溯，新增工作以用户明确需求为准。

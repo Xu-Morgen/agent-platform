@@ -1,6 +1,6 @@
 # 文档出题与有限修订
 
-当前资源实现“全文读取 → 规划 → 初稿 → 独立审题 → 最多两轮定向修订/重新出题 → 最终验收”。平台执行协议为 flow-5；模型仅输出声明的数据，Python 块维护原文、轮次和分支判断。实施计划已[完成归档](../../docs/archive/2026-09-20/document-question-quality-plan.md)，实际结果见[验收记录](../../docs/document-question-quality-validation.md)。真实调用仅在用户明确授权的连接和总次数范围内进行。
+当前资源实现“全文读取 → 规划 → 初稿 → 独立审题 → 最多两轮定向修订/重新出题 → 最终验收”。平台执行协议为 flow-5；模型仅输出声明的数据，Python 块维护原文、轮次和分支判断。实施计划已[完成归档](../../docs/archive/2026-09-20/document-question-quality-plan.md)，实际结果见[验收记录](../../docs/archive/2026-09-21/document-question-quality-validation.md)。真实调用仅在用户明确授权的连接和总次数范围内进行。
 
 成功返回 `questions`，顺序固定为论述题、四选一单选题、填空题各一道。每题含稳定 `questionId`、原文 `evidence` 和参考答案；填空题另含每空的 `acceptedAnswers`。格式、引用存在性通过不代表语义或教学质量已经合格，必须经过独立审题和最终验收。
 
@@ -107,7 +107,7 @@ prepare_generation 是显式转换块：把初稿的规划或重新出题的完�
 
 实现后的离线验证覆盖首轮 pass、定向修订、重新出题、两轮混合、达到上限、资料不足、非法引用/ID、矛盾 pass 和技术重试计数。替身只验证协议和确定性规则，不证明真实出题质量。
 
-真实验收采用自制 DOCX、现有 ds 连接，对照旧一次出题基线，并保存实际模型响应、计量和流程终态；共完成 10 次调用，实际发生一次定向修订，最终流程通过；详见[验收记录](../../docs/document-question-quality-validation.md)。用户已确认人工评审通过；随后通过实际 Electron 页面保存正式服务“文档出题质量 · ds”（版本 1.0，serviceId=svc_e8c711863f8a4e54a197f60d2b55913d），重启后恢复及预检通过。正式实例未额外调用模型。其配置为 retryLimit=0、任务 loopLimit=7/tokenLimit=524288，单次节点 loopLimit=1、重复节点 loopLimit=2。新建其他服务可按上述步骤配置。
+真实验收采用自制 DOCX、现有 ds 连接，对照旧一次出题基线，并保存实际模型响应、计量和流程终态；共完成 10 次调用，实际发生一次定向修订，最终流程通过；详见[验收记录](../../docs/archive/2026-09-21/document-question-quality-validation.md)。用户已确认人工评审通过；随后通过实际 Electron 页面保存正式服务“文档出题质量 · ds”（版本 1.0，serviceId=svc_e8c711863f8a4e54a197f60d2b55913d），重启后恢复及预检通过。正式实例未额外调用模型。其配置为 retryLimit=0、任务 loopLimit=7/tokenLimit=524288，单次节点 loopLimit=1、重复节点 loopLimit=2。新建其他服务可按上述步骤配置。
 
 历史 OCR 验证仍见[文档验收记录](../../docs/archive/2026-09-20/document-validation-record.md)。此前《从市场营销到社会营销》两页读取通过；另一份保险商业智能 PDF 的空识别框仍明确失败，复杂表格、双栏、倾斜和低清晰度资料未完成质量验收。本轮不扩大读取范围，也不把简单文档成功解释为复杂 OCR 已通过。
 
