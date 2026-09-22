@@ -6,7 +6,7 @@
 
 `contracts.py` 是唯一契约源，使用 `sync_contracts.py` 同步到 8 个 Prompt 包和 19 个独立块；`--check` 检查副本一致性。同步工具不导入资源、不绑定环境、不创建服务。修改契约后须同步资源并升级版本，再从页面重新导入；既有实例不自动改变。
 
-页面加载本目录 8 个包目录、`blocks/*.py`，以及默认 `resources/rag/blocks/` 中的 `list_documents.py`、`read_docx.py`、`lexical_search.py`、`select_evidence.py`。从独立 `contracts.py` 加载 `Request`、`Result`、`QuestionEnvelope`、`State`；可从资源端口选择其他契约。
+页面加载本目录 8 个包目录、`blocks/*.py`，以及默认 `resources/rag/blocks/` 中的 `list_documents.py`、`read_docx.py`、`semantic_search.py`、`select_evidence.py`。从独立 `contracts.py` 加载 `Request`、`Result`、`QuestionEnvelope`、`State`；可从资源端口选择其他契约。
 
 ## 页面拼图
 
@@ -14,7 +14,7 @@
 
 1. 服务输入 `Request`，输出 `Result`。解析请求包 → 规范化块（参考服务输入）。
 2. 请求 switch，路由 `route_request`，统一出口 `Result`。unsupported 分支为 `unsupported` 块。supported 分支继续下列步骤。
-3. `prepare_retrieval` → 默认列举/读取/词面检索/整理证据四块 → 规划包（参考规范化输出）→ `merge_plan`（依次参考整理证据输出、规范化输出）。
+3. `prepare_retrieval` → 默认列举/读取/本地语义检索/整理证据四块 → 规划包（参考规范化输出）→ `merge_plan`（依次参考整理证据输出、规范化输出）。
 4. 资料 switch，路由 `route_plan`，统一出口 `Result`。insufficient_source 分支为 `insufficient` 块。sufficient 分支继续。
 5. foreach 从规范化节点输出选择 `items`，按实际运行范围设置最大条数，不能保留旧版 3 项限制，每项出口 `QuestionEnvelope`。体内 `prepare_question`（参考 `merge_plan` 输出）→ 题型 switch（路由 `route_question`，统一出口 `QuestionEnvelope`）。single_choice/true_false/essay 各为对应生成包 → 对应 `wrap_*` 块。switch 后 `verify_question`，参考当前迭代 `prepare_question` 输出。
 6. foreach 后 `collect`（参考 `merge_plan` 输出）→ 整体审题包 → `merge_review`（参考 `collect` 输出）。
@@ -37,7 +37,7 @@
 
 引用由 fragmentId 对应结果上下文里的固定知识库修订、文档版本、片段原文、摘要和段落定位。确定性检查证明引文属于登记证据，不证明材料事实或答案语义正确。单选唯一性、判断反证、论述可评分性和跨题重复仍需审题及人工核对。所有修订使用相同规划和证据，不能暗中扩大检索。
 
-默认检索采用词面匹配；可在页面用兼容资源替换检索块并保存新实例。空检索不会生成成功空题目；技术错误保持任务失败，不转换成资料不足。原始 DOCX 与完整真实调用记录仅保存在已授权本地数据目录，不提交 Git。
+当前正式 7.0 实例采用本地 BGE embedding 语义检索，以解析后的 topic 作为查询；terms 不参与语义打分。需先在平台设置导入并选择就绪的默认 embedding 模型，操作见 [本地 embedding](../../docs/local-embedding.md)。按固定 tokenizer 显式拆分超长片段，计算归一化向量的余弦相似度并选取 topK；不设置最低分阈值，不做词面混合或重排。相似分数不证明材料足够出题，后续规划、证据校验、审题与最多两轮修订仍必须执行。可在页面用兼容资源替换检索块并保存新实例。空检索不会生成成功空题目；技术错误保持任务失败，不转换成资料不足。原始 DOCX 与完整真实调用记录仅保存在已授权本地数据目录，不提交 Git。
 
 ## 真实验收与使用边界
 
@@ -63,10 +63,18 @@
 
 ## 2026-09-22 内容与溯源隔离修复
 
-当前正式服务为 6.0（`ins_d9e6e211d4014ee8b40017d858d4dba9`），全部业务资源为 4.0.0，运行预算不变。evidence 中的引用元数据仅用于平台追溯；考生阅读和作答内容不得出现内部字段名、片段哈希、文档/版本/知识库 ID。确定性检查覆盖规划考点、题干、选项、答案、解析、纠正及评分点，并在最终交付时再次核验。命中后显式失败，不允许模型 pass 绕过，也不自动删掉字符伪造合格题目。
+本次内容隔离修复后的正式服务为 6.0（`ins_d9e6e211d4014ee8b40017d858d4dba9`），全部业务资源为 4.0.0，运行预算不变。evidence 中的引用元数据仅用于平台追溯；考生阅读和作答内容不得出现内部字段名、片段哈希、文档/版本/知识库 ID。确定性检查覆盖规划考点、题干、选项、答案、解析、纠正及评分点，并在最终交付时再次核验。命中后显式失败，不允许模型 pass 绕过，也不自动删掉字符伪造合格题目。
 
 规划、生成与修订要求考查用户指定的材料内容，不能把“如何限定来源/引用片段”当作凑题考点。审题直接读取原始需求，核对规划本身是否偏题，平台操作要求、无材料依据的评分点及实质重复赋分必须阻断。自然语言偏题仍由模型判断，不能把这些规则声称为对所有语义问题的确定性证明。
 
 原三道论述任务的审题已发现平台引用格式被计分，却降级为 advisory 后放行；此前两道论述任务也存在片段哈希进入答案。历史记录保留原始模型结果，但不再称其内容质量验收通过。详见 [修复与复验记录](../../docs/archive/2026-09-22/question-content-validation.md)。
 
 相同“三道论述题”需求已在 6.0 完成真实复验：初审将来源话术赋分及重复考点判为 blocking，定向修订后复审通过；三题保持数量与稳定 ID，未指定修改的两题保持不变。本轮 8 次模型调用，正式服务历史（含用户提交）累计 47/100 次。
+
+## 2026-09-22 本地语义检索升级
+
+当前正式服务为 **7.0**（`ins_a8434d2362854c57a70959d3332a7996`），同一稳定服务入口立即使用新实例。通过服务页面将词面检索换成 `rag-semantic-search@1.0.0`，其余业务资源仍为 4.0.0，原有模型连接、节点配置、预算、题型分支和审题修订流程均保留。历史 6.0 快照和任务不改写。
+
+正式环境已通过设置页导入并选择 BGE-small-zh-v1.5（Xenova ONNX，CPU）。任务固定模型身份、知识库修订和段落来源，历史可查看相似度、候选片段及本地推理统计。仍按任务处理正文，不建设跨任务向量索引。embedding 不计远端 LLM loop/token，生成与审题仍调用 ds。
+
+本次升级验证记录见 [语义检索出题验收](../../docs/archive/2026-09-22/question-semantic-validation.md)。语义候选可能与问题无关，业务结果为 `insufficient_source` 或 `quality_not_met` 时不能视为合格题目。本轮三题初审虽返回 pass，但仍将判断题与论述题考点重叠降级为 advisory；该质量问题尚未修复，不能视为完整内容验收通过。没有宣称 embedding 可以保证题目可靠或核实原材料的现实准确性。
