@@ -139,6 +139,8 @@ class SingleBlockRegistry:
             capabilities = ({'api': BlockAPI} if metadata.uses_api else {})
             if 'context' in hints:
                 capabilities['context'] = BlockContext
+            if metadata.uses_semantic_search and ('context' not in hints or not inspect.iscoroutinefunction(fn)):
+                raise invalid('语义检索块须为 async 函数并声明 context: BlockContext', ['entry'])
             expected = 1 + len(capabilities)
             if (len(parameters) != expected or parameters[0].kind not in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
                     or parameters[0].default is not inspect.Parameter.empty

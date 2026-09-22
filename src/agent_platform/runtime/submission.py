@@ -33,6 +33,9 @@ class RunSubmission:
             if request.expected_instance_id and request.expected_instance_id != service.active_instance_id:
                 raise PlatformError(ErrorResponse(code='VERSION_CONFLICT', stage='runs.submit', message='当前实例已变化'), 409)
             snapshot = self.services.resolve_current(request.service_id)
+            if snapshot.requires_semantic_search:
+                raise PlatformError(ErrorResponse(code='EMBEDDING_NOT_READY', stage='runs.submit',
+                    message='语义检索运行时尚未配置就绪模型'))
             draft = snapshot.draft
             value = (checked(snapshot.catalog.contract(draft.input_contract), request.input, 'runs.input')
                      if validated_input is _UNVALIDATED else validated_input)

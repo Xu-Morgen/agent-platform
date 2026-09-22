@@ -41,7 +41,7 @@ def read_declaration(source: bytes) -> BlockMetadata:
     if declaration.args or any(k.arg is None for k in declaration.keywords):
         raise invalid('@block 只接受具名的字面量参数，不支持展开或表达式', ['entry'])
     values = {}
-    allowed = {'id', 'version', 'name', 'description', 'dependencies', 'dependencySources', 'models', 'api'}
+    allowed = {'id', 'version', 'name', 'description', 'dependencies', 'dependencySources', 'models', 'api', 'semanticSearch'}
     for keyword in declaration.keywords:
         if keyword.arg not in allowed or keyword.arg in values:
             raise invalid('@block 参数无效或重复', [keyword.arg])
@@ -49,6 +49,8 @@ def read_declaration(source: bytes) -> BlockMetadata:
             values[keyword.arg] = ast.literal_eval(keyword.value)
         except (ValueError, TypeError):
             raise invalid('@block 声明只能使用字面量，不能引用变量或调用函数', [keyword.arg]) from None
+    if 'semanticSearch' in values:
+        values['uses_semantic_search'] = values.pop('semanticSearch')
     if 'api' in values:
         values['uses_api'] = values.pop('api')
     try:

@@ -154,6 +154,11 @@
       "default": false,
       "title": "Usesapi",
       "type": "boolean"
+    },
+    "usesSemanticSearch": {
+      "default": false,
+      "title": "Usessemanticsearch",
+      "type": "boolean"
     }
   },
   "required": [

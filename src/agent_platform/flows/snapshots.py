@@ -47,6 +47,15 @@ class FlowSnapshot:
             yield from child.scopes(prefix + key + '/')
 
     @property
+    def requires_semantic_search(self):
+        return any(
+            scope.catalog.artifact(node.artifact_ref).metadata.uses_semantic_search
+            for _, scope in self.scopes()
+            for node, _ in walk_nodes(scope.draft.flow)
+            if isinstance(node, ModuleNode) and node.kind == 'block'
+        )
+
+    @property
     def all_packages(self):
         return {prefix + key: scope.draft.node_configurations[key]
                 for prefix, scope in self.scopes() for key in scope.packages}
