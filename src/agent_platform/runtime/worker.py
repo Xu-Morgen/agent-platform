@@ -77,6 +77,8 @@ class RunWorker:
         context.knowledge = self.submission.knowledge
         from ..embedding.access import TaskEmbedding
         context.embedding = TaskEmbedding(self.submission.embedding, runs, run_id)
+        from ..ocr.access import TaskOCR
+        context.ocr = TaskOCR(self.submission.ocr, runs, run_id)
         bt, ct = current_boundary.set(boundary), current_context.set(context)
         try:
             await boundary.check('run_start', run_id)
@@ -103,7 +105,7 @@ class RunWorker:
                 await boundary.check('cleanup', run_id)
             finally:
                 try:
-                    await asyncio.gather(model.close(), api_transport.close(), context.embedding.close())
+                    await asyncio.gather(model.close(), api_transport.close(), context.embedding.close(), context.ocr.close())
                 finally:
                     envs.release(run_id)
                     current_context.reset(ct)

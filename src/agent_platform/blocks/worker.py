@@ -70,6 +70,15 @@ class RemoteContext(BlockContext):
             raise RuntimeError('语义检索代理响应无效')
         return message['value']
 
+    async def _ocr_call(self, request):
+        send('ocr', request=request.model_dump(mode='json', by_alias=True))
+        message = receive()
+        if message['type'] == 'error':
+            raise PlatformError(ErrorResponse.model_validate(message['error']))
+        if message['type'] != 'result':
+            raise RuntimeError('OCR 代理响应无效')
+        return message['value']
+
     def file(self, reference):
         from ..contracts.files import FileReference
         from ..storage.files import file_error

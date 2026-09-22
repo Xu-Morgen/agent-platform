@@ -91,6 +91,12 @@
       "properties": {
         "code": {
           "enum": [
+            "OCR_NOT_SELECTED",
+            "OCR_NOT_READY",
+            "OCR_INCOMPATIBLE",
+            "OCR_INPUT_LIMIT",
+            "OCR_INFERENCE_ERROR",
+            "OCR_CAPACITY_EXCEEDED",
             "EMBEDDING_NOT_SELECTED",
             "EMBEDDING_NOT_READY",
             "EMBEDDING_INCOMPATIBLE",

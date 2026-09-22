@@ -2,8 +2,9 @@
 import zipfile
 import time
 import math
-from functools import lru_cache
-from contextlib import closing
+import base64
+from agent_platform.contracts.ocr import OCRRequest
+from contextlib import aclosing
 import xml.etree.ElementTree as ET
 from hashlib import sha256
 from agent_platform.blocks import block
@@ -17,7 +18,7 @@ MAX_PAGES = 100
 MAX_SIDE = 6000
 MAX_PIXELS = 20_000_000
 MAX_SECONDS = 240
-READER = 'rag-read-docx@2.0.0:pdf-page-ocr-docx-paragraph-whitespace-v1'
+READER = 'rag-read-docx@3.0.0:pdf-page-ocr-docx-paragraph-whitespace-v1'
 NAMESPACE = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
 
 
@@ -30,17 +31,6 @@ def check(deadline, page=None):
     # 平台父进程每 50ms 检查取消并终止本工作进程；此处负责逐项超时边界。
     if time.monotonic() > deadline:
         fail('文档处理超过 240 秒限制', page, 'BLOCK_TIMEOUT')
-
-
-@lru_cache(maxsize=1)
-def engine(paths):
-    from rapidocr_onnxruntime import RapidOCR
-    # 显式传入全部模型，不使用库默认路径或自动下载。
-    if any(not path.is_file() for path in paths):
-        fail('OCR 模型未就绪', code='DEPENDENCY_ERROR')
-    return RapidOCR(det_model_path=str(paths[0]), rec_model_path=str(paths[1]),
-                    cls_model_path=str(paths[2]), intra_op_num_threads=1, inter_op_num_threads=1,
-                    text_score=0.0)
 
 
 def ordered_lines(result):
@@ -63,7 +53,7 @@ def empty_ocr_box(item, pix):
     )
 
 
-def read_pdf(path, context, deadline):
+async def read_pdf(path, context, deadline):
     import pymupdf
     try:
         document = pymupdf.open(path)
@@ -99,9 +89,12 @@ def read_pdf(path, context, deadline):
                         if blank:
                             text = ''
                         else:
-                            ocr = engine(tuple(context.model(name) for name in ('det', 'rec', 'cls')))
-                            # PDF 渲染已应用页面旋转；保持呈现方向，避免分类器误翻转正常文字行。
-                            result, _ = ocr(pix.tobytes('png'), use_cls=False)
+                            # PDF 已按页面方向渲染，不对正常文字行自动翻转。
+                            recognized = await context.ocr(OCRRequest(
+                                image_base64=base64.b64encode(pix.tobytes('png')).decode(),
+                                use_classification=False))
+                            result = [([[point.x, point.y] for point in line.points], line.text, line.confidence)
+                                      for line in recognized.lines]
                             check(deadline, number)
                             result = [item for item in (result or []) if not empty_ocr_box(item, pix)]
                             if not result or any(not str(item[1]).strip() or float(item[2]) < 0.5 for item in result):
@@ -111,7 +104,7 @@ def read_pdf(path, context, deadline):
                     finally:
                         del pix
                 if text:
-                    yield f'page:{number}', ' '.join(text.split())
+                    yield f'page:{number}' + (f';ocr:{recognized.model_id}' if needs_ocr and not blank else ''), ' '.join(text.split())
                 context.progress('页面已完成' if text else '空白页已跳过', current=number, total=total)
             except PlatformError:
                 raise
@@ -121,7 +114,7 @@ def read_pdf(path, context, deadline):
 
 
 
-def read_docx(path):
+async def read_docx(path):
     try:
         with zipfile.ZipFile(path) as archive:
             info = archive.getinfo('word/document.xml')
@@ -142,21 +135,11 @@ def read_docx(path):
 
 
 @block(
-    id='rag-read-docx', version='2.0.0', name='读取 PDF/DOCX 正文',
-    description='受控读取知识库 PDF/DOCX，PDF 按页定位并支持本地 OCR，DOCX 按段落定位。达到字符或片段上限标明范围受限。须准备声明的依赖与模型，无参考输入。',
-    dependencies=['rapidocr-onnxruntime==1.4.4', 'onnxruntime==1.23.2', 'PyMuPDF==1.26.7', 'python-docx==1.2.0'],
+    id='rag-read-docx', version='3.0.0', name='读取 PDF/DOCX 正文',
+    description='受控读取知识库 PDF/DOCX，PDF 按页定位并支持本地 OCR，DOCX 按段落定位。达到字符或片段上限标明范围受限。须准备文档依赖并在平台设置选择 OCR 模型，无参考输入。',
+    dependencies=['PyMuPDF==1.26.7', 'python-docx==1.2.0'],
     dependencySources=[{'kind': 'index', 'url': 'https://pypi.org/simple'}],
-    models=[
-        {'name': 'det', 'version': 'PP-OCRv4-mobile-v3.9.2',
-         'url': 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv4/det/ch_PP-OCRv4_det_mobile.onnx',
-         'sha256': 'd2a7720d45a54257208b1e13e36a8479894cb74155a5efe29462512d42f49da9', 'filename': 'det.onnx'},
-        {'name': 'rec', 'version': 'PP-OCRv4-mobile-v3.9.2',
-         'url': 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile.onnx',
-         'sha256': '48fc40f24f6d2a207a2b1091d3437eb3cc3eb6b676dc3ef9c37384005483683b', 'filename': 'rec.onnx'},
-        {'name': 'cls', 'version': 'PP-OCRv4-mobile-v3.9.2',
-         'url': 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx',
-         'sha256': 'e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c', 'filename': 'cls.onnx'},
-    ],
+    ocr=True,
 )
 async def run(value: NodeInput[DocumentSelection, tuple[()]], *, context: BlockContext) -> ParsedCorpus:
     deadline = time.monotonic() + MAX_SECONDS
@@ -172,8 +155,8 @@ async def run(value: NodeInput[DocumentSelection, tuple[()]], *, context: BlockC
             version_id=document.version_id, max_bytes=limits.max_file_bytes))
         paragraphs = read_pdf(path, context, deadline) if document.format == 'pdf' else read_docx(path)
         scanned.append(document.version_id)
-        with closing(paragraphs):
-            for location, text in paragraphs:
+        async with aclosing(paragraphs):
+            async for location, text in paragraphs:
                 check(deadline)
                 for offset in range(0, len(text), limits.fragment_characters):
                     if used >= limits.max_characters or len(fragments) >= limits.max_fragments:

@@ -2,7 +2,8 @@
 import time
 import math
 import zipfile
-from functools import lru_cache
+import base64
+from agent_platform.contracts.ocr import OCRRequest
 from typing import Annotated
 
 from pydantic import Field
@@ -44,17 +45,6 @@ def check(deadline, page=None):
         fail('文档处理超过 240 秒限制', page, 'BLOCK_TIMEOUT')
 
 
-@lru_cache(maxsize=1)
-def engine(paths):
-    from rapidocr_onnxruntime import RapidOCR
-    # 显式传入全部模型，不使用库默认路径或自动下载。
-    if any(not path.is_file() for path in paths):
-        fail('OCR 模型未就绪', code='DEPENDENCY_ERROR')
-    return RapidOCR(det_model_path=str(paths[0]), rec_model_path=str(paths[1]),
-                    cls_model_path=str(paths[2]), intra_op_num_threads=1, inter_op_num_threads=1,
-                    text_score=0.0)
-
-
 def ordered_lines(result):
     # 几何位置按自顶向下、自左向右组织；复杂多栏仍需人工核对。
     return sorted(result, key=lambda item: (min(point[1] for point in item[0]), min(point[0] for point in item[0])))
@@ -75,7 +65,7 @@ def empty_ocr_box(item, pix):
     )
 
 
-def read_pdf(path, context, deadline):
+async def read_pdf(path, context, deadline):
     import pymupdf
     parts = []
     try:
@@ -112,9 +102,12 @@ def read_pdf(path, context, deadline):
                         if blank:
                             text = ''
                         else:
-                            ocr = engine(tuple(context.model(name) for name in ('det', 'rec', 'cls')))
-                            # PDF 渲染已应用页面旋转；保持呈现方向，避免分类器误翻转正常文字行。
-                            result, _ = ocr(pix.tobytes('png'), use_cls=False)
+                            # PDF 已按页面方向渲染，不对正常文字行自动翻转。
+                            recognized = await context.ocr(OCRRequest(
+                                image_base64=base64.b64encode(pix.tobytes('png')).decode(),
+                                use_classification=False))
+                            result = [([[point.x, point.y] for point in line.points], line.text, line.confidence)
+                                      for line in recognized.lines]
                             check(deadline, number)
                             result = [item for item in (result or []) if not empty_ocr_box(item, pix)]
                             if not result or any(not str(item[1]).strip() or float(item[2]) < 0.5 for item in result):
@@ -179,28 +172,18 @@ def read_docx(path, context, deadline):
 
 
 @block(
-    id='read-document', version='4.0.0', name='读取完整文档',
-    description='接收已上传 PDF/DOCX 附件，提取完整正文及显式行号，作为出题规划的原文来源。扫描及混合 PDF 使用本地 OCR；须先准备声明的依赖与模型。通常为服务首步，无参考输入。',
-    dependencies=['rapidocr-onnxruntime==1.4.4', 'onnxruntime==1.23.2', 'PyMuPDF==1.26.7', 'python-docx==1.2.0'],
+    id='read-document', version='5.0.0', name='读取完整文档',
+    description='接收已上传 PDF/DOCX 附件，提取完整正文及显式行号，作为出题规划的原文来源。扫描及混合 PDF 使用本地 OCR；须准备文档依赖并在平台设置选择 OCR 模型。通常为服务首步，无参考输入。',
+    dependencies=['PyMuPDF==1.26.7', 'python-docx==1.2.0'],
     dependencySources=[{'kind': 'index', 'url': 'https://pypi.org/simple'}],
-    models=[
-        {'name': 'det', 'version': 'PP-OCRv4-mobile-v3.9.2',
-         'url': 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv4/det/ch_PP-OCRv4_det_mobile.onnx',
-         'sha256': 'd2a7720d45a54257208b1e13e36a8479894cb74155a5efe29462512d42f49da9', 'filename': 'det.onnx'},
-        {'name': 'rec', 'version': 'PP-OCRv4-mobile-v3.9.2',
-         'url': 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv4/rec/ch_PP-OCRv4_rec_mobile.onnx',
-         'sha256': '48fc40f24f6d2a207a2b1091d3437eb3cc3eb6b676dc3ef9c37384005483683b', 'filename': 'rec.onnx'},
-        {'name': 'cls', 'version': 'PP-OCRv4-mobile-v3.9.2',
-         'url': 'https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.9.2/onnx/PP-OCRv4/cls/ch_ppocr_mobile_v2.0_cls_mobile.onnx',
-         'sha256': 'e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c', 'filename': 'cls.onnx'},
-    ],
+    ocr=True,
 )
-def read_document(value: NodeInput[Input, tuple[()]], *, context: BlockContext) -> Output:
+async def read_document(value: NodeInput[Input, tuple[()]], *, context: BlockContext) -> Output:
     deadline = time.monotonic() + MAX_SECONDS
     path = context.file(value.primary.document)
     if value.primary.document.size > MAX_BYTES or path.stat().st_size > MAX_BYTES:
         fail('文件超过 50 MiB', code='FILE_TOO_LARGE')
-    text = (read_pdf(path, context, deadline) if value.primary.document.format == 'pdf'
+    text = (await read_pdf(path, context, deadline) if value.primary.document.format == 'pdf'
             else read_docx(path, context, deadline))
     check(deadline)
     if not text.strip():

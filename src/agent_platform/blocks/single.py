@@ -15,12 +15,13 @@ class BlockMetadata(RuntimeDeclaration):
     description: str = ''
     uses_api: bool = False
     uses_semantic_search: bool = False
+    uses_ocr: bool = False
 
 
-def block(*, id, version, name, description='', dependencies=(), dependencySources=(), models=(), api=False, semanticSearch=False):
+def block(*, id, version, name, description='', dependencies=(), dependencySources=(), models=(), api=False, semanticSearch=False, ocr=False):
     metadata = BlockMetadata(id=id, version=version, name=name, description=description,
                              dependencies=list(dependencies), dependency_sources=list(dependencySources),
-                             models=list(models), uses_api=api, uses_semantic_search=semanticSearch)
+                             models=list(models), uses_api=api, uses_semantic_search=semanticSearch, uses_ocr=ocr)
     def register(function):
         function.__block_metadata__ = metadata
         return function

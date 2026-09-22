@@ -37,7 +37,7 @@ Electron 自动启动后端；页面顶部显示连接状态，悬停可查看�
 
 新环境需要 Python 3.12+、uv、Node.js/npm 和 PostgreSQL 运行程序；执行 `uv sync --frozen` 与 `npm --prefix desktop ci` 准备依赖。Ubuntu 24.04 可运行 `.venv/bin/python scripts/install_local_postgres.py` 准备用户级数据库程序。当前工作环境已安装并通过真实数据库联调，无需手填数据库连接或主密钥。详见 [持久化说明](docs/persistence.md)。
 
-Linux 默认数据目录为 `~/.config/Agent Platform/storage/`，其中 `postgresql/` 保存数据库文件，`secrets.json` 保存本机密钥，`runtimes/` 保存运行环境与缓存，`embedding-models/` 保存已导入本地语义模型；页面显示实际路径。不要删除密钥文件。
+Linux 默认数据目录为 `~/.config/Agent Platform/storage/`，其中 `postgresql/` 保存数据库文件，`secrets.json` 保存本机密钥，`runtimes/` 保存运行环境与缓存，`embedding-models/` 保存已导入本地语义模型，`ocr-models/` 保存本地 OCR 模型组合；页面显示实际路径。不要删除密钥文件。
 
 WSL 图形窗口使用中文输入时，需检查 Linux 侧输入法及图形会话配置。页面已处理拼音确认与编辑期间的重绘，但不能替代系统输入法配置。
 
@@ -120,3 +120,5 @@ WSL 图形窗口使用中文输入时，需检查 Linux 侧输入法及图形会
 服务页拼图是唯一实例配置入口。历史交接中的旧命令仅作记录，当前入口以本页和手册为准。任务完成后清理临时测试、数据及脚本，已完成计划移入归档；开发约定见 [AGENTS.md](AGENTS.md)。
 
 资源卡片与契约字段支持用途说明及嵌套展开；配置模型后可结合当前草稿使用[AI 解释](docs/resource-explanation.md)，查看用途、适用性和建议位置。
+
+本地 OCR 由平台设置管理完整模型组合，新版文档读取块通过受控能力调用；首次使用须导入并选择模型，已有服务需通过页面升级。见 [本地 OCR](docs/local-ocr.md)。

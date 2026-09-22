@@ -20,6 +20,7 @@ async function refreshHealth() {
     await refreshPlatform();
     await window.platformSettings.refresh();
     await window.embeddingSettings.refresh();
+    await window.ocrSettings.refresh();
     await window.knowledgeManager.refresh();
     await refreshRunHistory();
     status.textContent = '后端已就绪';

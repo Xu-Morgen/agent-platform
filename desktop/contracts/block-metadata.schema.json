@@ -159,6 +159,11 @@
       "default": false,
       "title": "Usessemanticsearch",
       "type": "boolean"
+    },
+    "usesOcr": {
+      "default": false,
+      "title": "Usesocr",
+      "type": "boolean"
     }
   },
   "required": [

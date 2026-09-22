@@ -5,10 +5,11 @@ from ..contracts.errors import ErrorResponse, PlatformError
 
 
 class BlockContext:
-    def __init__(self, *, files=None, run_id=None, models=None, progress=None, knowledge=None, semantic=None):
+    def __init__(self, *, files=None, run_id=None, models=None, progress=None, knowledge=None, semantic=None, ocr=None):
         self._files, self._run_id = files, run_id
         self._knowledge = knowledge
         self._semantic = semantic
+        self._ocr = ocr
         self._models = MappingProxyType(dict(models or {}))
         self._progress = progress or (lambda event: None)
 
@@ -64,3 +65,13 @@ class BlockContext:
         if self._semantic is None:
             raise PlatformError(ErrorResponse(code='EMBEDDING_NOT_READY', stage='block.context', message='语义检索上下文不可用'))
         return await self._semantic(operation, request.model_dump(mode='json', by_alias=True))
+
+    async def ocr(self, request):
+        from ..contracts.ocr import OCRRequest, OCRResult
+        return OCRResult.model_validate(await self._ocr_call(OCRRequest.model_validate(request)))
+
+    async def _ocr_call(self, request):
+        if self._ocr is None:
+            from ..ocr.adapter import failure
+            raise failure('OCR_NOT_READY', '当前块未绑定 OCR 能力')
+        return await self._ocr(request.model_dump(mode='json', by_alias=True))

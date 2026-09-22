@@ -6,6 +6,7 @@ from .base import StrictModel
 from .environments import Environment
 from .errors import ErrorResponse
 from .embedding import EmbeddingSnapshot, SemanticSearchRecord
+from .ocr import OCRSnapshot, OCRRecord
 from .knowledge import FixedKnowledgeReference, EvidenceRecord
 
 RunStatus = Literal['queued', 'running', 'completed', 'failed', 'cancelled']
@@ -37,6 +38,8 @@ class Run(StrictModel):
     input: JsonValue
     semantic_searches: list[SemanticSearchRecord] = Field(default_factory=list, max_length=100)
     embedding_snapshot: EmbeddingSnapshot | None = None
+    ocr_snapshot: OCRSnapshot | None = None
+    ocr_calls: list[OCRRecord] = Field(default_factory=list, max_length=200)
     knowledge_bindings: list[FixedKnowledgeReference] = Field(default_factory=list)
     evidence: list[EvidenceRecord] = Field(default_factory=list)
     status: RunStatus = 'queued'

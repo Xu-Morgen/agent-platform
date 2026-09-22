@@ -160,6 +160,15 @@ class ProcessBlock:
                             await send({'protocolVersion': 1, 'type': 'error', 'error': exc.error.model_dump(mode='json', by_alias=True)})
                         finally:
                             api_active = False
+                    elif message['type'] == 'ocr':
+                        try:
+                            await checkpoint('ocr_access', 'block')
+                            if not self.metadata.uses_ocr or context is None or context._ocr is None:
+                                raise failed('OCR_NOT_READY', '当前块未声明 OCR 能力')
+                            result = await context._ocr(message.get('request'))
+                            await send({'protocolVersion': 1, 'type': 'result', 'value': result})
+                        except PlatformError as exc:
+                            await send({'protocolVersion': 1, 'type': 'error', 'error': exc.error.model_dump(mode='json', by_alias=True)})
                     elif message['type'] == 'semantic':
                         try:
                             await checkpoint('embedding_access', 'block')

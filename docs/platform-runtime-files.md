@@ -70,4 +70,8 @@ TaskFile 绑定单次任务；跨任务文档使用知识库管理及 `TaskKnowl
 
 ## 平台本地 embedding
 
-设置页导入的语义模型不使用 OCR 的 `@block(models=...)` 路径，也不进入聊天连接列表。平台 CPU 适配器和工作进程由项目固定依赖提供，任务只固定内容身份；模型文件持久化、向量仅任务内存。普通块声明 `semanticSearch=True` 后通过 context 使用，详见 [模型说明](local-embedding.md)。
+设置页导入的语义模型不使用块固定依赖的 `@block(models=...)` 路径，也不进入聊天连接列表。平台 CPU 适配器和工作进程由项目固定依赖提供，任务只固定内容身份；模型文件持久化、向量仅任务内存。普通块声明 `semanticSearch=True` 后通过 context 使用，详见 [模型说明](local-embedding.md)。
+
+## 平台本地 OCR
+
+新版文档读取块使用平台设置导入和选择的 OCR 模型组合，以 `ocr=True` 声明能力并调用异步 `context.ocr(...)`。平台固定任务模型、管理推理进程并保存识别记录；块保留文档处理策略。旧块的 `models` 依赖机制仍供固定依赖及历史快照使用，不静默迁移。见 [OCR 管理与接口](local-ocr.md)。

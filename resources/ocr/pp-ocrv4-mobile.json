@@ -1,0 +1,37 @@
+{
+  "formatVersion": 1,
+  "name": "PP-OCRv4 mobile 中文",
+  "publisher": "RapidAI / PaddleOCR",
+  "revision": "RapidOCR-v3.9.2-PP-OCRv4-mobile",
+  "license": "Apache-2.0",
+  "source": "https://www.modelscope.cn/models/RapidAI/RapidOCR/tree/v3.9.2/onnx/PP-OCRv4",
+  "adapter": "rapidocr-onnx",
+  "adapterVersion": "1",
+  "detection": {
+    "path": "det.onnx",
+    "sha256": "d2a7720d45a54257208b1e13e36a8479894cb74155a5efe29462512d42f49da9"
+  },
+  "recognition": {
+    "path": "rec.onnx",
+    "sha256": "48fc40f24f6d2a207a2b1091d3437eb3cc3eb6b676dc3ef9c37384005483683b"
+  },
+  "classification": {
+    "path": "cls.onnx",
+    "sha256": "e47acedf663230f8863ff1ab0e64dd2d82b838fceb5957146dab185a89d6215c"
+  },
+  "dictionary": "onnx-metadata",
+  "runtime": {
+    "rapidocr-onnxruntime": "1.4.4",
+    "onnxruntime": "1.22.1",
+    "numpy": "2.2.6",
+    "onnx": "1.18.0",
+    "pillow": "11.3.0",
+    "opencv-python": "4.12.0.88",
+    "pyclipper": "1.4.0",
+    "shapely": "2.1.2",
+    "pyyaml": "6.0.3",
+    "six": "1.17.0"
+  },
+  "python": ">=3.12,<3.13",
+  "platform": "linux-x86_64"
+}

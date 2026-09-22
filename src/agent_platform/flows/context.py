@@ -37,8 +37,13 @@ class FlowRunContext(RunContext):
                     raise PlatformError(ErrorResponse(code='EMBEDDING_NOT_READY', stage='block.context',
                         message='当前块未声明语义检索能力'))
                 return await self.embedding.invoke(operation, payload, access)
+            async def ocr(payload):
+                if not artifact.metadata.uses_ocr or getattr(self, 'ocr', None) is None:
+                    raise PlatformError(ErrorResponse(code='OCR_NOT_READY', stage='block.context',
+                        message='当前块未声明 OCR 能力'))
+                return await self.ocr.invoke(payload, self.qualified(node_id), artifact.content.digest)
             context = BlockContext(files=getattr(self, 'files', None), run_id=self.run_id,
-                                   progress=progress, knowledge=access, semantic=semantic)
+                                   progress=progress, knowledge=access, semantic=semantic, ocr=ocr)
             return await self.run_step('nodes.' + node_id,
                 lambda: artifact.invoke(value, api=api, context=context), kind='block')
 

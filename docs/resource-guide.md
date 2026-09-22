@@ -44,3 +44,5 @@
 ## 标准知识库与 RAG 资源
 
 [resources/rag](../resources/rag/README.md) 提供独立契约入口、普通列举/读取/检索/证据/核验块和回答 Prompt 包，以及可替换的完整短语检索块。所有资源按原有流程加载和接线，不增加 RAG 类型；检索限制来自输入契约。它们属于长期交付资源，samples 仍只维护三类最小/完整模板。管理与使用见[知识库手册](knowledge.md)，开发接口见[知识库 API](knowledge-api.md)。本次没有默认回答包的真实模型验收。
+
+文档 OCR 块可声明 `ocr=True`，使用异步 `context.ocr(...)`；平台设置管理完整模型组合。接口及旧资源升级见 [本地 OCR](local-ocr.md)。

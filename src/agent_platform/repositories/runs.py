@@ -92,6 +92,19 @@ class RunRepository:
             run.semantic_searches.append(record)
             self._save(run)
 
+    def append_ocr(self, run_id, record):
+        from ..contracts.ocr import OCRRecord
+        from ..ocr.adapter import failure
+        record = OCRRecord.model_validate(record)
+        with self.lock:
+            run = self.get(run_id)
+            if run.status != 'running' or run.cancel_requested:
+                raise failure('RUN_CANCELLED', '任务不再接受 OCR 记录')
+            if len(run.ocr_calls) >= 200:
+                raise failure('OCR_INPUT_LIMIT', '单任务最多记录 200 次 OCR')
+            run.ocr_calls.append(record)
+            self._save(run)
+
     def finish(self, run_id, status, *, result=None, error=None):
         with self.lock:
             run = self.get(run_id)

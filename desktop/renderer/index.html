@@ -269,6 +269,19 @@
         <pre id="embedding-details"></pre>
         <p class="field-hint">小样例验证只检查可运行性。相似度不是事实可信度；没有就绪模型时语义检索任务会明确失败。</p>
       </div>
+      <div class="settings-card platform-settings-card" id="ocr-settings">
+        <div class="panel-heading"><h4>本地 OCR 模型组合</h4><button id="ocr-refresh" type="button">刷新模型</button></div>
+        <p>使用本地 CPU 进行 OCR 识别。导入后保留应用副本；默认选择仅影响新提交的任务。</p>
+        <label>模型目录（含 ocr.json）<input id="ocr-directory" type="text" placeholder="选择或填写完整模型目录"></label>
+        <button id="ocr-browse" type="button">选择目录</button>
+        <button id="ocr-import" type="button">检查并导入</button>
+        <label>默认模型<select id="ocr-model"><option value="">未选择</option></select></label>
+        <button id="ocr-select" type="button">保存默认选择</button>
+        <button id="ocr-check" type="button">验证所选模型</button>
+        <p id="ocr-status" role="status">尚未读取模型。请导入支持的本地模型并选择默认值。</p>
+        <pre id="ocr-details"></pre>
+        <p class="field-hint">小样例验证只检查可运行性，不代表复杂版面识别质量。含 OCR 能力的服务须先选择就绪模型。</p>
+      </div>
       <form id="platform-settings-form" class="settings-card platform-settings-card">
         <div class="panel-heading"><div><span class="section-eyebrow">任务执行</span><h4>任务并发</h4></div><button id="platform-settings-refresh" type="button">重新读取</button></div>
         <p class="field-hint">同时执行的任务总数。超出上限的任务排队，每个任务内部仍按流程顺序执行。</p>
@@ -302,6 +315,7 @@
   <script src="knowledge.js"></script>
   <script src="platform-settings.js"></script>
   <script src="embedding-settings.js"></script>
+  <script src="ocr-settings.js"></script>
   <script src="index.js"></script>
 </body>
 </html>

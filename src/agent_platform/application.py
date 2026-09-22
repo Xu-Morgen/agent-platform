@@ -22,6 +22,8 @@ async def lifespan(app: FastAPI):
             await app.state.connection_tools.close()
             await app.state.preparations.close()
             await app.state.worker.stop()
+            await app.state.ocr_jobs.close()
+            await app.state.ocr_processes.close()
             await app.state.embedding_jobs.close()
             await app.state.embedding_processes.close()
         finally:
@@ -30,6 +32,7 @@ async def lifespan(app: FastAPI):
             app.state.files.close()
             app.state.knowledge.close()
             app.state.embedding.close()
+            app.state.ocr.close()
             app.state.store.close()
 
 
@@ -91,7 +94,13 @@ def _create_app(store) -> FastAPI:
     app.state.embedding_processes = EmbeddingProcesses()
     app.state.embedding = EmbeddingRepository(store, app.state.embedding_processes)
     register_routes(app)
-    app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs, app.state.files, app.state.knowledge, app.state.embedding)
+    from .ocr.process import OCRProcesses
+    from .ocr.repository import OCRRepository
+    from .ocr.routes import register_routes as register_ocr_routes
+    app.state.ocr_processes = OCRProcesses()
+    app.state.ocr = OCRRepository(store, app.state.ocr_processes)
+    register_ocr_routes(app)
+    app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs, app.state.files, app.state.knowledge, app.state.embedding, app.state.ocr)
 
     from .runtime.worker import RunWorker
     app.state.worker = RunWorker(app.state.submission, concurrency=app.state.settings.active_run_concurrency)

@@ -85,6 +85,17 @@
     },
     evidence(run) {
       const container = document.querySelector('#task-evidence'); container.replaceChildren();
+      if (run.ocrSnapshot) {
+        const model = document.createElement('p');
+        model.textContent = `本地 OCR 模型：${run.ocrSnapshot.manifest.name} · ${run.ocrSnapshot.modelId}`;
+        container.append(model);
+      }
+      for (const record of run.ocrCalls || []) {
+        const details = document.createElement('details'), title = document.createElement('summary'), pre = document.createElement('pre');
+        title.textContent = `OCR：${record.nodeId} · ${record.result.lines.length} 行 · 推理 ${record.result.inferenceSeconds.toFixed(3)} 秒`;
+        pre.textContent = JSON.stringify(record, null, 2);
+        details.append(title, pre); container.append(details);
+      }
       if (!(run.knowledgeBindings || []).length) return;
       const heading = document.createElement('h4'); heading.textContent = '知识库修订与采用证据'; container.append(heading);
       for (const reference of run.knowledgeBindings) { const p = document.createElement('p'); p.textContent = `${reference.knowledgeId} · ${reference.revisionId}`; container.append(p); }

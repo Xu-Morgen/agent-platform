@@ -1,6 +1,6 @@
 # 文档出题与有限修订
 
-当前资源实现“全文读取 → 规划 → 初稿 → 独立审题 → 最多两轮定向修订/重新出题 → 最终验收”。平台执行协议为 flow-5；模型仅输出声明的数据，Python 块维护原文、轮次和分支判断。实施计划已[完成归档](../../docs/archive/2026-09-20/document-question-quality-plan.md)，实际结果见[验收记录](../../docs/archive/2026-09-21/document-question-quality-validation.md)。真实调用仅在用户明确授权的连接和总次数范围内进行。
+当前资源实现“全文读取 → 规划 → 初稿 → 独立审题 → 最多两轮定向修订/重新出题 → 最终验收”。平台执行协议为 flow-6；模型仅输出声明的数据，Python 块维护原文、轮次和分支判断。实施计划已[完成归档](../../docs/archive/2026-09-20/document-question-quality-plan.md)，实际结果见[验收记录](../../docs/archive/2026-09-21/document-question-quality-validation.md)。真实调用仅在用户明确授权的连接和总次数范围内进行。
 
 成功返回 `questions`，顺序固定为论述题、四选一单选题、填空题各一道。每题含稳定 `questionId`、原文 `evidence` 和参考答案；填空题另含每空的 `acceptedAnswers`。格式、引用存在性通过不代表语义或教学质量已经合格，必须经过独立审题和最终验收。
 
@@ -8,7 +8,7 @@
 
 | 资源 | 版本 | 职责 |
 | --- | --- | --- |
-| [read_document.py](read_document.py) | 4.0.0 | PDF/DOCX 全文读取并生成显式行号索引；读取算法未变 |
+| [read_document.py](read_document.py) | 5.0.0 | PDF/DOCX 全文读取并生成显式行号索引；OCR 改用平台能力 |
 | [document-question-planner](document-question-planner/package.json) | 4.0.0 | 判断资料充分性，规划三个考点、目标、难度、依据 |
 | [document-question-generator](document-question-generator/package.json) | 6.0.0 | 初稿和重新出题共用包，独立节点配置 |
 | [document-question-reviewer](document-question-reviewer/package.json) | 4.0.0 | 独立审题，逐题 findings 和总体 verdict |
@@ -85,9 +85,9 @@ prepare_generation 是显式转换块：把初稿的规划或重新出题的完�
 
 ## 准备与运行限制
 
-声明固定版本：rapidocr-onnxruntime 1.4.4、onnxruntime 1.23.2、PyMuPDF 1.26.7、python-docx 1.2.0，索引为 `https://pypi.org/simple`。平台准备独立环境并锁定传递依赖；不在任务函数安装库。OCR 三个模型的固定 URL、版本和 SHA-256 已写入 @block 字面量，来源为 [RapidAI 官方模型清单](https://github.com/RapidAI/RapidOCR/blob/main/python/rapidocr/default_models.yaml)。不要修改为无摘要的下载地址。
+文档块声明 PyMuPDF 1.26.7、python-docx 1.2.0，平台准备独立环境并锁定依赖。读取块 5.0.0 改为声明 `ocr=True`，通过 `await context.ocr(...)` 调用平台能力；OCR 引擎及模型不再由块声明或初始化。
 
-引擎只接收 context.model 提供的本地 det/rec/cls 路径；一个工作进程内复用，不逐页初始化。平台每次块调用创建独立工作进程，不跨任务缓存引擎。
+先在「平台设置 → 本地 OCR 模型组合」导入并选择模型，再通过服务页加载新版块、替换节点并保存实例。模型清单、任务固定、能力接口和限制见 [本地 OCR 手册](../../docs/local-ocr.md)。即使本次文档不触发 OCR，该服务也在提交时固定 OCR 模型。旧正式服务及固定引用不自动升级，本次未进行远端出题质量复验。
 
 | 限制 | 行为 |
 | --- | --- |
@@ -99,9 +99,9 @@ prepare_generation 是显式转换块：把初稿的规划或重新出题的完�
 | OCR 行置信度低于 0.5、无可识别结果 | 明确带页码失败，不冒充完整正文 |
 | DOCX 图片、公式、嵌入对象、脚注、修订、内容控件等 | 明确失败，建议先转 PDF；不静默漏读 |
 
-纯文字 PDF 直接提取；显示图片、矢量内容、异常字符或无文字层的页面整页 OCR，替换该页文字层以避免重复。PDF 按页面渲染方向识别，关闭 OCR 文本行的自动 180° 方向分类，避免把正常长行误翻转；文件自带的页面旋转由渲染器处理，页面中实际倒置的扫描文字需要先校正方向。RapidOCR 1.4.4 初始化仍需要 cls 模型，因此保留声明与校验，但 PDF 识别不执行分类器。OCR 空识别框仅在框内像素确认为空白时忽略（检查时向内收 1 像素，避免边缘擦到相邻字形）；有内容的低置信度结果仍报错。OCR 按几何位置组织基本阅读顺序，复杂表格/双栏/倾斜/低清晰度仍需人工核对，置信度不能证明没有漏字。DOCX 按 [python-docx 文档顺序接口](https://python-docx.readthedocs.io/en/latest/api/document.html#docx.document.Document.iter_inner_content)读取段落与表格；正文不包括页眉页脚。
+纯文字 PDF 直接提取；显示图片、矢量内容、异常字符或无文字层的页面整页 OCR，替换该页文字层以避免重复。PDF 按页面渲染方向识别，关闭 OCR 文本行的自动 180° 方向分类，避免把正常长行误翻转；文件自带的页面旋转由渲染器处理，页面中实际倒置的扫描文字需要先校正方向。RapidOCR 1.4.4 初始化仍需要 cls 模型，因此平台模型组合仍包含并校验分类模型，但 PDF 识别不执行分类器。OCR 空识别框仅在框内像素确认为空白时忽略（检查时向内收 1 像素，避免边缘擦到相邻字形）；有内容的低置信度结果仍报错。OCR 按几何位置组织基本阅读顺序，复杂表格/双栏/倾斜/低清晰度仍需人工核对，置信度不能证明没有漏字。DOCX 按 [python-docx 文档顺序接口](https://python-docx.readthedocs.io/en/latest/api/document.html#docx.document.Document.iter_inner_content)读取段落与表格；正文不包括页眉页脚。
 
-取消由平台父进程持续检查并终止本地工作进程；用户在模型调用中取消仍沿用“等当前请求结束”的语义。任何页面失败都不发布已提取的部分正文为成功结果。
+取消由平台父进程持续检查并终止本地工作进程；用户在远端 LLM 调用中取消仍沿用“等当前请求结束”的语义。任何页面失败都不发布已提取的部分正文为成功结果。
 
 ## 验收范围
 

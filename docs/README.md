@@ -16,6 +16,7 @@
 | [产品说明与边界](product-requirements.md) | 平台职责、已实现能力、未实现事项及验收限制 |
 | [架构说明](architecture-design.md) | flow-6、契约、快照、版本、任务调度、预算与取消 |
 | [文档、知识库与最小 RAG](knowledge.md) | DOCX 管理、不可变版本、任务固定修订、证据历史及普通资源读取/检索 |
+| [本地 OCR 管理与接口](local-ocr.md) | 模型组合导入/更换、任务固定、异步块能力、历史与资源升级 |
 | [本地 embedding 接口](local-embedding-contracts.md) | 模型清单、能力声明、任务搜索与管理 API |
 | [知识库开发接口](knowledge-api.md) | TaskKnowledge、异步读取代理、证据登记与管理 API |
 | [本地 PostgreSQL](persistence.md) | 安装与启动、数据目录、凭据、持久化和故障恢复 |
