@@ -6,9 +6,7 @@
 
 控制流、文档/知识库基础和[知识库三题业务](../examples/black-myth-rag-question-generation/README.md)已交付。初版三题业务完成 20 次授权真实调用，用户于 2026-09-22 确认人工验收通过；后续任意题量及内容质量修复的当前版本与验收边界以该业务手册为准。既有实施计划和验收摘要已按实际状态转入归档。
 
-## 当前实施计划
-
-- [本地 embedding 模型与平台语义搜索](local-embedding-plan.md)：`embedding` 分支；设置页导入/选择模型、平台受控搜索接口、任务内向量缓存与证据历史。当前仅完成计划，功能尚未实施，不引入向量数据库。
+2026-09-22 已交付 [本地 embedding 与语义检索](local-embedding.md)：设置页导入/选择模型、任务固定身份、CPU 推理与内存缓存、默认普通检索块和历史记录。真实本地模型、Electron/PostgreSQL 及小样例检索对照已验收；无关查询仍可能有 topK 候选。计划及实际结果见 [归档记录](archive/2026-09-22/local-embedding-plan.md)。
 
 ## 关键说明
 
@@ -18,6 +16,7 @@
 | [产品说明与边界](product-requirements.md) | 平台职责、已实现能力、未实现事项及验收限制 |
 | [架构说明](architecture-design.md) | flow-6、契约、快照、版本、任务调度、预算与取消 |
 | [文档、知识库与最小 RAG](knowledge.md) | DOCX 管理、不可变版本、任务固定修订、证据历史及普通资源读取/检索 |
+| [本地 embedding 接口](local-embedding-contracts.md) | 模型清单、能力声明、任务搜索与管理 API |
 | [知识库开发接口](knowledge-api.md) | TaskKnowledge、异步读取代理、证据登记与管理 API |
 | [本地 PostgreSQL](persistence.md) | 安装与启动、数据目录、凭据、持久化和故障恢复 |
 | [数组遍历与枚举分支](control-flow.md) | 服务流程图与 Mermaid/SVG 导出、foreach/switch 页面配置、作用域、教学源码与 flow-6 升级 |
@@ -31,7 +30,7 @@
 
 ## 模板与业务示例
 
-- [默认 RAG 资源](../resources/rag/README.md)：可替换的列举、DOCX 读取、词面/短语检索、证据整理、回答包及引文核验；本次未调用模型。
+- [默认 RAG 资源](../resources/rag/README.md)：可替换的列举、DOCX 读取、词面/短语/本地语义检索、证据整理、回答包及引文核验；真实本地检索已验收，默认回答包没有新增远端验收。
 - [samples](../samples/README.md) 与 [接线操作](../samples/USAGE.md)：通用块、Prompt 包、独立契约各提供最小和完整两套模板。
 - [知识库三题出题](../examples/black-myth-rag-question-generation/README.md)：自然语言请求、三类题型、多文档证据、整体审题及有限修订；与旧全文出题实例独立。
 - [文档出题实例](../examples/document-question-generation/README.md)：全文读取、规划、审题及有限修订；当前资源版本与真实模型待验收范围以该手册为准。
@@ -40,7 +39,7 @@
 
 平台使用 FastAPI、Pydantic、LangGraph、PostgreSQL 和 Electron。服务页 FlowDraft 是唯一实例配置入口；当前执行协议为 flow-6，模型只输出契约内的数据，Python 条件块控制分支和有限循环。旧协议历史只读，不执行或回退激活。按用户明确决定，不考虑多 Agent 与任务断点续跑，两者不列为后续待开发事项，详见 [产品说明](product-requirements.md)。
 
-桌面自动管理本地数据库，资源、草稿、实例、设置与任务历史跨重启保留。单后端消费者池默认并发 4，支持 1～64；平台设置保存后重启生效，单任务内步骤按流程顺序执行。Python 通用块在独立子进程中执行，受信任代码不等于沙箱。
+桌面自动管理本地数据库，资源、草稿、实例、设置与任务历史跨重启保留。单后端消费者池默认并发 4，支持 1～64；任务并发设置保存后重启生效，单任务内步骤按流程顺序执行。Python 通用块在独立子进程中执行，受信任代码不等于沙箱。
 
 初版出题质量流程已有 10 次授权真实调用与人工评审记录；随后行号修复后的服务 2.0 及资源说明升级没有完成新一轮真实模型复验。AI 解释的真实远端效果、复杂文档 OCR、跨平台生命周期等限制见各手册，不能用历史或离线验收代替。
 

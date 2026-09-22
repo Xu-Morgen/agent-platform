@@ -23,3 +23,5 @@
 单次登记参数 JSON 上限 64 KiB，单任务最多 100 次登记，超过上限明确报错。原件访问提供每次块调用专用的临时副本；副本修改不改变保存的原件，调用退出后清理。资源仍按受信任 Python 代码执行，此能力不是操作系统沙箱。任务预算与取消检查复用现有边界；读取不计模型 loop/token。
 
 管理 API 为 `/api/v1/knowledge` 的创建/列表、`/{knowledgeId}` 更新、`/{knowledgeId}/documents` 分页/单文件流式导入、`/documents/{documentId}` 逻辑移除、`/documents/{documentId}/versions` 历史版本和 `/versions/{versionId}/original` 获取原件。页面批量上传逐项调用同一导入 API 并显示成功/失败；版本替换通过 `documentId` 查询参数指定逻辑文档。保存知识库不生成服务实例版本，重新保存资源/检索配置仍遵守原实例版本规则。
+
+本地语义能力通过 `@block(..., semanticSearch=True)` 显式声明，提供 `context.semantic_split` 与 `context.semantic_search`；使用同一任务知识库范围与 Evidence 来源结构。模型选择、搜索契约和独立历史字段见 [embedding 接口](local-embedding-contracts.md)。不扩大 TaskKnowledge 范围，不隐式支持 TaskFile 或任意路径。

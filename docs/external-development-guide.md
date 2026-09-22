@@ -14,6 +14,7 @@
 | 有序参考数据 | 块、包 | `R` 为固定位置元组 | 块读 `value.references[0]`；包用 `{{input.references[0]}}` | 节点简单/高级参考设置 |
 | 外部 JSON API | 通用块 | `@block(api=True)` 与 `*, api: BlockAPI` | `await api.request(...)` | 环境页 API 连接；节点连接选择与 `api.path` |
 | 任务文件访问 | 通用块 | 输入字段 `TaskFile`；`*, context: BlockContext` | `context.file(reference)` 返回 `pathlib.Path` | 任务页上传，或文件上传接口 |
+| 任务内本地语义检索 | 通用块 | `@block(semanticSearch=True)`；异步 `context` | `semantic_split` / `semantic_search` | 平台设置默认模型在提交时固定，见 [接口](local-embedding-contracts.md) |
 | 已准备的本地模型文件 | 通用块 | `@block(models=[...])`；`context` | `context.model(name)` 返回 `Path` | 块的静态模型声明 |
 | 步骤进度 | 通用块 | `context` | `context.progress(message, current=..., total=...)` | 无需额外节点配置 |
 | 业务参数及默认值 | Prompt 包 | `contractRefs.configuration` 指向 Config | `{{parameters.xxx}}` | 包节点 `parameters` |

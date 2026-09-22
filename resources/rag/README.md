@@ -1,6 +1,6 @@
 # 默认 DOCX 读取与最小 RAG 资源
 
-这些是可替换的普通资源，长期放在 `resources/rag/`，不占用 samples 的最小/完整模板位置。仅依赖当前平台 SDK 与 Python 标准库，无向量依赖、无持久化索引。共享数据契约由 SDK 的 `contracts/retrieval.py` 定义，独立入口为 `contracts.py`；平台编译器不引用该检索契约，也不识别专用 RAG 节点。
+这些是可替换的普通资源，长期放在 `resources/rag/`，不占用 samples 的最小/完整模板位置。仅依赖当前平台 SDK 与 Python 标准库，块本身不加载向量依赖、无持久化索引；可选语义块调用平台管理的 CPU 模型。共享数据契约由 SDK 的 `contracts/retrieval.py` 定义，独立入口为 `contracts.py`；平台编译器不引用该检索契约，也不识别专用 RAG 节点。
 
 在服务页逐个加载 `blocks/*.py`、`answer/`，并加载 `contracts.py` 的 `RetrievalRequest` 和 `VerifiedAnswer`。无需模型的读取/检索服务可以在 `EvidenceContext` 结束。
 
@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | 1 | `list_documents.py` | RetrievalRequest → DocumentSelection | 空 |
 | 2 | `read_docx.py` | DocumentSelection → ParsedCorpus | 空 |
-| 3 | `lexical_search.py` | ParsedCorpus → SearchResults | 空 |
+| 3 | `lexical_search.py` 或 `semantic_search.py` | ParsedCorpus → SearchResults | 空 |
 | 4 | `select_evidence.py` | SearchResults → EvidenceContext | 空 |
 | 5 | `answer/` | EvidenceContext → GroundedAnswer | 空 |
 | 6 | `verify_answer.py` | GroundedAnswer → VerifiedAnswer | 上一步主数据，即 EvidenceContext |
@@ -51,3 +51,11 @@
 `alternatives/phrase_search.py` 是另一普通块，完整短语计数，不拆中文二元组；保持 `ParsedCorpus → SearchResults`。在已保存服务的草稿中移除词面检索节点、插入完整短语节点（仍置于读取和整理证据之间），高级参考保持空列表，保存新实例即可。读取、证据整理、下游模型包和平台核心无需修改。
 
 2026-09-21：隔离桌面通过正式页面完成上述替换，服务生成 2.0 实例并成功执行；长查询作为完整短语未命中时返回空候选和空证据、`scopeLimited=false`，不冒充已回答。相同合成输入下，默认二元组能命中而完整短语无命中的差异已验证。黑神话业务出题、真实模型和人工质量验收仍需独立实验。
+
+## 本地语义检索
+
+先按 [模型说明](../../docs/local-embedding.md) 在平台设置导入并选择模型，将第 3 步替换为 `blocks/semantic_search.py`，高级参考为空，保存新服务实例。无需为该块选择聊天模型连接，也不计 LLM loop/token；默认选择在任务提交时固定。旧服务不会自动替换。
+
+语义块忽略词面 `terms`，按完整 query 检索。超长片段调用平台 tokenizer 切分，保留原定位并追加零起算半开字符区间；切分超过 limits.maxFragments 时明确失败。默认 topK 无最低分，结果可能不相关，下游须检查资料不足。SDK 自定义块可以设置 minimumScore，空候选正常返回。
+
+2026-09-22 的真实 CPU 模型、页面保存服务、来源追溯及词面对照见 [验收记录](../../docs/archive/2026-09-22/local-embedding-validation.md)：同义查询补充召回，无关问题暴露 topK 误召回边界。没有远端生成或审题调用，不代替默认回答包的质量验收。

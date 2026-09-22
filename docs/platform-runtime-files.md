@@ -67,3 +67,7 @@ def run(value: NodeInput[Input, tuple[()]], *, context: BlockContext) -> int:
 ## 知识库原件与任务文件的区别
 
 TaskFile 绑定单次任务；跨任务文档使用知识库管理及 `TaskKnowledge` 标准引用。提交任务时固定修订，通用块通过异步方法读取和登记证据（方法名为 `knowledge_resolve`、`knowledge_list`、`knowledge_metadata`、`knowledge_file`、`knowledge_record`）。这些访问由父进程代理，不注入数据库或密钥。`knowledge_file` 返回当前块调用的临时副本路径，按只读约定使用；调用退出即清理，原件不会交给块直接修改。完整契约和上限见[知识库接口](knowledge-api.md)。
+
+## 平台本地 embedding
+
+设置页导入的语义模型不使用 OCR 的 `@block(models=...)` 路径，也不进入聊天连接列表。平台 CPU 适配器和工作进程由项目固定依赖提供，任务只固定内容身份；模型文件持久化、向量仅任务内存。普通块声明 `semanticSearch=True` 后通过 context 使用，详见 [模型说明](local-embedding.md)。

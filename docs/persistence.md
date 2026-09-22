@@ -125,3 +125,7 @@ LangGraph 继续执行配置者定义的图，当前 `checkpointer=None`。平�
 2026-09-21 已通过 JSON 仓储恢复断言验证新快照摘要稳定、嵌套路由资源收集、旧协议只读和重新保存。正式 Electron 页面保存 foreach/switch 服务后，隔离 PostgreSQL 停库重启并加载原固定实例，再次真实执行成功；主动取消和应用退出终态跨重启保留。详见[控制流归档记录](archive/2026-09-21/control-flow-expansion-plan.md)。
 
 知识库元数据通过现有文档存储的 `knowledge_bases`、`knowledge_revisions`、`knowledge_versions` 和 `knowledge_files` 集合保存，无新增数据库连接。任务记录的 `knowledgeBindings` 与 `evidence` 保存固定修订和候选/选用证据；旧任务记录缺省为空。原件与知识库历史没有自动物理回收。2026-09-21 已验证文档/服务/任务证据跨本地 PostgreSQL 停库重启恢复，操作见[知识库手册](knowledge.md)。
+
+## 本地语义模型
+
+模型元数据、默认选择、任务固定模型清单与检索记录写入现有 PostgreSQL 文档仓储；`embedding-models/` 保存不可变模型文件，备份须一并包含。任务向量与模型进程不持久化，结束后清理，应用重启不续跑。见 [模型生命周期](local-embedding.md)。
