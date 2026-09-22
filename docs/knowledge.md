@@ -37,6 +37,6 @@
 
 扫描达到文档、字符或片段上限时明确标记 `scopeLimited`，无命中不代表整个知识库不存在答案。当前不做持久化索引、embedding、向量数据库、OCR、页眉/脚注/图片读取或自动同步。正文预览显示普通服务返回的数据，未建设富文档排版查看器。大规模容量、索引治理、自动物理清理、跨平台桌面验收均未开展。
 
-后续独立交付的[知识库三题业务](../examples/black-myth-rag-question-generation/README.md)已导入 7 份授权 DOCX，通过 20 次 ds 调用验证主路径、检索替换和资料不足；人工评阅待确认。该实验未调用默认回答包，默认回答包仍只有加载和端口兼容检查结论。
+后续独立交付的[知识库三题业务](../examples/black-myth-rag-question-generation/README.md)已导入 7 份授权 DOCX，通过 20 次 ds 调用验证主路径、检索替换和资料不足；2026-09-22 人工验收通过。该实验未调用默认回答包，默认回答包仍只有加载和端口兼容检查结论。
 
 开发者接口见 [知识库 SDK 与管理 API](knowledge-api.md)，实施记录见 [归档计划](archive/2026-09-21/knowledge-rag-plan.md)。
