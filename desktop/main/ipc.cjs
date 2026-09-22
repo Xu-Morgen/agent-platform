@@ -17,13 +17,13 @@ function registerResourcePathBridge() {
     if (event.senderFrame?.url.split('#')[0] !== pageURL || event.senderFrame !== event.sender.mainFrame) {
       return fail('请求来源无效');
     }
-    if (!['package', 'block', 'contract'].includes(kind)) return fail('请选择业务包、通用块或契约');
+    if (!['package', 'block', 'contract', 'embedding'].includes(kind)) return fail('请选择业务包、通用块或契约');
     const owner = BrowserWindow.fromWebContents(event.sender);
     if (!owner || owner.isDestroyed()) return fail('当前窗口不可用');
-    const isPackage = kind === 'package';
+    const isPackage = kind === 'package' || kind === 'embedding';
     try {
       const result = await dialog.showOpenDialog(owner, {
-        title: isPackage ? '选择业务包目录' : kind === 'block' ? '选择通用块文件' : '选择契约文件',
+        title: kind === 'embedding' ? '选择含 embedding.json 的本地模型目录' : isPackage ? '选择业务包目录' : kind === 'block' ? '选择通用块文件' : '选择契约文件',
         buttonLabel: '选择路径',
         properties: [isPackage ? 'openDirectory' : 'openFile'],
         ...(isPackage ? {} : { filters: [{ name: 'Python 文件', extensions: ['py'] }] }),
@@ -64,6 +64,12 @@ module.exports = { registerHealthBridge, registerResourcePathBridge };
 
 // 路由由主进程固定，页面不能指定任意 URL 或 HTTP 方法。
 const operations = {
+  embeddingModels: () => ['GET', '/embedding/models'],
+  embeddingSelection: () => ['GET', '/embedding/selection'],
+  selectEmbedding: (body) => ['PUT', '/embedding/selection', body],
+  importEmbedding: (body) => ['POST', '/embedding/import', body],
+  checkEmbedding: (id) => ['POST', `/embedding/models/${encodeURIComponent(id)}/check`],
+  embeddingJob: (id) => ['GET', `/embedding/jobs/${encodeURIComponent(id)}`],
   listKnowledge: () => ['GET', '/knowledge'],
   createKnowledge: (body) => ['POST', '/knowledge', body],
   updateKnowledge: (id, body) => ['PUT', `/knowledge/${encodeURIComponent(id)}`, body],

@@ -1,6 +1,12 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
+  embeddingModels: () => ipcRenderer.invoke('platform:embeddingModels'),
+  embeddingSelection: () => ipcRenderer.invoke('platform:embeddingSelection'),
+  selectEmbedding: (body) => ipcRenderer.invoke('platform:selectEmbedding', body),
+  importEmbedding: (body) => ipcRenderer.invoke('platform:importEmbedding', body),
+  checkEmbedding: (id) => ipcRenderer.invoke('platform:checkEmbedding', id),
+  embeddingJob: (id) => ipcRenderer.invoke('platform:embeddingJob', id),
   listKnowledge: () => ipcRenderer.invoke('platform:listKnowledge'),
   createKnowledge: (body) => ipcRenderer.invoke('platform:createKnowledge', body),
   updateKnowledge: (id, body) => ipcRenderer.invoke('platform:updateKnowledge', id, body),

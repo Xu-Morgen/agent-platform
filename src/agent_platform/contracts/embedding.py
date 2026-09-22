@@ -165,3 +165,25 @@ class SemanticSearchResult(StrictModel):
             seen.add(item.fragment_id)
             previous = item.score
         return self
+
+
+class EmbeddingImport(StrictModel):
+    directory: str = Field(min_length=1, max_length=4096)
+
+
+class EmbeddingDiagnostic(StrictModel):
+    dimensions: int = Field(ge=1, le=4096)
+    finite: Literal[True]
+    tokens: int = Field(ge=0)
+    load_seconds: float = Field(ge=0, allow_inf_nan=False)
+    inference_seconds: float = Field(ge=0, allow_inf_nan=False)
+    peak_memory_bytes: int = Field(gt=0)
+
+
+class EmbeddingJob(StrictModel):
+    job_id: str
+    status: Literal['running', 'completed', 'failed'] = 'running'
+    progress: str
+    model: EmbeddingModel | None = None
+    diagnostic: EmbeddingDiagnostic | None = None
+    error: str | None = None

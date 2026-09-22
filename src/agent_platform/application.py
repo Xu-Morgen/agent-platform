@@ -22,11 +22,14 @@ async def lifespan(app: FastAPI):
             await app.state.connection_tools.close()
             await app.state.preparations.close()
             await app.state.worker.stop()
+            await app.state.embedding_jobs.close()
+            await app.state.embedding_processes.close()
         finally:
             app.state.credentials.clear()
             app.state.catalog.close()
             app.state.files.close()
             app.state.knowledge.close()
+            app.state.embedding.close()
             app.state.store.close()
 
 
@@ -82,6 +85,12 @@ def _create_app(store) -> FastAPI:
     app.state.knowledge = KnowledgeRepository(store)
     from .knowledge_routes import register_knowledge_routes
     register_knowledge_routes(app)
+    from .embedding.process import EmbeddingProcesses
+    from .embedding.repository import EmbeddingRepository
+    from .embedding.routes import register_routes
+    app.state.embedding_processes = EmbeddingProcesses()
+    app.state.embedding = EmbeddingRepository(store, app.state.embedding_processes)
+    register_routes(app)
     app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs, app.state.files, app.state.knowledge)
 
     from .runtime.worker import RunWorker

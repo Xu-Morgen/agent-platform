@@ -254,7 +254,20 @@
       <button id="knowledge-prev" type="button">上一页</button><span id="knowledge-page"></span><button id="knowledge-next" type="button">下一页</button>
     </section>
     <section data-page="settings" class="configuration-page" aria-label="平台设置" hidden>
-      <div class="editor-heading"><div><span class="section-eyebrow">PLATFORM SETTINGS</span><h3>平台设置</h3><p>管理整个工作台的运行配置，适用于所有服务。</p></div><span class="editor-badge">重启后生效</span></div>
+      <div class="editor-heading"><div><span class="section-eyebrow">PLATFORM SETTINGS</span><h3>平台设置</h3><p>管理整个工作台的运行配置，适用于所有服务。</p></div><span class="editor-badge">平台运行配置</span></div>
+      <div class="settings-card platform-settings-card" id="embedding-settings">
+        <div class="panel-heading"><h4>本地 embedding 模型</h4><button id="embedding-refresh" type="button">刷新模型</button></div>
+        <p>使用本地 CPU 进行语义检索。导入后保留应用副本；默认选择仅影响新提交的任务。</p>
+        <label>模型目录（含 embedding.json）<input id="embedding-directory" type="text" placeholder="选择或填写完整模型目录"></label>
+        <button id="embedding-browse" type="button">选择目录</button>
+        <button id="embedding-import" type="button">检查并导入</button>
+        <label>默认模型<select id="embedding-model"><option value="">未选择</option></select></label>
+        <button id="embedding-select" type="button">保存默认选择</button>
+        <button id="embedding-check" type="button">验证所选模型</button>
+        <p id="embedding-status" role="status">尚未读取模型。请导入支持的本地模型并选择默认值。</p>
+        <pre id="embedding-details"></pre>
+        <p class="field-hint">小样例验证只检查可运行性。相似度不是事实可信度；没有就绪模型时语义检索任务会明确失败。</p>
+      </div>
       <form id="platform-settings-form" class="settings-card platform-settings-card">
         <div class="panel-heading"><div><span class="section-eyebrow">任务执行</span><h4>任务并发</h4></div><button id="platform-settings-refresh" type="button">重新读取</button></div>
         <p class="field-hint">同时执行的任务总数。超出上限的任务排队，每个任务内部仍按流程顺序执行。</p>
@@ -287,6 +300,7 @@
   <script src="task-node-names.js"></script>
   <script src="knowledge.js"></script>
   <script src="platform-settings.js"></script>
+  <script src="embedding-settings.js"></script>
   <script src="index.js"></script>
 </body>
 </html>

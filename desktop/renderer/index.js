@@ -19,6 +19,7 @@ async function refreshHealth() {
     await flowEditor.refresh();
     await refreshPlatform();
     await window.platformSettings.refresh();
+    await window.embeddingSettings.refresh();
     await window.knowledgeManager.refresh();
     await refreshRunHistory();
     status.textContent = '后端已就绪';
