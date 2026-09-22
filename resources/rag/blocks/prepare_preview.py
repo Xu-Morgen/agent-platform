@@ -1,4 +1,4 @@
-"""为单份指定版本构造普通读取输入；后接相同 DOCX 读取块。"""
+"""为单份指定版本构造普通读取输入；后接相同 PDF/DOCX 读取块。"""
 from agent_platform.blocks import block
 from agent_platform.blocks.context import BlockContext
 from agent_platform.contracts.node_input import NodeInput
@@ -6,7 +6,7 @@ from agent_platform.contracts.knowledge import DocumentReadRequest
 from agent_platform.contracts.retrieval import DocumentPreviewRequest, DocumentSelection, RetrievalRequest
 
 
-@block(id='rag-prepare-preview', version='1.0.0', name='准备文档预览', description='指定知识库及文档版本，后接普通 DOCX 读取块；无模型调用，无参考输入。')
+@block(id='rag-prepare-preview', version='2.0.0', name='准备文档预览', description='指定知识库及文档版本，后接普通 PDF/DOCX 读取块；无模型调用，无参考输入。')
 async def run(value: NodeInput[DocumentPreviewRequest, tuple[()]], *, context: BlockContext) -> DocumentSelection:
     request = value.primary
     reference = await context.knowledge_resolve(request.knowledge)

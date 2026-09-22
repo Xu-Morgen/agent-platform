@@ -151,25 +151,27 @@ class KnowledgeRepository:
 
     async def import_document(self, knowledge_id, name, chunks, document_id=None):
         self.get(knowledge_id, active=True)
-        if Path(name).suffix.lower() != '.docx':
-            raise knowledge_error('FILE_FORMAT_UNSUPPORTED', '知识库首版仅接受 DOCX')
+        if Path(name).suffix.lower() not in ('.docx', '.pdf'):
+            raise knowledge_error('FILE_FORMAT_UNSUPPORTED', '知识库仅接受 PDF/DOCX')
         file = await self.originals.save(name, chunks)
         try:
-            # 这里只校验原件结构和损坏；正文解析仍由用户块实现。
+            # PDF 在文件存储层检查扩展名与签名，完整结构和密码由读取块校验。
+            # DOCX 保留已有正文 XML 结构检查；平台不提取业务正文。
             path = self.originals.resolve(file)
-            try:
-                with zipfile.ZipFile(path) as archive:
-                    info = archive.getinfo('word/document.xml')
-                    if info.file_size > 50 * 1024 * 1024:
-                        raise knowledge_error('KNOWLEDGE_LIMIT_EXCEEDED', 'DOCX 正文 XML 超过 50 MiB')
-                    xml = archive.read(info)
-                    if b'<!DOCTYPE' in xml or b'<!ENTITY' in xml:
-                        raise ValueError('不支持实体声明')
-                    root = ET.fromstring(xml)
-                    if root.tag != '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}document':
-                        raise ValueError('DOCX 正文根元素无效')
-            except (zipfile.BadZipFile, KeyError, ET.ParseError, ValueError, RuntimeError, OSError):
-                raise knowledge_error('DOCUMENT_CORRUPTED', 'DOCX 原件结构损坏或不受支持') from None
+            if file.format == 'docx':
+                try:
+                    with zipfile.ZipFile(path) as archive:
+                        info = archive.getinfo('word/document.xml')
+                        if info.file_size > 50 * 1024 * 1024:
+                            raise knowledge_error('KNOWLEDGE_LIMIT_EXCEEDED', 'DOCX 正文 XML 超过 50 MiB')
+                        xml = archive.read(info)
+                        if b'<!DOCTYPE' in xml or b'<!ENTITY' in xml:
+                            raise ValueError('不支持实体声明')
+                        root = ET.fromstring(xml)
+                        if root.tag != '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}document':
+                            raise ValueError('DOCX 正文根元素无效')
+                except (zipfile.BadZipFile, KeyError, ET.ParseError, ValueError, RuntimeError, OSError):
+                    raise knowledge_error('DOCUMENT_CORRUPTED', 'DOCX 原件结构损坏或不受支持') from None
             with self.lock:
                 base = self.get(knowledge_id, active=True)
                 members = self.revision(FixedKnowledgeReference(knowledge_id=knowledge_id, revision_id=base.revision_id)).versions
@@ -181,7 +183,7 @@ class KnowledgeRepository:
                     previous = []
                     document_id = 'doc_' + uuid4().hex
                 metadata = DocumentVersion(document_id=document_id, version_id='dv_' + uuid4().hex,
-                    original_name=name, size=file.size, sha256=file.sha256, created_at=now())
+                    original_name=name, format=file.format, size=file.size, sha256=file.sha256, created_at=now())
                 members = [metadata.version_id if v in previous else v for v in members]
                 if not previous:
                     members.append(metadata.version_id)

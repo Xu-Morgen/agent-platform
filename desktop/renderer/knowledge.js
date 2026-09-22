@@ -69,7 +69,7 @@
       }));
       if (!base.archived) {
         const replace = document.createElement('label'); replace.textContent = '替换版本 ';
-        const file = document.createElement('input'); file.type = 'file'; file.accept = '.docx';
+        const file = document.createElement('input'); file.type = 'file'; file.accept = '.docx,.pdf';
         file.addEventListener('change', () => action(async () => {
           if (!file.files[0]) return;
           checked(await api.uploadKnowledgeDocument(base.knowledgeId, file.files[0], item.documentId));
@@ -90,7 +90,7 @@
     el('preview-service').replaceChildren(new Option(previewServices.length ? '请选择正文预览服务' : '暂无兼容的正文预览服务', ''));
     for (const service of previewServices) el('preview-service').append(new Option(`${service.name} · v${service.version}`, service.serviceId));
     el('preview-service').value = previewServices.some(item => item.serviceId === selectedService) ? selectedService : previewServices.length === 1 ? previewServices[0].serviceId : '';
-    el('preview-availability').textContent = previewServices.length ? '仅显示当前协议可执行、预览输入输出契约匹配且环境配置有效的服务。' : '暂无可用服务。请在服务页保存“准备文档预览 → 读取 DOCX 段落”，输入选 DocumentPreviewRequest，输出选 ParsedCorpus，两步高级参考为空，然后刷新此页。';
+    el('preview-availability').textContent = previewServices.length ? '仅显示当前协议可执行、预览输入输出契约匹配且环境配置有效的服务。' : '暂无可用服务。请在服务页保存“准备文档预览 → 读取 PDF/DOCX 正文”，输入选 DocumentPreviewRequest，输出选 ParsedCorpus，两步高级参考为空，然后刷新此页。';
     el('select').replaceChildren(new Option('新建知识库', ''));
     for (const base of bases) el('select').add(new Option(`${base.name}${base.archived ? '（已归档）' : ''}`, base.knowledgeId));
     el('select').value = selected;

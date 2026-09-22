@@ -7,7 +7,7 @@ from agent_platform.contracts.embedding import SemanticSearchRequest
 from agent_platform.contracts.errors import PlatformError, ErrorResponse
 
 
-@block(id='rag-semantic-search', version='1.0.0', name='本地语义检索',
+@block(id='rag-semantic-search', version='2.0.0', name='本地语义检索',
        description='使用任务固定的本地 CPU 模型；tokenizer 切分保留字符定位，余弦 topK 不代表材料足以回答。无参考输入。',
        semanticSearch=True)
 async def run(value: NodeInput[ParsedCorpus, tuple[()]], *, context: BlockContext) -> SearchResults:

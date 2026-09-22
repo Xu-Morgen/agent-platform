@@ -78,3 +78,10 @@
 正式环境已通过设置页导入并选择 BGE-small-zh-v1.5（Xenova ONNX，CPU）。任务固定模型身份、知识库修订和段落来源，历史可查看相似度、候选片段及本地推理统计。仍按任务处理正文，不建设跨任务向量索引。embedding 不计远端 LLM loop/token，生成与审题仍调用 ds。
 
 本次升级验证记录见 [语义检索出题验收](../../docs/archive/2026-09-22/question-semantic-validation.md)。语义候选可能与问题无关，业务结果为 `insufficient_source` 或 `quality_not_met` 时不能视为合格题目。本轮三题初审虽返回 pass，但仍将判断题与论述题考点重叠降级为 advisory；该质量问题尚未修复，不能视为完整内容验收通过。没有宣称 embedding 可以保证题目可靠或核实原材料的现实准确性。
+
+
+## PDF 知识库输入
+
+知识库现可上传 PDF/DOCX 混合资料。新版默认读取块按 PDF 原页码生成证据，扫描页使用本地 OCR；语义检索、规划、出题和审题继续消费相同 EvidenceContext，不需要新增题型或业务分支。
+
+使用 PDF 前，需在页面加载并替换 2.0.0 的 `list_documents.py`、`read_docx.py`、`semantic_search.py`（或所用词面检索）和 `select_evidence.py`，检查原节点参考并保存新实例。读取块依赖与限制见[默认资源手册](../../resources/rag/README.md#pdf-支持与升级2026-09-22)。本次源码交付未改写正式 7.0 实例；旧实例仍固定 DOCX 资源。PDF 上传、读取、OCR 和证据检索已完成轻量验证，尚未以 PDF 进行真实模型出题验收；此前 DOCX 验收不代表 PDF 内容质量通过。

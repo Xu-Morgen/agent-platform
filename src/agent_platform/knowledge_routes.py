@@ -62,4 +62,5 @@ def register_knowledge_routes(app):
         value = DocumentReadRequest(reference=reference, version_id=version_id)
         metadata = repository.metadata(value)
         return FileResponse(repository.original(value), filename=metadata.original_name,
-                            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                            media_type=('application/pdf' if metadata.format == 'pdf' else
+                                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'))

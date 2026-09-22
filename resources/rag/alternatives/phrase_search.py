@@ -4,7 +4,7 @@ from agent_platform.contracts.node_input import NodeInput
 from agent_platform.contracts.retrieval import ParsedCorpus, SearchResults
 
 
-@block(id='rag-phrase-search', version='1.0.0', name='完整短语检索', description='替代词面检索：terms 为完整短语，留空时以整个 query 为短语；按命中短语数和次数排序。不拆词、不扩写；输入输出与默认检索兼容。')
+@block(id='rag-phrase-search', version='2.0.0', name='完整短语检索', description='替代词面检索：terms 为完整短语，留空时以整个 query 为短语；按命中短语数和次数排序。不拆词、不扩写；输入输出与默认检索兼容。')
 def run(value: NodeInput[ParsedCorpus, tuple[()]]) -> SearchResults:
     corpus = value.primary
     terms = list(dict.fromkeys(term.strip().casefold() for term in

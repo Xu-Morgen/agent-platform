@@ -76,7 +76,7 @@ class TaskKnowledgeAccess:
                 if operation == 'file':
                     # 给受信任资源调用专用副本，原件位置与存储结构不外泄；调用结束即清理。
                     source = self.repository.original(request)
-                    target = self.directory / (request.version_id + '.docx')
+                    target = self.directory / (request.version_id + '.' + result.format)
                     shutil.copyfile(source, target)
                     await checkpoint('knowledge_read', self.node_id)
                     return str(target)

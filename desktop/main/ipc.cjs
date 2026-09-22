@@ -122,7 +122,7 @@ function registerConfigurationBridge(backend) {
   ipcMain.removeHandler('platform:uploadKnowledgeDocument');
   ipcMain.handle('platform:uploadKnowledgeDocument', async (event, id, filename, documentId) => {
     if (event.senderFrame?.url.split('#')[0] !== pageURL || event.senderFrame !== event.sender.mainFrame) return failure('CONTRACT_VALIDATION_ERROR', '请求来源无效');
-    if (!backend.address || typeof filename !== 'string' || !path.isAbsolute(filename)) return failure('FILE_SAVE_FAILED', '请选择本地 DOCX');
+    if (!backend.address || typeof filename !== 'string' || !path.isAbsolute(filename)) return failure('FILE_SAVE_FAILED', '请选择本地 PDF/DOCX');
     let stream;
     try {
       stream = require('node:fs').createReadStream(filename);
@@ -141,10 +141,11 @@ function registerConfigurationBridge(backend) {
     const owner = BrowserWindow.fromWebContents(event.sender);
     if (!owner || !backend.address) return failure('BACKEND_UNAVAILABLE', '窗口或后端不可用');
     try {
-      const target = await dialog.showSaveDialog(owner, { title: '保存文档原件', defaultPath: '文档原件.docx' });
-      if (target.canceled) return { ok: true, data: { cancelled: true } };
       const response = await fetch(`${backend.address}/api/v1/knowledge/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/original`, { signal: AbortSignal.timeout(120000) });
       if (!response.ok) return { ok: false, error: await response.json() };
+      const extension = response.headers.get('content-type')?.split(';')[0] === 'application/pdf' ? 'pdf' : 'docx';
+      const target = await dialog.showSaveDialog(owner, { title: '保存文档原件', defaultPath: `文档原件.${extension}` });
+      if (target.canceled) { await response.body?.cancel(); return { ok: true, data: { cancelled: true } }; }
       await require('node:fs/promises').writeFile(target.filePath, Buffer.from(await response.arrayBuffer()));
       return { ok: true, data: { cancelled: false } };
     } catch { return failure('FILE_SAVE_FAILED', '原件获取或保存失败'); }

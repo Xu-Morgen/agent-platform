@@ -27,3 +27,10 @@
 本地语义能力通过 `@block(..., semanticSearch=True)` 显式声明，提供 `context.semantic_split` 与 `context.semantic_search`；使用同一任务知识库范围与 Evidence 来源结构。模型选择、搜索契约和独立历史字段见 [embedding 接口](local-embedding-contracts.md)。不扩大 TaskKnowledge 范围，不隐式支持 TaskFile 或任意路径。
 
 正文预览候选使用 `GET /api/v1/knowledge/preview-services`，返回 `DocumentPreviewService[]`（`serviceId`、`instanceId`、`name`、`version`）。只包含当前协议可执行、输入接受 `{knowledge, versionId}` 且带知识库标记、输出兼容 `ParsedCorpus`、环境配置有效的当前服务。页面提交普通任务时携带候选的 `expectedInstanceId`，服务更新后需刷新重新选择。此接口不解析文档或修改旧服务。
+
+
+## PDF 文档（2026-09-22）
+
+上传和替换版本接受 `.pdf` / `.docx`（扩展名不区分大小写），`DocumentVersion.format` 为 `pdf | docx`。同一逻辑文档允许跨格式替换，旧修订保留原格式、摘要和原件。下载 PDF 返回 `application/pdf`；受控 `knowledge_file` 副本使用对应 `.pdf` / `.docx` 后缀。
+
+上传检查扩展名与签名、50 MiB 上限；DOCX 保留正文 XML 检查，PDF 完整结构、密码、页数及 OCR 错误由可替换读取块报告。上传成功不表示正文已解析或可用于出题。SDK 的 DocumentSelection / ParsedCorpus / SearchResults 包含 DocumentVersion，旧固定资源需通过页面重新加载和保存新实例。

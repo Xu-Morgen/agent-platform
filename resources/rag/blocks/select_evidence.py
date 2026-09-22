@@ -6,7 +6,7 @@ from agent_platform.contracts.knowledge import EvidenceRegistration
 from agent_platform.contracts.retrieval import SearchResults, EvidenceContext
 
 
-@block(id='rag-select-evidence', version='1.0.0', name='整理并登记证据', description='按 topK 与上下文字符总量选择完整片段；记录扫描范围、全部实际候选、选用片段和参数。无参考输入。')
+@block(id='rag-select-evidence', version='2.0.0', name='整理并登记证据', description='按 topK 与上下文字符总量选择完整片段；记录扫描范围、全部实际候选、选用片段和参数。无参考输入。')
 async def run(value: NodeInput[SearchResults, tuple[()]], *, context: BlockContext) -> EvidenceContext:
     result = value.primary
     limits = result.corpus.selection.request.limits

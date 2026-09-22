@@ -5,7 +5,7 @@ from agent_platform.contracts.node_input import NodeInput
 from agent_platform.contracts.retrieval import ParsedCorpus, SearchResults
 
 
-@block(id='rag-lexical-search', version='1.0.0', name='词面检索', description='显式检索词优先；否则中文二元组与英文词。评分=命中词覆盖率×100+各词频次（每词最多5次）；同分按原文顺序。无参考输入。')
+@block(id='rag-lexical-search', version='2.0.0', name='词面检索', description='显式检索词优先；否则中文二元组与英文词。评分=命中词覆盖率×100+各词频次（每词最多5次）；同分按原文顺序。无参考输入。')
 def run(value: NodeInput[ParsedCorpus, tuple[()]]) -> SearchResults:
     corpus = value.primary
     explicit = corpus.selection.request.terms

@@ -42,7 +42,7 @@ class DocumentVersion(StrictModel):
     document_id: DocumentId
     version_id: VersionId
     original_name: str = Field(min_length=1, max_length=255)
-    format: Literal['docx'] = 'docx'
+    format: Literal['pdf', 'docx'] = 'docx'
     size: int = Field(gt=0)
     sha256: SHA256
     created_at: str
