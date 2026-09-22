@@ -5,7 +5,7 @@ from pydantic import Field, JsonValue
 from .base import StrictModel
 from .environments import Environment
 from .errors import ErrorResponse
-from .embedding import EmbeddingSnapshot
+from .embedding import EmbeddingSnapshot, SemanticSearchRecord
 from .knowledge import FixedKnowledgeReference, EvidenceRecord
 
 RunStatus = Literal['queued', 'running', 'completed', 'failed', 'cancelled']
@@ -35,6 +35,7 @@ class Run(StrictModel):
     revision: int = Field(ge=1)
     environment_snapshot: list[Environment] = Field(default_factory=list)
     input: JsonValue
+    semantic_searches: list[SemanticSearchRecord] = Field(default_factory=list, max_length=100)
     embedding_snapshot: EmbeddingSnapshot | None = None
     knowledge_bindings: list[FixedKnowledgeReference] = Field(default_factory=list)
     evidence: list[EvidenceRecord] = Field(default_factory=list)

@@ -79,6 +79,19 @@ class RunRepository:
             run.evidence.append(evidence)
             self._save(run)
 
+    def append_semantic_search(self, run_id, record):
+        from ..contracts.embedding import SemanticSearchRecord
+        from ..embedding.adapter import failure
+        record = SemanticSearchRecord.model_validate(record)
+        with self.lock:
+            run = self.get(run_id)
+            if run.status != 'running' or run.cancel_requested:
+                raise failure('RUN_CANCELLED', '任务不再接受语义搜索记录')
+            if len(run.semantic_searches) >= 100:
+                raise failure('EMBEDDING_INPUT_LIMIT', '单任务最多记录 100 次语义搜索')
+            run.semantic_searches.append(record)
+            self._save(run)
+
     def finish(self, run_id, status, *, result=None, error=None):
         with self.lock:
             run = self.get(run_id)

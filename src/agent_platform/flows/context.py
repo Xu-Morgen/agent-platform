@@ -32,8 +32,13 @@ class FlowRunContext(RunContext):
         with TemporaryDirectory(prefix='agent-knowledge-read-') as directory:
             access = TaskKnowledgeAccess(getattr(self, 'knowledge', None), self.runs, self.run_id,
                 self.qualified(node_id), artifact.content.digest, directory)
+            async def semantic(operation, payload):
+                if not artifact.metadata.uses_semantic_search or getattr(self, 'embedding', None) is None:
+                    raise PlatformError(ErrorResponse(code='EMBEDDING_NOT_READY', stage='block.context',
+                        message='当前块未声明语义检索能力'))
+                return await self.embedding.invoke(operation, payload, access)
             context = BlockContext(files=getattr(self, 'files', None), run_id=self.run_id,
-                                   progress=progress, knowledge=access)
+                                   progress=progress, knowledge=access, semantic=semantic)
             return await self.run_step('nodes.' + node_id,
                 lambda: artifact.invoke(value, api=api, context=context), kind='block')
 

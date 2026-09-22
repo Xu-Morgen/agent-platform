@@ -240,6 +240,7 @@ def compile_flow(draft, catalog):
                 nested.prefix = context.qualified(node.node_id) + '/'
                 nested.files = getattr(context, 'files', None)
                 nested.knowledge = getattr(context, 'knowledge', None)
+                nested.embedding = getattr(context, 'embedding', None)
                 ct = current_context.set(nested)
             pt = execution_path.set((*execution_path.get(), (context.qualified(node.node_id) if context else node.node_id)))
             try:

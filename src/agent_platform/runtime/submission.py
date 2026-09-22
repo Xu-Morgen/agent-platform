@@ -17,10 +17,11 @@ class PendingRun:
 
 
 class RunSubmission:
-    def __init__(self, services, environments, runs, files=None, knowledge=None):
+    def __init__(self, services, environments, runs, files=None, knowledge=None, embedding=None):
         self.services, self.environments, self.runs = services, environments, runs
         self.files = files
         self.knowledge = knowledge
+        self.embedding = embedding
         self.queue = Queue()
         self.stopping = False
 
@@ -33,9 +34,12 @@ class RunSubmission:
             if request.expected_instance_id and request.expected_instance_id != service.active_instance_id:
                 raise PlatformError(ErrorResponse(code='VERSION_CONFLICT', stage='runs.submit', message='当前实例已变化'), 409)
             snapshot = self.services.resolve_current(request.service_id)
+            embedding_snapshot = None
             if snapshot.requires_semantic_search:
-                raise PlatformError(ErrorResponse(code='EMBEDDING_NOT_READY', stage='runs.submit',
-                    message='语义检索运行时尚未配置就绪模型'))
+                if self.embedding is None:
+                    raise PlatformError(ErrorResponse(code='EMBEDDING_NOT_READY', stage='runs.submit',
+                        message='语义检索模型管理器未就绪'))
+                embedding_snapshot = self.embedding.fixed()
             draft = snapshot.draft
             value = (checked(snapshot.catalog.contract(draft.input_contract), request.input, 'runs.input')
                      if validated_input is _UNVALIDATED else validated_input)
@@ -57,7 +61,7 @@ class RunSubmission:
             run = self.runs.create(service_id=service.service_id, instance_id=snapshot.instance_id,
                 files=self.files, references=references,
                 version=service.current.version, revision=service.current.revision,
-                input=plain(value), knowledge_bindings=knowledge_bindings, environment_snapshot=list(environments.values()))
+                embedding_snapshot=embedding_snapshot, input=plain(value), knowledge_bindings=knowledge_bindings, environment_snapshot=list(environments.values()))
             self.environments.occupy(environments, run.run_id)
             self.queue.put_nowait(PendingRun(run.run_id, snapshot))
             return run

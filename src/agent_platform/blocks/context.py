@@ -5,9 +5,10 @@ from ..contracts.errors import ErrorResponse, PlatformError
 
 
 class BlockContext:
-    def __init__(self, *, files=None, run_id=None, models=None, progress=None, knowledge=None):
+    def __init__(self, *, files=None, run_id=None, models=None, progress=None, knowledge=None, semantic=None):
         self._files, self._run_id = files, run_id
         self._knowledge = knowledge
+        self._semantic = semantic
         self._models = MappingProxyType(dict(models or {}))
         self._progress = progress or (lambda event: None)
 
@@ -50,3 +51,16 @@ class BlockContext:
         if self._knowledge is None:
             raise PlatformError(ErrorResponse(code='KNOWLEDGE_SCOPE_ERROR', stage='block.context', message='当前任务未绑定知识库访问能力'))
         return await self._knowledge(operation, request.model_dump(mode='json', by_alias=True))
+
+    async def semantic_search(self, request):
+        from ..contracts.embedding import SemanticSearchRequest, SemanticSearchResult
+        return SemanticSearchResult.model_validate(await self._semantic_call('search', SemanticSearchRequest.model_validate(request)))
+
+    async def semantic_split(self, request):
+        from ..contracts.embedding import SemanticSearchRequest
+        return SemanticSearchRequest.model_validate(await self._semantic_call('split_corpus', SemanticSearchRequest.model_validate(request)))
+
+    async def _semantic_call(self, operation, request):
+        if self._semantic is None:
+            raise PlatformError(ErrorResponse(code='EMBEDDING_NOT_READY', stage='block.context', message='语义检索上下文不可用'))
+        return await self._semantic(operation, request.model_dump(mode='json', by_alias=True))

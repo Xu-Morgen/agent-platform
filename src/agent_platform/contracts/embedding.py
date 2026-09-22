@@ -187,3 +187,11 @@ class EmbeddingJob(StrictModel):
     model: EmbeddingModel | None = None
     diagnostic: EmbeddingDiagnostic | None = None
     error: str | None = None
+
+class SemanticSearchRecord(StrictModel):
+    node_id: str
+    resource_digest: SHA256
+    query: str = Field(min_length=1, max_length=10000)
+    top_k: int = Field(ge=1, le=100)
+    minimum_score: float | None = Field(default=None, ge=-1, le=1, allow_inf_nan=False)
+    result: SemanticSearchResult

@@ -91,7 +91,7 @@ def _create_app(store) -> FastAPI:
     app.state.embedding_processes = EmbeddingProcesses()
     app.state.embedding = EmbeddingRepository(store, app.state.embedding_processes)
     register_routes(app)
-    app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs, app.state.files, app.state.knowledge)
+    app.state.submission = RunSubmission(app.state.services, app.state.environments, app.state.runs, app.state.files, app.state.knowledge, app.state.embedding)
 
     from .runtime.worker import RunWorker
     app.state.worker = RunWorker(app.state.submission, concurrency=app.state.settings.active_run_concurrency)

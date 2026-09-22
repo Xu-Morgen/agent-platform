@@ -88,6 +88,18 @@
       if (!(run.knowledgeBindings || []).length) return;
       const heading = document.createElement('h4'); heading.textContent = '知识库修订与采用证据'; container.append(heading);
       for (const reference of run.knowledgeBindings) { const p = document.createElement('p'); p.textContent = `${reference.knowledgeId} · ${reference.revisionId}`; container.append(p); }
+      if (run.embeddingSnapshot) {
+        const model = document.createElement('p');
+        model.textContent = `本地语义模型：${run.embeddingSnapshot.manifest.name} · ${run.embeddingSnapshot.modelId}`;
+        container.append(model);
+      }
+      for (const record of run.semanticSearches || []) {
+        const details = document.createElement('details'), title = document.createElement('summary'), pre = document.createElement('pre');
+        const stats = record.result.stats;
+        title.textContent = `语义检索：${record.query} · 候选 ${record.result.candidates.length} · 新编码 ${stats.encodedFragments} · 缓存命中 ${stats.cacheHits} · 推理 ${stats.inferenceSeconds.toFixed(3)} 秒`;
+        pre.textContent = JSON.stringify(record, null, 2);
+        details.append(title, pre); container.append(details);
+      }
       for (const record of run.evidence || []) {
         const details = document.createElement('details'), title = document.createElement('summary');
         title.textContent = `查询：${record.query} · 候选 ${record.candidates.length} · 选用 ${record.selected.length} · ${record.scopeLimited ? '扫描范围受限' : '声明范围内扫描完成'}`;

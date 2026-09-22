@@ -160,6 +160,15 @@ class ProcessBlock:
                             await send({'protocolVersion': 1, 'type': 'error', 'error': exc.error.model_dump(mode='json', by_alias=True)})
                         finally:
                             api_active = False
+                    elif message['type'] == 'semantic':
+                        try:
+                            await checkpoint('embedding_access', 'block')
+                            if not self.metadata.uses_semantic_search or context is None or context._semantic is None:
+                                raise failed('EMBEDDING_NOT_READY', '当前块未声明语义检索能力')
+                            result = await context._semantic(message.get('operation'), message.get('request'))
+                            await send({'protocolVersion': 1, 'type': 'result', 'value': result})
+                        except PlatformError as exc:
+                            await send({'protocolVersion': 1, 'type': 'error', 'error': exc.error.model_dump(mode='json', by_alias=True)})
                     elif message['type'] == 'knowledge':
                         try:
                             await checkpoint('knowledge_access', 'block')

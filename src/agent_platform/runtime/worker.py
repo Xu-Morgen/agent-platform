@@ -75,6 +75,8 @@ class RunWorker:
         context = FlowRunContext(run_id, snapshot, runs, model, token_policy, api_transport)
         context.files = self.submission.files
         context.knowledge = self.submission.knowledge
+        from ..embedding.access import TaskEmbedding
+        context.embedding = TaskEmbedding(self.submission.embedding, runs, run_id)
         bt, ct = current_boundary.set(boundary), current_context.set(context)
         try:
             await boundary.check('run_start', run_id)
@@ -101,7 +103,7 @@ class RunWorker:
                 await boundary.check('cleanup', run_id)
             finally:
                 try:
-                    await asyncio.gather(model.close(), api_transport.close())
+                    await asyncio.gather(model.close(), api_transport.close(), context.embedding.close())
                 finally:
                     envs.release(run_id)
                     current_context.reset(ct)
