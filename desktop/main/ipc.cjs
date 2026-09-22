@@ -70,6 +70,7 @@ const operations = {
   importEmbedding: (body) => ['POST', '/embedding/import', body],
   checkEmbedding: (id) => ['POST', `/embedding/models/${encodeURIComponent(id)}/check`],
   embeddingJob: (id) => ['GET', `/embedding/jobs/${encodeURIComponent(id)}`],
+  previewServices: () => ['GET', '/knowledge/preview-services'],
   listKnowledge: () => ['GET', '/knowledge'],
   createKnowledge: (body) => ['POST', '/knowledge', body],
   updateKnowledge: (id, body) => ['PUT', `/knowledge/${encodeURIComponent(id)}`, body],

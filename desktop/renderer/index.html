@@ -246,8 +246,9 @@
       </div>
       <p id="knowledge-status" role="status"></p>
       <div class="settings-card"><h4>正文预览服务</h4>
-        <p>先在服务页保存“准备文档预览 → 读取 DOCX 段落”服务，再在此选择。预览作为普通任务运行，记录解析资源版本；自选服务若含模型节点，会按其配置调用模型。</p>
+        <p>先在服务页保存“准备文档预览 → 读取 DOCX 段落”服务，再刷新此页选择。旧协议和契约不匹配的服务不会进入此列表。预览作为普通任务运行，记录解析资源版本；自选服务若含模型节点，会按其配置调用模型。</p>
         <label>读取服务 <select id="knowledge-preview-service"><option value="">请选择已保存的读取服务</option></select></label>
+        <p id="knowledge-preview-availability" role="status"></p>
         <p id="knowledge-preview-status"></p><pre id="knowledge-preview-result"></pre>
       </div>
       <div id="knowledge-documents"></div>

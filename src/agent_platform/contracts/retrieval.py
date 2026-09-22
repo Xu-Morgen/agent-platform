@@ -79,3 +79,10 @@ class DocumentPreviewRequest(StrictModel):
     knowledge: TaskKnowledge
     version_id: str = Field(pattern=r'^dv_[a-f0-9]{32}$')
     limits: RetrievalLimits = Field(default_factory=RetrievalLimits)
+
+
+class DocumentPreviewService(StrictModel):
+    service_id: str
+    instance_id: str
+    name: str
+    version: str

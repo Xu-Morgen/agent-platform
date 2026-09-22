@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('agentPlatform', Object.freeze({
   importEmbedding: (body) => ipcRenderer.invoke('platform:importEmbedding', body),
   checkEmbedding: (id) => ipcRenderer.invoke('platform:checkEmbedding', id),
   embeddingJob: (id) => ipcRenderer.invoke('platform:embeddingJob', id),
+  previewServices: () => ipcRenderer.invoke('platform:previewServices'),
   listKnowledge: () => ipcRenderer.invoke('platform:listKnowledge'),
   createKnowledge: (body) => ipcRenderer.invoke('platform:createKnowledge', body),
   updateKnowledge: (id, body) => ipcRenderer.invoke('platform:updateKnowledge', id, body),

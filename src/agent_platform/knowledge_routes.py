@@ -11,6 +11,13 @@ from .contracts.knowledge import (
 def register_knowledge_routes(app):
     repository = app.state.knowledge
 
+    from .contracts.retrieval import DocumentPreviewService
+
+    @app.get('/api/v1/knowledge/preview-services', response_model=list[DocumentPreviewService])
+    async def list_preview_services():
+        from .knowledge_preview import preview_services
+        return preview_services(app.state.services, app.state.environments)
+
     @app.get('/api/v1/knowledge', response_model=list[KnowledgeBase])
     async def list_knowledge():
         return repository.list()

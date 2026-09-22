@@ -25,3 +25,5 @@
 管理 API 为 `/api/v1/knowledge` 的创建/列表、`/{knowledgeId}` 更新、`/{knowledgeId}/documents` 分页/单文件流式导入、`/documents/{documentId}` 逻辑移除、`/documents/{documentId}/versions` 历史版本和 `/versions/{versionId}/original` 获取原件。页面批量上传逐项调用同一导入 API 并显示成功/失败；版本替换通过 `documentId` 查询参数指定逻辑文档。保存知识库不生成服务实例版本，重新保存资源/检索配置仍遵守原实例版本规则。
 
 本地语义能力通过 `@block(..., semanticSearch=True)` 显式声明，提供 `context.semantic_split` 与 `context.semantic_search`；使用同一任务知识库范围与 Evidence 来源结构。模型选择、搜索契约和独立历史字段见 [embedding 接口](local-embedding-contracts.md)。不扩大 TaskKnowledge 范围，不隐式支持 TaskFile 或任意路径。
+
+正文预览候选使用 `GET /api/v1/knowledge/preview-services`，返回 `DocumentPreviewService[]`（`serviceId`、`instanceId`、`name`、`version`）。只包含当前协议可执行、输入接受 `{knowledge, versionId}` 且带知识库标记、输出兼容 `ParsedCorpus`、环境配置有效的当前服务。页面提交普通任务时携带候选的 `expectedInstanceId`，服务更新后需刷新重新选择。此接口不解析文档或修改旧服务。
