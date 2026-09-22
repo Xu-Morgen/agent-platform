@@ -1,6 +1,6 @@
 {
   "packageId": "rag-question-parser",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "name": "解析题目要求",
   "description": "主数据 Request，参考 tuple[()]，输出 ParsedRequest。固定知识库证据内出题。",
   "contractRefs": {

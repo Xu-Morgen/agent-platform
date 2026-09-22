@@ -1,6 +1,6 @@
 {
   "packageId": "rag-question-reviewer",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "name": "整体审查知识库题目",
   "description": "主数据 State，参考 tuple[()]，输出 Review。固定知识库证据内出题。",
   "contractRefs": {

@@ -1,5 +1,6 @@
 # BEGIN GENERATED CONTRACTS
 """知识库出题业务的唯一契约源；资源通过 sync_contracts.py 嵌入，不依赖工作区路径。"""
+import re
 from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
@@ -263,6 +264,7 @@ def check_planned(value):
         if len({(i.knowledge_point.strip().casefold(), i.objective.strip().casefold()) for i in decision.items}) != len(decision.items):
             raise ValueError('规划不得完全重复同一考点和考查目标')
         for item in decision.items:
+            check_candidate_text([item.knowledge_point, item.objective], value.context)
             check_citations(value.context, item.evidence)
     else:
         check_missing(decision.missing, value.normalized.items)
@@ -276,8 +278,29 @@ def check_missing(items, expected):
         raise ValueError('缺项只能引用本次请求的题目 ID')
 
 
+def check_candidate_text(texts, context):
+    """证据元数据只用于平台追溯，不进入考生阅读、作答或评分内容。"""
+    fields = re.compile(r'(?i)(?<![a-z0-9_])(?:fragment_?id|document_?id|version_?id|knowledge_?id|revision_?id|sha256)(?![a-z0-9_])')
+    fragments = context.evidence.selected
+    identifiers = {identifier.casefold() for fragment in fragments for identifier in (
+        fragment.fragment_id, fragment.document_id, fragment.version_id,
+        fragment.reference.knowledge_id, fragment.reference.revision_id, fragment.sha256,
+    ) if identifier}
+    for text in texts:
+        if fields.search(text) or any(identifier in text.casefold() for identifier in identifiers):
+            raise ValueError('考生内容不得包含平台证据字段或内部标识；溯源仅写入 evidence')
+
+
 def check_question(question, context):
     check_citations(context, question.evidence)
+    texts = [question.stem]
+    if isinstance(question, Choice):
+        texts.extend([*question.options, question.explanation])
+    elif isinstance(question, Judgment):
+        texts.extend([question.explanation, question.correction])
+    elif isinstance(question, Essay):
+        texts.extend([question.answer, *(point.criterion for point in question.scoring_points)])
+    check_candidate_text(texts, context)
     if isinstance(question, Choice):
         if len({' '.join(o.split()).casefold() for o in question.options}) != 4:
             raise ValueError('单选题四个选项不得重复')
@@ -358,7 +381,7 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-normalize', version='3.0.0', name='规范化题目请求', description='主数据 ParsedRequest；参考 tuple[Request]；输出 Normalized。')
+@block(id='rag-question-normalize', version='4.0.0', name='规范化题目请求', description='主数据 ParsedRequest；参考 tuple[Request]；输出 Normalized。')
 def run(value: NodeInput[ParsedRequest, tuple[Request]]) -> Normalized:
     try:
         parsed, request = value.primary, value.references[0]

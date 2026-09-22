@@ -1,6 +1,6 @@
 {
   "packageId": "rag-question-judgment",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "name": "根据证据生成判断题",
   "description": "主数据 Generation，参考 tuple[()]，输出 Judgment。固定知识库证据内出题。",
   "contractRefs": {

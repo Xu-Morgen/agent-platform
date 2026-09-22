@@ -1,6 +1,6 @@
 {
   "packageId": "rag-question-planner",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "name": "评估证据并规划题目",
   "description": "主数据 EvidenceContext，参考 tuple[Normalized]，输出 Planning。固定知识库证据内出题。",
   "contractRefs": {
