@@ -105,8 +105,30 @@ document.querySelector('#task-service-refresh').addEventListener('click', async 
 });
 const taskStatus = document.querySelector('#task-status');
 const taskError = document.querySelector('#task-error');
+const taskResultCopy = document.querySelector('#task-result-copy');
+const taskResultCopyStatus = document.querySelector('#task-result-copy-status');
 let taskPollTimer;
 let taskQueryGeneration = 0;
+taskResultCopy.addEventListener('click', async () => {
+  const output = document.querySelector('#task-result');
+  if (taskResultCopy.disabled || output.hidden) return;
+  const generation = taskQueryGeneration;
+  taskResultCopy.disabled = true;
+  taskResultCopyStatus.hidden = true;
+  try {
+    await navigator.clipboard.writeText(output.textContent);
+    if (generation !== taskQueryGeneration) return;
+    taskResultCopyStatus.textContent = '结果已复制到剪贴板。';
+  } catch {
+    if (generation !== taskQueryGeneration) return;
+    taskResultCopyStatus.textContent = '复制失败，请重试或手动选中结果复制。';
+  } finally {
+    if (generation === taskQueryGeneration) {
+      taskResultCopy.disabled = output.hidden;
+      taskResultCopyStatus.hidden = false;
+    }
+  }
+});
 let watchedRunId = '', lastRunStatus = '', taskSubmitting = false;
 const runStatusNames = {queued:'排队中',running:'运行中',completed:'已完成',failed:'失败',cancelled:'已取消'};
 function taskElement(tag, text, className) {
@@ -117,6 +139,7 @@ function taskInputNotice(text, error=false) {
   const notice=document.querySelector('#task-input-notice');notice.textContent=text;notice.dataset.error=String(error);
 }
 function taskResultPlaceholder(title, description) {
+  taskResultCopy.disabled=true;taskResultCopyStatus.hidden=true;taskResultCopyStatus.textContent='';
   const businessStatus=document.querySelector('#task-business-status');businessStatus.hidden=true;businessStatus.textContent='';
   const empty=document.querySelector('#task-result-empty');empty.hidden=false;
   empty.replaceChildren(taskElement('span','↳'),taskElement('strong',title),taskElement('p',description));
@@ -238,6 +261,7 @@ async function pollTask(runId, generation) {
     if (generation !== taskQueryGeneration) return;
     if (result.ok) {
       const output=document.querySelector('#task-result');output.textContent=JSON.stringify(result.data.result,null,2);output.hidden=false;document.querySelector('#task-result-empty').hidden=true;
+      taskResultCopy.disabled=false;
       const value=result.data.result;
       const status=typeof value?.status==='string'?value.status:typeof value?.result?.status==='string'?value.result.status:null;
       const businessStatus=document.querySelector('#task-business-status');

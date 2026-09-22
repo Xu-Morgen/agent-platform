@@ -219,7 +219,8 @@
             <details class="task-usage-details"><summary>查看详细用量</summary><pre id="task-usage">选择任务后显示用量明细。</pre></details>
           </div>
           <div class="settings-card task-result-panel">
-            <div class="panel-heading"><div><span class="section-eyebrow">OUTPUT</span><h4>最终结果</h4></div><span class="count-badge">服务输出</span></div>
+            <div class="panel-heading"><div><span class="section-eyebrow">OUTPUT</span><h4>最终结果</h4></div><div class="action-buttons"><span class="count-badge">服务输出</span><button id="task-result-copy" type="button" disabled>复制结果</button></div></div>
+            <p id="task-result-copy-status" class="field-hint" role="status" hidden></p>
             <p id="task-business-status" class="field-hint" role="status" hidden></p>
             <div id="task-result-empty" class="task-empty"><span aria-hidden="true">↳</span><strong>结果将在这里显示</strong><p>任务成功完成后，展示服务返回的数据。</p></div>
             <pre id="task-result" class="json-output" hidden></pre>
