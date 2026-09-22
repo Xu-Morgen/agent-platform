@@ -148,7 +148,8 @@ async function showTaskService() {
     if (generation !== taskSchemaGeneration) return;
     if (!response.ok) { taskInputNotice(taskFailure(response.error),true);return; }
     window.taskFiles.setSchema(response.data.input);
-    await window.taskKnowledge.setSchema(response.data.input);
+    await window.taskKnowledge.setSchema(response.data.input, response.data.examples[0]?.input);
+    if (generation !== taskSchemaGeneration) return;
     document.querySelector('#task-submit').disabled = taskSubmitting || window.taskFiles.pending;
   }
 }
@@ -162,11 +163,13 @@ document.querySelector('#task-example').addEventListener('click', async () => {
   const response = await window.agentPlatform.serviceSchema(id);
   if(taskServiceSelect.value!==id)return;
   if (!response.ok) { taskInputNotice(taskFailure(response.error),true); return; }
-  const index=services.findIndex(s=>s.serviceId===id);services[index]=response.data.service;showTaskService();
+  const index=services.findIndex(s=>s.serviceId===id);services[index]=response.data.service;await showTaskService();
+  if(taskServiceSelect.value!==id)return;
   if(!response.data.examples.length){taskInputNotice('服务没有可用输入样例，请按输入契约填写。',true);return;}
-  document.querySelector('#task-input').value = JSON.stringify(response.data.examples[0].input, null, 2);
+  document.querySelector('#task-input').value = JSON.stringify(window.taskKnowledge.example(response.data.examples[0].input), null, 2);
   document.querySelector('#task-input').setCustomValidity('');
-  taskInputNotice('已填入输入样例，可编辑后提交。');
+  document.querySelector('#task-input').dispatchEvent(new Event('input'));
+  taskInputNotice('已填入业务输入样例，可编辑后提交。');
 });
 document.querySelector('#task-input').addEventListener('input',()=>{
   document.querySelector('#task-input').setCustomValidity('');taskInputNotice('');
