@@ -274,8 +274,9 @@
   <script src="connection-tools.js"></script>
   <dialog id="flow-graph-dialog" aria-labelledby="flow-graph-title">
     <div class="insert-heading"><h3 id="flow-graph-title">服务流程图</h3><button id="flow-graph-close" type="button">关闭</button></div>
-    <p>简易控制流视图。箭头表示执行顺序；固定子服务作为单个节点展示。省略参考数据连线、契约重试、预算及取消路径。草稿图不代表已通过校验。</p>
+    <p>分支按列展开，黄色节点显示条件或路由返回值；条件块展示固定资源的 Python 入口原文。输入输出为契约字段摘要（? 表示可选字段），不表示任务实际数据。固定子服务作为单个节点展示。省略参考数据连线、契约重试、预算及取消路径；草稿图不代表已通过校验。</p>
     <div class="action-buttons"><button id="flow-graph-svg-download" type="button">下载 SVG 图</button><button id="flow-graph-source-download" type="button">下载 Mermaid 代码</button></div>
+    <label>预览缩放 <select id="flow-graph-zoom"><option value="fit">适应宽度</option value="0.5">50%</option><option value="0.75" selected>75%</option><option value="1">100%</option><option value="1.25">125%</option></select></label>
     <div id="flow-graph-preview"></div>
     <label>Mermaid 状态图代码（可选中复制）<textarea id="flow-graph-code" rows="12" readonly spellcheck="false"></textarea></label>
   </dialog>
