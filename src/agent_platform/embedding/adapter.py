@@ -4,7 +4,6 @@ from importlib.metadata import version
 import json
 from pathlib import Path
 import platform
-import sys
 
 from ..contracts.embedding import EmbeddingManifest
 from ..contracts.errors import ErrorResponse, PlatformError
@@ -26,7 +25,10 @@ def read_manifest(root):
 
 
 def verify_files(root, manifest):
-    root = Path(root).resolve(strict=True)
+    try:
+        root = Path(root).resolve(strict=True)
+    except OSError:
+        raise failure('EMBEDDING_NOT_READY', '模型目录不存在或不可读取') from None
     total = 0
     for item in (manifest.weights, manifest.tokenizer, manifest.configuration):
         path = root / item.path
@@ -73,7 +75,15 @@ class BertOnnxEncoder:
                     or config.get('max_position_embeddings', 0) < manifest.max_tokens):
                 raise ValueError()
             graph = onnx.load(str(root / manifest.weights.path), load_external_data=False)
-            if (any(t.data_location == onnx.TensorProto.EXTERNAL for t in graph.graph.initializer)
+            tensors = list(graph.graph.initializer)
+            for sparse in graph.graph.sparse_initializer:
+                tensors.extend((sparse.values, sparse.indices))
+            for node in graph.graph.node:
+                for attribute in node.attribute:
+                    if attribute.HasField('t'):
+                        tensors.append(attribute.t)
+                    tensors.extend(attribute.tensors)
+            if (any(t.data_location == onnx.TensorProto.EXTERNAL for t in tensors)
                     or any(n.domain not in ('', 'ai.onnx') or n.attribute and any(a.HasField('g') or a.graphs for a in n.attribute)
                            for n in graph.graph.node)):
                 raise ValueError()
