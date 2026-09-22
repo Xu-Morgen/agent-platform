@@ -1,0 +1,37 @@
+{
+  "formatVersion": 1,
+  "name": "BGE small zh v1.5 (Xenova ONNX float32)",
+  "publisher": "BAAI / Xenova (ONNX conversion)",
+  "revision": "75c43b069aac4d136ba6bc1122f995fedcfd2781",
+  "license": "MIT",
+  "source": "https://huggingface.co/Xenova/bge-small-zh-v1.5/tree/75c43b069aac4d136ba6bc1122f995fedcfd2781; base https://huggingface.co/BAAI/bge-small-zh-v1.5",
+  "adapter": "bert-onnx",
+  "adapterVersion": "1",
+  "weights": {
+    "path": "onnx/model.onnx",
+    "sha256": "69a0b846f4f116b5e6aabf9546ea6754d02264f3211a13a1bd69b31b8040749a"
+  },
+  "tokenizer": {
+    "path": "tokenizer.json",
+    "sha256": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26"
+  },
+  "configuration": {
+    "path": "config.json",
+    "sha256": "d4193ead3a810fd694fa8a31d7fc72fbaebc0668b603e398734bf2f6538ff42f"
+  },
+  "dimensions": 512,
+  "maxTokens": 512,
+  "pooling": "cls",
+  "normalize": true,
+  "documentInstruction": "",
+  "queryInstruction": "为这个句子生成表示以用于检索相关文章：",
+  "precision": "float32",
+  "runtime": {
+    "onnxruntime": "1.22.1",
+    "onnx": "1.18.0",
+    "numpy": "2.2.6",
+    "tokenizers": "0.21.4"
+  },
+  "python": ">=3.12,<3.13",
+  "platform": "linux-x86_64"
+}
