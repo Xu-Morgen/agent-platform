@@ -1,5 +1,5 @@
 # BEGIN GENERATED CONTRACTS
-"""知识库三题业务的唯一契约源；资源通过 sync_contracts.py 嵌入，不依赖工作区路径。"""
+"""知识库出题业务的唯一契约源；资源通过 sync_contracts.py 嵌入，不依赖工作区路径。"""
 from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
@@ -10,8 +10,8 @@ from agent_platform.contracts.retrieval import EvidenceContext, Citation, Retrie
 
 Text = Annotated[str, Field(min_length=1, pattern=r'\S')]
 Kind = Literal['single_choice', 'true_false', 'essay']
-QuestionId = Literal['choice-1', 'judgment-1', 'essay-1']
-IDS = ['choice-1', 'judgment-1', 'essay-1']
+QuestionId = Annotated[str, Field(pattern=r'^(choice|judgment|essay)-[1-9][0-9]*$')]
+PREFIXES = {'single_choice': 'choice', 'true_false': 'judgment', 'essay': 'essay'}
 KINDS = ['single_choice', 'true_false', 'essay']
 
 
@@ -23,14 +23,14 @@ class Request(StrictModel):
 
 class Demand(StrictModel):
     type: Text = Field(description='规范题型或原始不支持题型；不能把填空等改为判断。')
-    count: int = Field(ge=0, le=10000)
+    count: int = Field(description='请求数量，无业务上限；规范化检查非负且总数至少为一。')
 
 
 class ParsedRequest(StrictModel):
     topic: Text
-    demands: list[Demand] = Field(max_length=30)
+    demands: list[Demand]
     terms: list[Text] = Field(max_length=30)
-    unsupported_constraints: list[Text] = Field(max_length=30, description='首版不能满足的其他要求，不得静默丢弃。')
+    unsupported_constraints: list[Text] = Field(max_length=30, description='不能确定或无法满足的要求；题型内的不同数量不是不支持约束。')
 
 
 class RequestItem(StrictModel):
@@ -43,7 +43,7 @@ class Normalized(StrictModel):
     parsed: ParsedRequest
     supported: bool
     reason: Text
-    items: list[RequestItem] = Field(max_length=3)
+    items: list[RequestItem]
 
 
 class PlanItem(RequestItem):
@@ -59,12 +59,12 @@ class Missing(StrictModel):
 
 class Sufficient(StrictModel):
     status: Literal['sufficient']
-    items: list[PlanItem] = Field(min_length=3, max_length=3)
+    items: list[PlanItem] = Field(min_length=1)
 
 
 class Insufficient(StrictModel):
     status: Literal['insufficient_source']
-    missing: list[Missing] = Field(min_length=1, max_length=3)
+    missing: list[Missing] = Field(min_length=1)
     reason: Text
 
 
@@ -84,7 +84,7 @@ class Generation(StrictModel):
 
 
 class Choice(StrictModel):
-    question_id: Literal['choice-1']
+    question_id: Annotated[str, Field(pattern=r'^choice-[1-9][0-9]*$')]
     type: Literal['single_choice']
     stem: Text
     options: list[Text] = Field(min_length=4, max_length=4, description='依次为 A、B、C、D，规范化后互不重复。')
@@ -94,7 +94,7 @@ class Choice(StrictModel):
 
 
 class Judgment(StrictModel):
-    question_id: Literal['judgment-1']
+    question_id: Annotated[str, Field(pattern=r'^judgment-[1-9][0-9]*$')]
     type: Literal['true_false']
     stem: Text
     answer: bool = Field(description='严格布尔值；未提及不代表错误。')
@@ -109,7 +109,7 @@ class ScoringPoint(StrictModel):
 
 
 class Essay(StrictModel):
-    question_id: Literal['essay-1']
+    question_id: Annotated[str, Field(pattern=r'^essay-[1-9][0-9]*$')]
     type: Literal['essay']
     stem: Text
     answer: Text
@@ -125,12 +125,12 @@ class QuestionEnvelope(StrictModel):
 
 
 class Collection(StrictModel):
-    # foreach 的静态集合出口不承诺非空；汇总块负责准确三题校验。
+    # foreach 的静态集合出口不承诺非空；汇总块负责实际请求数量与 ID 覆盖校验。
     items: list[QuestionEnvelope]
 
 
 class Questions(StrictModel):
-    questions: list[Question] = Field(min_length=3, max_length=3)
+    questions: list[Question] = Field(min_length=1)
 
 
 class Finding(StrictModel):
@@ -143,10 +143,10 @@ class Finding(StrictModel):
 
 class Review(StrictModel):
     verdict: Literal['pass', 'revise', 'regenerate', 'insufficient_source']
-    checked_question_ids: list[QuestionId] = Field(min_length=3, max_length=3)
-    findings: list[Finding] = Field(max_length=30)
+    checked_question_ids: list[QuestionId] = Field(min_length=1)
+    findings: list[Finding]
     rationale: Text
-    missing: list[Missing] = Field(max_length=3)
+    missing: list[Missing]
 
 
 class ReviewRecord(StrictModel):
@@ -170,8 +170,9 @@ class Completed(StrictModel):
 
 class InsufficientResult(StrictModel):
     status: Literal['insufficient_source']
+    requested_items: list[RequestItem] = Field(min_length=1)
     reason: Text
-    missing: list[Missing] = Field(min_length=1, max_length=3)
+    missing: list[Missing] = Field(min_length=1)
     context: EvidenceContext
     history: list[ReviewRecord] = Field(max_length=3)
 
@@ -179,7 +180,7 @@ class InsufficientResult(StrictModel):
 class UnsupportedResult(StrictModel):
     status: Literal['unsupported_request']
     reason: Text
-    supported_scope: Literal['single_choice=1, true_false=1, essay=1']
+    supported_scope: Literal['single_choice, true_false, essay; arbitrary_counts']
     request: Request
 
 
@@ -193,9 +194,29 @@ class Result(StrictModel):
     result: Completed | InsufficientResult | UnsupportedResult | QualityNotMet
 
 
-def check_coverage(items):
-    if [(x.question_id, x.type) for x in items] != list(zip(IDS, KINDS)):
-        raise ValueError('必须按单选、判断、论述顺序各一题，且稳定 ID 与题型对应')
+def requested_counts(parsed):
+    """数量只受实际资源/预算限制，不以固定题量判为不支持。"""
+    if parsed.unsupported_constraints or not parsed.demands:
+        return None
+    counts = dict.fromkeys(KINDS, 0)
+    for demand in parsed.demands:
+        if demand.type not in counts or demand.count < 0:
+            return None
+        counts[demand.type] += demand.count
+    return counts if sum(counts.values()) > 0 else None
+
+
+def request_items(parsed):
+    counts = requested_counts(parsed)
+    if counts is None:
+        return []
+    return [RequestItem(question_id=f'{PREFIXES[kind]}-{index}', type=kind)
+            for kind in KINDS for index in range(1, counts[kind] + 1)]
+
+
+def check_coverage(items, expected):
+    if [(x.question_id, x.type) for x in items] != [(x.question_id, x.type) for x in expected]:
+        raise ValueError('题目数量、顺序、稳定 ID 和题型必须完整匹配本次请求')
 
 
 def check_citations(context, citations):
@@ -209,14 +230,19 @@ def check_citations(context, citations):
 
 
 def check_normalized(value):
-    counts = {}
-    for demand in value.parsed.demands:
-        counts[demand.type] = counts.get(demand.type, 0) + demand.count
-    supported = counts == dict.fromkeys(KINDS, 1) and not value.parsed.unsupported_constraints
-    if value.supported != supported:
+    counts = requested_counts(value.parsed)
+    if value.supported != (counts is not None):
         raise ValueError('支持范围判定与解析要求不一致')
-    if supported:
-        check_coverage(value.items)
+    if counts is not None:
+        if len(value.items) != sum(counts.values()):
+            raise ValueError('请求展开数量不匹配')
+        index = 0
+        for kind in KINDS:
+            for number in range(1, counts[kind] + 1):
+                item = value.items[index]
+                if (item.question_id, item.type) != (f'{PREFIXES[kind]}-{number}', kind):
+                    raise ValueError('请求 ID 必须按题型分组连续编号')
+                index += 1
     elif value.items:
         raise ValueError('不支持的请求不得产生替代题目')
 
@@ -233,19 +259,21 @@ def check_planned(value):
         raise ValueError('证据范围必须等于提交时固定的知识库修订')
     decision = value.planning.decision
     if isinstance(decision, Sufficient):
-        check_coverage(decision.items)
-        if len({i.knowledge_point.strip().casefold() for i in decision.items}) != 3:
-            raise ValueError('规划必须覆盖三个不同考点')
+        check_coverage(decision.items, value.normalized.items)
+        if len({(i.knowledge_point.strip().casefold(), i.objective.strip().casefold()) for i in decision.items}) != len(decision.items):
+            raise ValueError('规划不得完全重复同一考点和考查目标')
         for item in decision.items:
             check_citations(value.context, item.evidence)
     else:
-        check_missing(decision.missing)
+        check_missing(decision.missing, value.normalized.items)
     return value
 
 
-def check_missing(items):
+def check_missing(items, expected):
     if not items or len({i.question_id for i in items}) != len(items):
         raise ValueError('缺项必须非空且不能重复题目 ID')
+    if not {i.question_id for i in items}.issubset({i.question_id for i in expected}):
+        raise ValueError('缺项只能引用本次请求的题目 ID')
 
 
 def check_question(question, context):
@@ -259,15 +287,17 @@ def check_question(question, context):
     return question
 
 
-def check_review(review, context):
-    if review.checked_question_ids != IDS:
-        raise ValueError('审题必须完整覆盖三题')
+def check_review(review, context, expected):
+    if review.checked_question_ids != [item.question_id for item in expected]:
+        raise ValueError('审题必须按请求顺序完整覆盖本次所有题目')
+    if not {f.question_id for f in review.findings}.issubset(set(review.checked_question_ids)):
+        raise ValueError('审查意见不能引用请求之外的题目')
     if review.verdict == 'pass' and any(f.severity == 'blocking' for f in review.findings):
         raise ValueError('有阻断问题不能通过')
     if review.verdict in ('revise', 'regenerate') and not any(f.severity == 'blocking' for f in review.findings):
         raise ValueError('修订与重出必须指出阻断问题')
     if review.verdict == 'insufficient_source':
-        check_missing(review.missing)
+        check_missing(review.missing, expected)
     elif review.missing:
         raise ValueError('仅资料不足结论允许声明缺项')
     for finding in review.findings:
@@ -278,7 +308,7 @@ def check_state(state):
     check_planned(state.planned)
     if not isinstance(state.planned.planning.decision, Sufficient):
         raise ValueError('资料不足不能产生题目状态')
-    check_coverage(state.current.questions)
+    check_coverage(state.current.questions, state.planned.normalized.items)
     for question in state.current.questions:
         check_question(question, state.planned.context)
     expected = state.revision_rounds + (0 if state.awaiting_review else 1)
@@ -287,10 +317,10 @@ def check_state(state):
     for index, record in enumerate(state.history):
         if record.revision_round != index:
             raise ValueError('审查轮数不连续')
-        check_coverage(record.questions.questions)
+        check_coverage(record.questions.questions, state.planned.normalized.items)
         for question in record.questions.questions:
             check_question(question, state.planned.context)
-        check_review(record.review, state.planned.context)
+        check_review(record.review, state.planned.context, state.planned.normalized.items)
         if index < state.revision_rounds and record.review.verdict not in ('revise', 'regenerate'):
             raise ValueError('只有修订或重出结论允许进入下一轮')
     if not state.awaiting_review and state.history[-1].questions != state.current:
@@ -310,10 +340,11 @@ def check_result(value):
         if isinstance(result, QualityNotMet) and (verdict not in ('revise', 'regenerate') or state.revision_rounds != 2):
             raise ValueError('仅两轮修订耗尽仍未通过可以返回质量未达标')
     elif isinstance(result, InsufficientResult):
-        check_missing(result.missing)
+        check_missing(result.missing, result.requested_items)
         result.context.evidence.verify_selection()
         for record in result.history:
-            check_review(record.review, result.context)
+            check_coverage(record.questions.questions, result.requested_items)
+            check_review(record.review, result.context, result.requested_items)
     return value
 
 
@@ -327,17 +358,14 @@ class ValidatedResult(Result):
 from agent_platform.blocks import block
 from agent_platform.contracts.retrieval import RetrievalRequest
 
-@block(id='rag-question-normalize', version='2.0.0', name='规范化三题请求', description='主数据 ParsedRequest；参考 tuple[Request]；输出 Normalized。')
+@block(id='rag-question-normalize', version='3.0.0', name='规范化题目请求', description='主数据 ParsedRequest；参考 tuple[Request]；输出 Normalized。')
 def run(value: NodeInput[ParsedRequest, tuple[Request]]) -> Normalized:
     try:
         parsed, request = value.primary, value.references[0]
-        counts = {}
-        for demand in parsed.demands:
-            counts[demand.type] = counts.get(demand.type, 0) + demand.count
-        supported = counts == dict.fromkeys(KINDS, 1) and not parsed.unsupported_constraints
+        supported = requested_counts(parsed) is not None
         result = Normalized(request=request, parsed=parsed, supported=supported,
-            reason='支持单选、判断、论述各一道' if supported else '首版只支持单选、判断、论述各一道；不支持其他题型、数量或附加约束',
-            items=[RequestItem(question_id=i, type=k) for i, k in zip(IDS, KINDS)] if supported else [])
+            reason='支持单选、判断、论述的任意非负数量组合，总题数至少为一' if supported else '仅支持单选、判断、论述；请明确非负整数数量且总题数至少为一，并检查无法满足的要求',
+            items=request_items(parsed))
         check_normalized(result)
         return result
     except ValueError as exc:

@@ -1,6 +1,6 @@
 {
   "packageId": "rag-question-choice",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "name": "根据证据生成单选题",
   "description": "主数据 Generation，参考 tuple[()]，输出 Choice。固定知识库证据内出题。",
   "contractRefs": {

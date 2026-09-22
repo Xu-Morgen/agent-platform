@@ -3,4 +3,4 @@
 选用证据：{{input.primary.evidence.selected}}
 固定修订：{{input.primary.evidence.reference}}
 扫描受限：{{input.primary.evidence.scopeLimited}}；上下文受限：{{input.primary.contextLimited}}
-decision 为 sufficient 时必须按 choice-1/single_choice、judgment-1/true_false、essay-1/essay 顺序规划三题，knowledgePoint 考点各不相同，objective 明确，每题 evidence 非空。不要把同一个事实换题型重复考查。选用证据为空或不能支撑三题时返回 insufficient_source，reason 限定本次检索范围，missing 列出具体 questionId 和原因。不宣称整个知识库绝对无资料。判断题规划要能从证据确认命题或明确反证。
+decision 为 sufficient 时必须按规范化请求 items 的顺序逐项规划全部题目，原样保留 questionId/type，不得漏题、重复 ID 或增加题目；knowledgePoint 和 objective 应区分各题的考查目标，objective 明确，每题 evidence 非空。不要把同一个事实换题型重复考查。选用证据为空或不能支撑全部请求题目时返回 insufficient_source，reason 限定本次检索范围，missing 列出具体 questionId 和原因。不宣称整个知识库绝对无资料。判断题规划要能从证据确认命题或明确反证。
