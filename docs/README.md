@@ -16,7 +16,7 @@
 | [文档、知识库与最小 RAG](knowledge.md) | DOCX 管理、不可变版本、任务固定修订、证据历史及普通资源读取/检索 |
 | [知识库开发接口](knowledge-api.md) | TaskKnowledge、异步读取代理、证据登记与管理 API |
 | [本地 PostgreSQL](persistence.md) | 安装与启动、数据目录、凭据、持久化和故障恢复 |
-| [数组遍历与枚举分支](control-flow.md) | foreach/switch 页面配置、作用域、教学源码与 flow-6 升级 |
+| [数组遍历与枚举分支](control-flow.md) | 服务流程图与 Mermaid/SVG 导出、foreach/switch 页面配置、作用域、教学源码与 flow-6 升级 |
 | [资源指导手册](resource-guide.md) | 三类模板入口、加载、版本升级与归档 |
 | [外部资源研发手册](external-development-guide.md) | NodeInput、函数签名、API/context、Prompt 与完整示例 |
 | [运行文件与依赖](platform-runtime-files.md) | 文件上传、独立环境、依赖锁、模型缓存与块子进程 |

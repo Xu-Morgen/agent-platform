@@ -246,7 +246,9 @@ class ModuleCatalog:
                     self._contracts[ref] = contract
                     schemas[direction] = contract.schema
                     refs[direction + '_contract'] = ref
+                from .declarations import entry_source
                 view = CatalogResource(resource_id=resource_id, kind=request.kind, name=meta.name,
+                    entry_source=entry_source(content.files['block.py']) if request.kind == 'block' else None,
                     description=meta.description, version=meta.version, digest=artifact.content.digest,
                     schemas=schemas, api_required=meta.uses_api if request.kind == 'block' else False,
                     runtime={'key': artifact.environment['key'], 'lock': artifact.runtime_lock} if request.kind == 'block' else None,

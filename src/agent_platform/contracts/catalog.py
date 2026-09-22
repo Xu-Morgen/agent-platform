@@ -19,6 +19,7 @@ class CatalogResource(StrictModel):
     kind: Literal['package', 'block', 'contract']
     name: str
     description: str = ''
+    entry_source: str | None = None
     archived: bool = False
     version: str
     digest: str

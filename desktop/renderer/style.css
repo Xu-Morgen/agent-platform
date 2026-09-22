@@ -551,3 +551,7 @@ dialog::backdrop { background: #14243e80; backdrop-filter: blur(3px); }
 .settings-values dd { margin: 6px 0 0; color: #2d4d85; font-size: 28px; font-weight: 600; }
 #settings-concurrency { max-width: 240px; }
 @media (max-width: 420px) { .settings-values { grid-template-columns: 1fr; } }
+#flow-graph-dialog { width: min(1200px, 94vw); max-width: 94vw; }
+#flow-graph-preview { overflow: auto; max-height: 58vh; margin: 16px 0; border: 1px solid #cbd5e1; background: white; }
+#flow-graph-preview svg { display: block; max-width: none; }
+#flow-graph-code { width: 100%; box-sizing: border-box; font-family: monospace; }

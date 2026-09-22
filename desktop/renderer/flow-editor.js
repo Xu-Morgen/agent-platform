@@ -793,7 +793,13 @@ const flowEditor = (() => {
       if(isActive){const badge=el('span','当前使用');badge.className='current-version';heading.append(badge);}
       row.append(heading,el('code',version.instanceId));
       const actions=el('div');actions.className='version-actions';
-      actions.append(button('查看快照',()=>viewHistory(selected,version.instanceId)),button('复制为草稿',async()=>{
+      actions.append(button('查看流程图',async()=>{
+        const result=await window.agentPlatform.getServiceVersion(selected,version.instanceId);
+        if(!result.ok){$('history-result').textContent=result.error.message;return;}
+        if(result.data.compilerVersion!=='flow-6'){$('history-result').textContent='流程图仅支持 flow-6；旧协议请查看原始快照。';return;}
+        try{flowGraph.show(result.data.flow,`${current.name} · v${version.version}`,nodeName);}
+        catch(error){$('history-result').textContent=error.message;}
+      }),button('查看快照',()=>viewHistory(selected,version.instanceId)),button('复制为草稿',async()=>{
         const copied=await window.agentPlatform.copyServiceVersion(selected,version.instanceId);
         if(!copied.ok){$('history-result').textContent=copied.error.message;return;}
         draftId=copied.data.draftId;content={...empty(),...clone(copied.data.content)};
@@ -828,6 +834,10 @@ const flowEditor = (() => {
     else tree(history.flow.flow,target);
     const detail=el('details');detail.append(el('summary','完整快照、契约、参数和预算'),el('pre',JSON.stringify(history,null,2)));target.append(detail);
   }
+  $('flow-graph-open').onclick=()=>{
+    try{flowGraph.show(content,`${content.name || '未命名服务'} · 当前编辑内容`,nodeName);}
+    catch(error){$('service-result').textContent=error.message;}
+  };
   $('service-refresh').onclick=()=>refreshSaved();
   $('service-select').onchange=async()=>{
     const id=$('service-select').value;

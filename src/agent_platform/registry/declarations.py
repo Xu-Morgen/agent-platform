@@ -5,7 +5,7 @@ from ..blocks.single import BlockMetadata
 from .validation import invalid, validation_error
 
 
-def read_declaration(source: bytes) -> BlockMetadata:
+def _block_entry(source: bytes):
     tree = ast.parse(source)
     aliases = set()
     modules = set()
@@ -20,11 +20,24 @@ def read_declaration(source: bytes) -> BlockMetadata:
         return ((isinstance(fn, ast.Name) and fn.id in aliases)
                 or (isinstance(fn, ast.Attribute) and fn.attr == 'block' and ast.unparse(fn.value) in modules))
 
-    declarations = [decorator for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    declarations = [(node, decorator) for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
                     for decorator in node.decorator_list if isinstance(decorator, ast.Call) and is_block(decorator.func)]
     if len(declarations) != 1:
         raise invalid('单文件须在顶层恰好声明一个 @block；从 agent_platform.blocks 显式导入', ['entry'])
-    declaration = declarations[0]
+    return declarations[0]
+
+
+def entry_source(source: bytes) -> str:
+    """从已固定源码读取入口，不执行或推断 Python 条件。"""
+    import io
+    import tokenize
+    encoding, _ = tokenize.detect_encoding(io.BytesIO(source).readline)
+    node, _ = _block_entry(source)
+    return ast.get_source_segment(source.decode(encoding), node)
+
+
+def read_declaration(source: bytes) -> BlockMetadata:
+    _, declaration = _block_entry(source)
     if declaration.args or any(k.arg is None for k in declaration.keywords):
         raise invalid('@block 只接受具名的字面量参数，不支持展开或表达式', ['entry'])
     values = {}

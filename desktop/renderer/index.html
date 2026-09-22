@@ -151,7 +151,7 @@
       </form></dialog>
       <div class="config-actionbar flow-savebar">
         <div><strong>将流程保存为可调用的服务</strong><p>草稿可暂存未完成内容；保存版本须通过校验，成功后立即生效。</p></div>
-        <div class="action-buttons"><button id="flow-validate">校验流程</button><button id="instance-save" class="primary-button">校验并保存版本</button></div>
+        <div class="action-buttons"><button id="flow-graph-open">查看流程图</button><button id="flow-validate">校验流程</button><button id="instance-save" class="primary-button">校验并保存版本</button></div>
       </div>
       <p id="service-result" class="inline-status" role="status"></p>
       <ul id="flow-issues" role="alert"></ul>
@@ -271,6 +271,14 @@
   <script src="input-events.js"></script>
   <script src="router.js"></script>
   <script src="connection-tools.js"></script>
+  <dialog id="flow-graph-dialog" aria-labelledby="flow-graph-title">
+    <div class="insert-heading"><h3 id="flow-graph-title">服务流程图</h3><button id="flow-graph-close" type="button">关闭</button></div>
+    <p>简易控制流视图。箭头表示执行顺序；固定子服务作为单个节点展示。省略参考数据连线、契约重试、预算及取消路径。草稿图不代表已通过校验。</p>
+    <div class="action-buttons"><button id="flow-graph-svg-download" type="button">下载 SVG 图</button><button id="flow-graph-source-download" type="button">下载 Mermaid 代码</button></div>
+    <div id="flow-graph-preview"></div>
+    <label>Mermaid 状态图代码（可选中复制）<textarea id="flow-graph-code" rows="12" readonly spellcheck="false"></textarea></label>
+  </dialog>
+  <script src="flow-graph.js"></script>
   <script src="flow-editor.js"></script>
   <script src="task-files.js"></script>
   <script src="task-knowledge.js"></script>
