@@ -29,4 +29,4 @@
 
 ## 节点输入与 Prompt
 
-包入口为 NodeInput[P, tuple[...]]。Prompt 使用 `{{input.primary.field}}`、`{{input.references[0].field}}` 或 `{{parameters.field}}`；加载时验证字段及固定索引，禁止表达式和动态索引。只发送占位符明确使用的数据，不自动把参考数组附加到消息。输入与参考在模型请求前严格校验；参考或完整入口跨字段错误不触发上游重放。
+包入口、Prompt 占位符和发送范围统一见 [包执行说明](../../samples/packages/CONTEXT.md)。节点输入与参考在请求前严格校验；上游重试归因见 [架构说明](../architecture-design.md#13-flow-6-入口与历史边界)。

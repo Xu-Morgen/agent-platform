@@ -4,6 +4,8 @@
 
 ## 2026-09-24 输出整理与文档维护
 
+- [退役资源与配置字段对照](2026-09-24/legacy-resource-migration.md)：集中保存旧包入口、模型/预算字段及 API 路径签名迁移依据；当前开发使用现行手册。
+
 - [知识库出题最终输出精简](2026-09-24/question-output-validation.md)：正式服务 8.0 页面升级、公开结果与无新增模型调用的验证。
 - [手册历史验证摘录](2026-09-24/manual-validation-excerpts.md)：从当前说明退役的 PostgreSQL、flow-5、AI 解释和通用块教学验证；不是本轮重新验收。
 

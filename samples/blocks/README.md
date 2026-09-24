@@ -1,5 +1,7 @@
 # 创建通用块
 
+核对日期：2026-09-24。
+
 通用块是一个可独立加载的 `.py` 文件。无需 package.json。普通计算块只有业务输入；需要外部信息的块可通过 api=True 声明 API 能力，在节点上绑定 API 环境并配置请求路径。
 
 ## 最小实现
@@ -80,6 +82,8 @@ APIResponse 要求响应为仅包含 text 的对象，text 长度为 1～10000 �
 | `name` | 必填，非空 | 页面展示名称 |
 | `description` | 默认空字符串 | 用途说明，不影响执行 |
 | `api` | 默认 false | 声明需要 API 连接；必须使用 async 函数并接收关键字参数 api: BlockAPI |
+| `semanticSearch` | 默认 false | 声明本地语义检索；必须使用 async 函数并接收 context: BlockContext，提交时固定就绪的 embedding 模型；见 [接口](../../docs/local-embedding-contracts.md) |
+| `ocr` | 默认 false | 声明本地 OCR；必须使用 async 函数并接收 context: BlockContext，提交时固定就绪的 OCR 模型组合；见 [接口](../../docs/local-ocr.md) |
 | `dependencies` | 默认空列表 | PEP 508 包版本约束；交付时固定已验证版本 |
 | `dependencySources` | 默认空列表 | 单一 HTTPS 索引或指定包的 HTTPS wheel URL 与 SHA-256 |
 | `models` | 默认空列表 | 独立模型文件的 name/version/url/sha256/filename 清单 |
@@ -140,7 +144,7 @@ response = await api.request('GET', {'query': value.primary.query}, response_typ
 
 `await api.request(method, payload, response_type=APIResponse)` 支持 GET/POST/PUT/PATCH/DELETE；GET 的 payload 为查询参数，其余为 JSON 请求体。节点的 api.path 是 Base URL 下的相对路径，不接受完整 URL、查询字符串或目录回退，不提供隐含默认路径。response_type 必填，响应经过严格校验后返回对应类型；具体响应外壳的解包由块代码完成。
 
-例如 Base URL 为 `https://example.com/api`、节点 path 为 `/lookup`，请求地址为 `https://example.com/api/lookup`。另一个节点可复用同一完整块，把 path 配成 `/search`；接口须接受相同参数并返回符合 APIResponse 的数据。路径随实例快照保存，修改并保存后生成新实例版本，不改变已提交任务或历史版本。旧节点配置需补充 api.path；旧块调用需去掉 request 的路径参数。
+例如 Base URL 为 `https://example.com/api`、节点 path 为 `/lookup`，请求地址为 `https://example.com/api/lookup`。另一个节点可复用同一完整块，把 path 配成 `/search`；接口须接受相同参数并返回符合 APIResponse 的数据。路径随实例快照保存，修改并保存后生成新实例版本，不改变已提交任务或历史版本。
 
 平台固定任务使用的 API 环境，任务排队至结束期间禁止修改所引用环境。请求失败或超时直接报错；输出不满足契约时按服务 retryLimit 重试，次数耗尽后任务失败，错误不回显凭据和原始响应。取消在执行边界生效，应用退出关闭在途本地传输。重试会重新调用该通用块及其外部 API，不撤销已发生的外部操作。
 

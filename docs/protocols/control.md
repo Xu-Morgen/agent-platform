@@ -10,4 +10,4 @@
 
 `desktop/main/backend.cjs` 管理后端生命周期，`server.py` 和 `__main__.py` 处理 Python 启动/退出；独立 API 模式不要求父进程控制通道。`scripts/export_contracts.py` 从权威模型生成桌面使用的 Schema。
 
-当前服务拼图执行协议为 flow-6，不改变本页父子进程 protocolVersion=1。if.condition 与 while.condition 均为完整 kind=block 节点，支持 references；NodeInput 与 FlowDraft 的公开 Schema 来自权威 Python 契约和 FastAPI OpenAPI。节点入口封装不是桌面启动消息。旧实例的 compilerVersion 只用于历史读取和执行边界判断。
+父子进程启动协议独立于服务执行协议；FlowDraft、NodeInput 与旧实例边界见 [架构说明](../architecture-design.md#13-flow-6-入口与历史边界)。

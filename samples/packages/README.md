@@ -1,5 +1,7 @@
 # 创建 Prompt 业务包
 
+核对日期：2026-09-24。
+
 业务包只维护输入输出契约、可选业务参数和 Prompt。平台负责验证、替换占位符、调用一次 LLM、验证并返回业务输出。数据清洗、转换、请求准备和结果加工使用流程中的通用块节点。
 
 ## 最小交付
@@ -24,10 +26,8 @@ my-package/
 
 [全部配置](CONFIGURATION.md) · [标准执行及占位符规则](CONTEXT.md) · [加载、接线和调用](../USAGE.md)
 
-## 从旧业务包迁移
+## 版本与升级
 
-移除 entry、runtimeRequirements、requiredCapabilities，以及 entry.py；把 Prompt 写入 prompt.txt。Config 改为继承 StrictModel，并移出预算字段。把前后处理和 API/块调用迁到独立通用块节点。节点将 capabilities.chat 改为 model，仅保留 environmentId/connectionId；单次输出限额改由节点 maxOutputTokens 配置。
+包目录中的代码、Prompt、README 等内容均参与摘要；修改后须递增版本并重新导入。同版本冲突和实例升级遵循 [资源规则](../../docs/resource-guide.md#更新与归档资源)。旧字段对照见 [历史迁移说明](../../docs/archive/2026-09-24/legacy-resource-migration.md)。
 
-旧清单和旧节点配置会被严格校验拒绝，不自动猜测迁移。修改同一会话已加载的包内容后，必须由维护者递增包版本；重启不会解除已持久化的同版本内容冲突。代码、Prompt、README 等目录内容都参与版本摘要。
-
-最小包版本为 3.0.0，完整包版本为 4.0.0；以各目录 package.json 为准。旧裸输入包须改为 NodeInput，并把 Prompt 改用 input.primary / input.references[0] 路径；重新加载后从服务页保存新实例，旧快照仅供查看。
+模板版本见 [samples 入口](../README.md#版本与接线入口)，实际版本以 package.json 为准。

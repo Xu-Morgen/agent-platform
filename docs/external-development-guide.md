@@ -105,7 +105,7 @@ class Rules(StrictModel):
 }
 ```
 
-此时槽位 0 是完整服务输入，槽位 1 是可见的 `prepareRules` 完整输出。支持 `input`、前序可见 `node`、当前循环 `carry` 或可见 foreach 当前元素 `item`（均需填对应容器 nodeId）；禁止重复、前向、越域及上一轮残留结果。常量和字段路径不能作为高级参考来源。
+此时槽位 0 是完整服务输入，槽位 1 是可见的 `prepareRules` 完整输出。`input` 不填 nodeId；`node` 填前序可见节点 ID；`carry` 和 `item` 分别填可见循环或 foreach 容器 ID；禁止重复、前向、越域及上一轮残留结果。常量和字段路径不能作为高级参考来源。
 
 if/while 条件仍是普通通用块，使用相同注入方式，但返回类型必须是严格 `bool`，不能返回 `1` 或 `{"result":true}`；条件不替换业务主数据。完整容器设置见 [加载与接线](../samples/USAGE.md#控制容器字段)。
 
@@ -170,6 +170,20 @@ context.progress('处理页面', current=3, total=10)
 
 方法为同步调用，不使用 `await`。无确定总量时只报消息；有总量时按实际完成量上报。平台把最新事件写入当前步骤的 `progress`，可在任务详情或 `GET /api/v1/runs/{runId}` 查看。它不追加到业务输出，也不是完整日志流，`10/10` 不代表整个任务成功。`print()` 不是公开日志接口，当前子进程打印不会作为任务日志保存。
 
+### 4.4 知识库访问
+
+输入字段使用 `TaskKnowledge`，平台在提交时固定当前修订；只在已绑定范围调用：
+
+```python
+from agent_platform.contracts.knowledge import TaskKnowledge, KnowledgePageRequest
+
+# 函数依然只声明 *, context: BlockContext；业务输入不携带平台路径。
+reference = await context.knowledge_resolve(value.primary.knowledge)
+page = await context.knowledge_list(KnowledgePageRequest(reference=reference, limit=20))
+```
+
+异步方法、严格契约、上限和错误详见[知识库 API](knowledge-api.md)，可替换的完整资源见[默认 RAG](../resources/rag/README.md)。证据正文摘要和候选/选用关系在登记接口检查，最终回答及引用关系通过明确的核验块检查；这些关系不能依靠结构 Schema 推断为成立。自定义资源必须保留明确错误、准确扫描范围及自身解析身份，不直接访问平台数据库或私有原件目录。
+
 ## 5. api：绑定连接的 JSON 请求
 
 ### 5.1 代码声明与调用
@@ -188,11 +202,11 @@ class Response(StrictModel):
 @block(id='external-lookup', version='1.0.0', name='查询外部文本', api=True)
 async def run(value: NodeInput[Input, tuple[()]], *, api: BlockAPI) -> Response:
     return await api.request(
-        'GET', {'query': value.primary.query}, response_type=Response,
+        'GET', value.primary.model_dump(mode='json', by_alias=True), response_type=Response,
     )
 ```
 
-以上是完整单文件示例，但执行前必须有真实匹配的 API 服务及连接配置。响应必须符合 `Response`；外部接口返回包裹结构时，先声明真实响应契约，再用块代码转换成出口契约。
+本例的 Input 同时定义完整查询请求，平台校验后直接序列化发送；若需重新组装数据，应先用目标请求模型严格校验。以上是完整单文件示例，但执行前必须有真实匹配的 API 服务及连接配置。响应必须符合 `Response`；外部接口返回包裹结构时，先声明真实响应契约，再用块代码转换成出口契约。
 
 ### 5.2 在页面绑定什么
 
@@ -233,7 +247,7 @@ async def run(value: NodeInput[Input, tuple[()]], *, api: BlockAPI) -> Response:
 | 超时 | 来自环境连接的 timeoutSeconds |
 | 响应形式 | 成功 HTTP 响应仍必须是 JSON；不提供原始 Response 或响应头 |
 
-当前接口没有自定义 headers、cookies、multipart、流式下载、动态路径或多连接选择参数；不自动跟随重定向。请求 payload 不会自动依据块输入 Schema 再生成独立请求契约，开发者应从已校验输入构造符合目标接口的数据；`response_type` 则明确承担响应校验。需要多个固定路径时拆为多个节点并分别绑定。
+当前接口没有自定义 headers、cookies、multipart、流式下载、动态路径或多连接选择参数；不自动跟随重定向。请求 payload 不会自动依据块输入 Schema 再生成独立请求契约，接口也没有 `request_type` 参数。开发者须使用明确的严格请求模型构造、校验外发数据，再调用 `model_dump(mode="json", by_alias=True)` 生成 payload；输入已校验不等于组装后的请求已校验。`response_type` 明确承担响应校验。平台尚缺统一外发请求契约绑定，见 [架构边界](architecture-design.md#54-单一契约来源)。需要多个固定路径时拆为多个节点并分别绑定。
 
 传输失败、超时、非 JSON 或响应类型错误会明确失败。不要吞掉异常返回空结果；服务契约重试可能再次执行整个块，外部写操作不会回滚，也没有平台自动去重保证。
 
@@ -305,7 +319,7 @@ raise PlatformError(ErrorResponse(
 
 | 需求 | 当前处理方式 |
 | --- | --- |
-| 直接获取平台 PostgreSQL、repository、事务或主密钥 | 无资源注入接口；平台存储由桌面内部管理 |
+| 直接获取平台 PostgreSQL、repository、事务或主密钥 | 无资源注入接口；平台存储由后端内部管理，桌面负责后端生命周期 |
 | 业务数据库连接、向量库、工具注册表 | 尚未提供统一注入能力；已有外部 JSON 服务可用 API 块对接 |
 | 块内获取 LLM client、模型凭据或 PackageContext | 不提供；模型交互通过 Prompt 包节点 |
 | logger、任意事件总线、artifact 写入接口 | 不提供；步骤进度使用 context.progress，业务结果通过出口 |
@@ -321,20 +335,3 @@ raise PlatformError(ErrorResponse(
 - [节点输入](../src/agent_platform/contracts/node_input.py)、[文件引用](../src/agent_platform/contracts/files.py)、[依赖和模型声明](../src/agent_platform/contracts/dependencies.py)。
 - [节点配置与参考结构](../src/agent_platform/contracts/flows.py)、[Prompt 替换与调用](../src/agent_platform/runtime/packages.py)。
 - [包含 API、附件及进度的完整块](../samples/blocks/complete.py)、[完整 Prompt 包](../samples/packages/complete/README.md)、[独立契约开发](../samples/contracts/README.md)。
-
-本文交付的是当前能力的研发说明，没有新增注入接口或改变运行协议。
-
-
-## 知识库访问
-
-输入字段使用 `TaskKnowledge`，平台在提交时固定当前修订；只在已绑定范围调用：
-
-```python
-from agent_platform.contracts.knowledge import TaskKnowledge, KnowledgePageRequest
-
-# 函数依然只声明 *, context: BlockContext；业务输入不携带平台路径。
-reference = await context.knowledge_resolve(value.primary.knowledge)
-page = await context.knowledge_list(KnowledgePageRequest(reference=reference, limit=20))
-```
-
-异步方法、严格契约、上限和错误详见[知识库 API](knowledge-api.md)，可替换的完整资源见[默认 RAG](../resources/rag/README.md)。证据正文摘要和候选/选用关系在登记接口检查，最终回答及引用关系通过明确的核验块检查；这些关系不能依靠结构 Schema 推断为成立。自定义资源必须保留明确错误、准确扫描范围及自身解析身份，不直接访问平台数据库或私有原件目录。

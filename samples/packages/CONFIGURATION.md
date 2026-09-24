@@ -1,5 +1,7 @@
 # Prompt 包配置参考
 
+核对日期：2026-09-24。
+
 包负责契约和 Prompt；节点负责业务参数取值、模型连接和执行预算；任务另设全局预算。对外 JSON 使用 camelCase。
 
 ## package.json
@@ -18,7 +20,7 @@
 | budgetDefaults.loopLimit | 默认 4 | 节点在单任务中累计进入包的次数上限 |
 | budgetDefaults.tokenLimit | 默认 32768 | 节点在单任务中累计输入与输出 token 上限 |
 
-输入、输出和 Config 都继承 StrictModel。Config 不继承预算类型。只有实际引用的业务参数影响 Prompt，不存在隐式执行逻辑。依赖平台提供的契约工具，无需维护代码依赖、执行入口或模型协议声明。旧 entry/runtimeRequirements/requiredCapabilities 字段不再接受。
+输入、输出和 Config 都继承 StrictModel。Config 不继承预算类型。只有实际引用的业务参数影响 Prompt，不存在隐式执行逻辑。依赖平台提供的契约工具，无需维护代码依赖、执行入口或模型协议声明。清单只接受当前声明的字段。
 
 ## 节点配置
 
@@ -67,9 +69,7 @@ FlowDraft.nodeConfigurations[nodeId]：
 {"loopLimit": 4, "tokenLimit": 32768}
 ```
 
-全局 loopLimit 是所有包节点的累计调用次数上限；tokenLimit 是所有节点模型输入与输出累计 token 上限。两者均为正整数。单次调用开始后即计一轮，后来失败也不返还；包一次尝试只发一个模型请求；不符合输出契约时按服务 retryLimit 重试，每次尝试仍计入预算。预算小于首次调用加重试次数时会提前停止。任务和节点上限同时生效。图步数、通用块调用和循环次数不等同于包 loop。
-
-token 按供应商返回的输入和输出用量累计，请求前检查剩余额度并收紧输出上限；单次请求仍可能超额，响应后立即失败且不发布成功结果。缺少 usage 时明确报计量错误，不估算或记零。
+全局 loopLimit 限制所有包节点的累计调用次数，tokenLimit 限制累计模型输入与输出 token，两者均为正整数。任务与节点上限同时生效，失败与重试均计调用；预算不足可能提前终止重试。token 按供应商实际用量累计，单次请求仍可能超额，缺少 usage 时失败。计数时机、输出收紧及终态边界见 [架构预算规则](../../docs/architecture-design.md#9-loop-与-token-预算)。
 
 ## 模型环境
 
@@ -96,4 +96,4 @@ token 按供应商返回的输入和输出用量累计，请求前检查剩余�
 
 默认 PostgreSQL 模式持久化环境、凭据及任务记录，重启后恢复；只有显式 `--memory` 模式使用会话内存。已提交任务固定实际环境。存储与凭据恢复见 [持久化说明](../../docs/persistence.md)。业务包只能选择 kind=model 的连接；外部 API 的连接引用与请求路径由 [API 通用块节点](../blocks/README.md#完整块的-api-配置) 单独配置，查询结果通过接线传入包。
 
-旧配置迁移：移除环境中的 `modelAdapter` 和预算中的 `strictTokenLimit` 字段；它们不再属于当前契约。外部 API 连接配置见通用块手册，不能加入包节点。
+历史字段迁移见 [退役配置对照](../../docs/archive/2026-09-24/legacy-resource-migration.md)。
