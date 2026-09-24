@@ -6,6 +6,8 @@
 
 原位置：[docs/persistence.md](../../persistence.md)。
 
+当时开发机已安装运行程序与 Python 依赖，数据库位于 `/home/nemo/.config/Agent Platform/storage/postgresql/`。这是历史机器状态，不代表新环境已准备完成，也不是本次重新核验。
+
 以下为历史验证结果。对应开发测试及回归测试已按 [AGENTS.md](../../../AGENTS.md) 规则删除，不再提供运行命令。
 
 10 项 Python 检查（5 项为真实 PostgreSQL 集成）及 4 项桌面后端生命周期检查通过，覆盖：

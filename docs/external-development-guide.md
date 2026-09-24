@@ -2,7 +2,7 @@
 
 适用基线：2026-09-24，执行协议 **flow-6**，Python 3.12+。本文面向编写通用块、Prompt 业务包和独立契约的开发者，说明平台实际向资源提供什么、如何声明、如何配置及如何调用。示例以当前仓库实现为准；平台尚未提供独立发布的第三方 SDK 安装流程，资源在平台准备的 Python 环境中导入 `agent_platform`。
 
-资源卡片现已展示逐位置参考数量、类型和用途；开发者通过模型文档字符串、`Field(description=...)` 和固定元组位置上的 `Annotated` 补充说明，具体见 [资源用途说明](resource-explanation.md)。说明变化也需递增包/块版本，已有实例不会自动升级。
+资源说明与参考用途的声明方式见本文第 3.3 节；页面如何展示及 AI 解释见 [资源用途说明](resource-explanation.md)。说明变化也需按资源版本规则重新导入，已有实例不会自动升级。
 
 ## 1. 能力总表
 
@@ -34,7 +34,7 @@ from agent_platform.contracts.base import StrictModel
 from agent_platform.contracts.node_input import NodeInput
 ```
 
-单个 `.py` 文件必须恰有一个顶层 `@block` 注册函数。第一个参数名称可以自行选择，但必须无默认值、声明 `NodeInput` 类型，并声明返回类型。以下为签名示意，`Input`、`Output` 需在实际文件中定义：
+单个 `.py` 文件必须恰有一个顶层 `@block` 注册函数，可包含未装饰的辅助函数及多个模型。第一个参数名称可以自行选择，但必须是无默认值的位置参数、声明 `NodeInput` 类型，并声明返回类型。以下为签名示意，`Input`、`Output` 需在实际文件中定义：
 
 ```python
 # 普通计算；也允许 async def。
@@ -79,15 +79,7 @@ class Rules(StrictModel):
 
 设节点 A 的主数据是 X，输出是 Y，则其后节点 B 收到 `primary=Y`，简单模式下 `references=(X,)`。不会把 A 的整份 `NodeInput` 或 A 的旧 references 递归带入。
 
-| 位置 | 主数据 | 简单模式参考 |
-| --- | --- | --- |
-| 服务第一步 | 完整服务输入 | 空 |
-| 普通后续节点 | 上一步完整输出 | 上一步当次 primary，恰一项 |
-| if 条件及分支首节点 | 进入 if 的主数据 | 继承进入 if 的默认参考 |
-| while 条件、while/repeat 循环体首节点 | 当前 carry | 空 |
-| foreach 体首节点 | 当前完整元素 | 空 |
-| switch 路由及分支首节点 | 进入 switch 的主数据 | 继承进入 switch 的默认参考 |
-| 容器之后 | 容器完整输出 | 容器入口主数据；循环为初始 carry |
+各控制容器的默认来源、作用域和历史数据隔离统一见 [架构数据规则](architecture-design.md#55-流程结构端口与数据作用域)。
 
 因此零参考资源放在普通后续位置时，必须选高级模式并设空列表 `[]`。高级参考会**替换**默认列表，不能与默认列表自动合并。
 
@@ -105,9 +97,26 @@ class Rules(StrictModel):
 }
 ```
 
-此时槽位 0 是完整服务输入，槽位 1 是可见的 `prepareRules` 完整输出。`input` 不填 nodeId；`node` 填前序可见节点 ID；`carry` 和 `item` 分别填可见循环或 foreach 容器 ID；禁止重复、前向、越域及上一轮残留结果。常量和字段路径不能作为高级参考来源。
+此时槽位 0 是完整服务输入，槽位 1 是可见的 `prepareRules` 完整输出。各来源字段及容器配置见 [加载与接线](../samples/USAGE.md#分支与循环的数据来源)。编写 if/while 条件块时，返回类型须为严格 `bool`；switch 路由使用有限字符串 `Literal`。
 
-if/while 条件仍是普通通用块，使用相同注入方式，但返回类型必须是严格 `bool`，不能返回 `1` 或 `{"result":true}`；条件不替换业务主数据。完整容器设置见 [加载与接线](../samples/USAGE.md#控制容器字段)。
+### 3.3 声明参考位置的用途
+
+字段说明使用 Pydantic `Field(description=...)`，整体结构说明使用模型类文档字符串；包的卡片说明写在 `package.json.description`，块的卡片说明写在 `@block(description=...)`。
+
+每个参考位置用 `Annotated[类型, Field(description=...)]` 说明该位置的业务作用。类型自身的说明描述数据结构，不能代替位置用途；同一类型在不同位置可承担不同作用。例如：
+
+```python
+from typing import Annotated
+from pydantic import Field
+
+# Text 沿用第 3.1 节声明；这是一段入口类型示例。
+class ReviewInput(NodeInput[Text, tuple[
+    Annotated[Text, Field(description='原始文本，用于核对处理结果是否保留事实')],
+]]):
+    """以处理结果为主数据，原文为参考。"""
+```
+
+完整包示范原文事实核对，完整独立契约的 ReviewInput 示范原始批次与结果对照；零参考使用 `tuple[()]`。页面展示规则见 [契约与参考展示](resource-explanation.md#契约与参考展示)。说明变更影响资源内容摘要，按 [版本规则](resource-guide.md#更新与归档资源) 重新导入并保存实例。
 
 ## 4. context：文件、本地模型、进度
 
@@ -136,21 +145,13 @@ def run(value: NodeInput[Input, tuple[()]], *, context: BlockContext) -> Output:
     return Output(size=size)
 ```
 
-`TaskFile` 是带 Schema 标注的文件引用，支持 PDF/DOCX。任务页上传后平台产生 `fileId`、`originalName`、`format`、`size`、`sha256`，业务数据不传本机路径。API 调用者先请求 `POST /api/v1/files?name=example.pdf`，请求体为原始文件流，再把响应中的文件引用放入 `document` 字段提交任务。
+`TaskFile` 是带 Schema 标注的文件引用，支持 PDF/DOCX。先通过任务页或 [文件上传 API](platform-runtime-files.md#文件输入与受控上下文) 保存附件，再将返回引用放入 `document` 字段提交任务；业务数据不传本机路径。
 
-`context.file(reference)` 只能解析当前任务关联的有效引用。平台检查归属和副本完整性，返回平台保存的副本路径；源文件移动不影响该副本。按只读约定使用，文件格式及业务可读性仍由解析块检查。它不是任意文件路径解析器，也没有对应的 `context.save_file()` 输出接口。引用缺失或无权关联当前任务时明确失败；文件上传限制和保留策略见 [运行文件说明](platform-runtime-files.md#文件输入与受控上下文)。
+`context.file(reference)` 只能解析当前任务关联的有效引用。返回 `pathlib.Path`，归属、完整性和副本保留规则由 [运行文件说明](platform-runtime-files.md#文件输入与受控上下文) 维护。按只读约定使用，文件格式及业务可读性仍由解析块检查。它不是任意文件路径解析器，也没有对应的 `context.save_file()` 输出接口。引用缺失或无权关联当前任务时明确失败。
 
 ### 4.2 本地模型路径
 
-模型文件在块加载/准备阶段声明并下载，业务函数只消费已准备的路径。`models` 每项字段如下：
-
-| 字段 | 含义 |
-| --- | --- |
-| `name` | 块内访问名，以英文字母开头，仅字母、数字、下划线、连字符 |
-| `version` | 模型版本标识 |
-| `url` | 固定 HTTPS 地址，不含凭据、查询参数或 fragment |
-| `sha256` | 发布文件实际的 64 位小写 SHA-256 |
-| `filename` | 单个文件名，不能包含目录 |
+模型文件在块加载/准备阶段声明并下载，业务函数只消费已准备的路径。`models` 清单字段、来源和摘要约束见 [静态声明](platform-runtime-files.md#静态声明)。
 
 声明是真实文件时，在带 `context` 的函数内使用：
 
@@ -244,7 +245,7 @@ async def run(value: NodeInput[Input, tuple[()]], *, api: BlockAPI) -> Response:
 | 返回值 | 按 response_type 校验后的值；模型类型可直接读属性 |
 | 路径与连接 | 一个节点绑定一条 API 连接及一个路径；同一入口内多次请求仍使用同一绑定 |
 | 认证 | 平台有凭据时发送 `Authorization: Bearer ...`；凭据不注入业务子进程 |
-| 超时 | 来自环境连接的 timeoutSeconds |
+| 超时 | 单次请求受连接 timeoutSeconds 限制；还受块剩余整体执行时限限制，见 [运行生命周期](platform-runtime-files.md#环境缓存及运行) |
 | 响应形式 | 成功 HTTP 响应仍必须是 JSON；不提供原始 Response 或响应头 |
 
 当前接口没有自定义 headers、cookies、multipart、流式下载、动态路径或多连接选择参数；不自动跟随重定向。请求 payload 不会自动依据块输入 Schema 再生成独立请求契约，接口也没有 `request_type` 参数。开发者须使用明确的严格请求模型构造、校验外发数据，再调用 `model_dump(mode="json", by_alias=True)` 生成 payload；输入已校验不等于组装后的请求已校验。`response_type` 明确承担响应校验。平台尚缺统一外发请求契约绑定，见 [架构边界](architecture-design.md#54-单一契约来源)。需要多个固定路径时拆为多个节点并分别绑定。
@@ -253,7 +254,7 @@ async def run(value: NodeInput[Input, tuple[()]], *, api: BlockAPI) -> Response:
 
 ## 6. Prompt 包：输入与参数替换
 
-包只交付契约、参数和 Prompt，不接收 `api`、`context`，也不编写 `invoke()`。最小目录为 `package.json`、`models.py`、`prompt.txt`。
+包只交付契约、参数和 Prompt，不接收 `api`、`context` 或自定义执行入口。最小目录为 `package.json`、`models.py`、`prompt.txt`。
 
 可直接复制的目录见 [最小包](../samples/packages/minimal/README.md) 和 [完整包](../samples/packages/complete/README.md)。清单、节点参数、连接及预算字段由 [包配置参考](../samples/packages/CONFIGURATION.md) 统一说明；占位符语法、标准调用步骤与错误由 [包执行入口](../samples/packages/CONTEXT.md) 统一说明。
 
@@ -263,11 +264,9 @@ async def run(value: NodeInput[Input, tuple[()]], *, api: BlockAPI) -> Response:
 
 ## 7. 第三方依赖与运行生命周期
 
-`dependencies` 为带版本约束的 PEP 508 列表，正式交付使用已验证的固定版本；标准库、平台 SDK 和内置 Pydantic 不必声明。`dependencySources` 支持单一 HTTPS 索引或带真实 SHA-256 的 wheel 来源；wheel 包必须在 dependencies 中声明。块为单文件快照，不能相对导入旁边未快照的自有源码。包不声明运行依赖。
+第三方库通过 `dependencies` 声明，平台准备独立环境；字段、依赖锁、下载、执行时限和取消边界统一见 [运行文件与依赖](platform-runtime-files.md)。块只快照单文件，不能相对导入旁边未快照的自有源码；包不声明运行依赖。
 
-平台先锁定 wheel 及传递依赖，再准备独立环境与模型缓存；不支持源码构建、安装脚本或系统库自动安装。准备过程可能联网下载，与任务运行及包 loop 分开。完整字段和缓存恢复机制见 [运行文件与依赖](platform-runtime-files.md#静态声明)。
-
-每次块调用使用新子进程，单次业务执行上限当前为 300 秒。不要依赖模块全局变量保存跨调用状态；循环业务状态使用 carry，跨节点数据通过明确契约传递。纯计算取消可以终止子进程；进行中的 API 请求沿用平台传输取消边界。强制退出不保证执行 `finally`，不承诺撤销已完成的外部操作。
+循环状态使用 carry，跨节点数据通过契约传递；不要依赖进程全局变量保存跨调用状态。子进程创建、终止与清理规则见 [运行生命周期](platform-runtime-files.md#环境缓存及运行)。
 
 当前没有 `on_load`、`before_run`、`after_run`、`on_error`、`on_cancel` 等资源钩子。前后处理写在块入口中，普通文件句柄用 `with`，可正常释放的资源用 `try/finally`。平台统一管理任务终态与取消，不向资源注入可修改的流程、预算管理器或持久化检查点。
 
@@ -302,7 +301,7 @@ raise PlatformError(ErrorResponse(
 | Prompt 加载失败 | JSON 字段名、声明参考槽及占位符路径是否有效 |
 | 同版本导入冲突 | 内容改变后是否递增块/包 version，包括注释变化 |
 
-静态不兼容会阻止保存；运行时输入错误阻止消费者执行。输出契约错误按服务 `retryLimit` 重试相应生产者，默认额外 3 次；参考缺失、参考校验及消费者跨字段错误不会重跑无关历史生产者。传输或业务失败不应当作通用自动重试机制使用。包每次尝试均计 loop，token 按供应商实际用量累计。
+静态不兼容阻止保存，运行时输入错误阻止消费者执行；仅符合 [节点重试规则](architecture-design.md#58-节点输入校验与重试) 的契约错误可重试。资源开发者应明确区分业务失败与输出契约错误，每次包尝试按 [任务预算](architecture-design.md#9-loop-与-token-预算) 计量。
 
 建议按以下顺序完成外部资源交付：
 
@@ -321,7 +320,7 @@ raise PlatformError(ErrorResponse(
 | --- | --- |
 | 直接获取平台 PostgreSQL、repository、事务或主密钥 | 无资源注入接口；平台存储由后端内部管理，桌面负责后端生命周期 |
 | 业务数据库连接、向量库、工具注册表 | 尚未提供统一注入能力；已有外部 JSON 服务可用 API 块对接 |
-| 块内获取 LLM client、模型凭据或 PackageContext | 不提供；模型交互通过 Prompt 包节点 |
+| 块内获取 LLM client、模型凭据或包运行上下文 | 不提供；模型交互通过 Prompt 包节点 |
 | logger、任意事件总线、artifact 写入接口 | 不提供；步骤进度使用 context.progress，业务结果通过出口 |
 | runId、nodeId、全局任务对象、可修改预算或取消 token | 不提供公开资源参数；需要业务标识时在契约中明确传入 |
 | 自动执行模型返回的代码或流程 | 不支持；模型输出必须通过固定契约，条件由 Python 块判断 |

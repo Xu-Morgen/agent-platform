@@ -1,6 +1,6 @@
 # 平台标准执行入口
 
-所有业务包统一使用平台入口，不再开放自定义 invoke 或 PackageContext。每次调用执行以下步骤：
+核对日期：2026-09-24。所有业务包统一使用平台入口，不接收运行上下文。每次调用执行以下步骤：
 
 1. 平台检查取消状态、任务和节点预算，并登记一次调用。
 2. 按输入契约验证节点输入，按可选 Config 验证业务参数。
@@ -37,6 +37,6 @@ Prompt 文件丢失、占位符错误在加载时报 CONFIGURATION_ERROR；业�
 
 资料不足时允许返回保留的失败对象 `{"error":"INSUFFICIENT_INPUT"}`（必须完全相同，不加字段）。这是平台失败协议，不属于业务输出契约：平台在记录实际模型用量后以 PACKAGE_INPUT_INSUFFICIENT 终止，不触发格式重试，不把错误对象返回为成功结果。完整模板 Prompt 已包含此用法。
 
-只发送 Prompt 占位符明确引用的数据，不自动附加 references；声明引用的全文与 Prompt 均原样发送，不能静默截断。平台当前没有统一的模型 tokenizer 或上下文容量预检；模型输出额度和累计 token 预算不等于上下文容量。供应商返回已识别的上下文超限机器码时报告 MODEL_CONTEXT_EXCEEDED，其他错误保留 HTTP 状态和原有传输语义，不回显供应商原文。业务连接及预算配置见 [文档出题实例](../../examples/document-question-generation/README.md#模型连接和预算)。
+只发送 Prompt 占位符明确引用的数据，不自动附加 references；声明引用的全文与 Prompt 均原样发送，不能静默截断。平台当前没有统一的模型 tokenizer 或上下文容量预检；模型输出额度和累计 token 预算不等于上下文容量。上下文超限和传输错误的映射见 [模型协议](../../docs/protocols/model.md#openai-兼容远程-chat-completions)。业务连接及预算配置见 [文档出题实例](../../examples/document-question-generation/README.md#模型连接和预算)。
 
-包不维护运行钩子、检查点或取消处理。主动取消等待当前模型传输结束；传输错误优先记失败；关闭应用立即停止本地传输。平台在各执行边界统一检查。
+包不维护运行钩子、检查点或取消处理；平台统一执行 [取消与退出规则](../../docs/architecture-design.md#8-状态机取消与退出)。

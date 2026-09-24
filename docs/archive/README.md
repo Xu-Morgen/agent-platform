@@ -4,17 +4,17 @@
 
 ## 2026-09-24 输出整理与文档维护
 
-- [退役资源与配置字段对照](2026-09-24/legacy-resource-migration.md)：集中保存旧包入口、模型/预算字段及 API 路径签名迁移依据；当前开发使用现行手册。
+- [退役资源与配置字段对照](2026-09-24/legacy-resource-migration.md)：集中保存旧包入口、模型/预算字段、API 路径签名、模板脚本及并发配置迁移依据；当前开发使用现行手册。
 
 - [知识库出题最终输出精简](2026-09-24/question-output-validation.md)：正式服务 8.0 页面升级、公开结果与无新增模型调用的验证。
-- [手册历史验证摘录](2026-09-24/manual-validation-excerpts.md)：从当前说明退役的 PostgreSQL、flow-5、AI 解释和通用块教学验证；不是本轮重新验收。
+- [手册历史验证摘录](2026-09-24/manual-validation-excerpts.md)：从当前说明退役的开发机状态、PostgreSQL、flow-5、AI 解释和通用块教学验证；不是本轮重新验收。
 
 ## 2026-09-22 知识库与出题升级
 
 | 记录 | 范围及限制 |
 | --- | --- |
 | [正文预览修复](2026-09-22/document-preview-fix.md) | 预览候选契约筛选及页面调用 |
-| [知识库 PDF 支持](2026-09-22/knowledge-pdf-validation.md) | PDF/DOCX 上传、替换、读取与证据；未做 PDF 出题真实模型验收 |
+| [知识库 PDF 支持](2026-09-22/knowledge-pdf-validation.md) | PDF/DOCX 上传、替换、读取与证据，保留读取块 2.0.0 历史依赖；未做 PDF 出题真实模型验收 |
 | [题量升级](2026-09-22/question-counts-validation.md) | 任意数量组合的执行验证；两道论述内容结论已被后续纠正 |
 | [内容与溯源隔离](2026-09-22/question-content-validation.md) | 内部标识拒绝、原始需求核对和真实定向修订 |
 | [语义检索出题](2026-09-22/question-semantic-validation.md) | 真实生成与资料不足；考点重叠误降 advisory 尚未修复，非全面内容质量通过 |

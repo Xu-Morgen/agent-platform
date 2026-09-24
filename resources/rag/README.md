@@ -1,5 +1,7 @@
 # 默认 PDF/DOCX 读取与最小 RAG 资源
 
+核对日期：2026-09-24。
+
 这些是可替换的普通资源，长期放在 `resources/rag/`，不占用 samples 的最小/完整模板位置。PDF 读取块声明固定文档解析依赖，通过平台 OCR 能力识别页面，其余块使用平台 SDK 与 Python 标准库；块本身不加载向量依赖、无持久化索引；可选语义块调用平台管理的 CPU 模型。共享数据契约由 SDK 的 `contracts/retrieval.py` 定义，独立入口为 `contracts.py`；平台编译器不引用该检索契约，也不识别专用 RAG 节点。
 
 在服务页逐个加载 `blocks/*.py`、`answer/`，并加载 `contracts.py` 的 `RetrievalRequest` 和 `VerifiedAnswer`。无需聊天模型的读取/检索服务可以在 `EvidenceContext` 结束。
@@ -61,14 +63,14 @@
 2026-09-22 的真实 CPU 模型、页面保存服务、来源追溯及词面对照见 [验收记录](../../docs/archive/2026-09-22/local-embedding-validation.md)：同义查询补充召回，无关问题暴露 topK 误召回边界。没有远端生成或审题调用，不代替默认回答包的质量验收。
 
 
-## PDF 支持与升级（2026-09-22）
+## PDF/OCR 资源与升级
 
-`read_docx.py` 保留文件名及声明 ID `rag-read-docx`，2.0.0 已支持 PDF/DOCX 混合知识库。列举、预览准备、读取、两种默认检索、短语检索替代及证据整理资源均升至 2.0.0，因为中间契约 DocumentVersion.format 新增 pdf。算法未变的检索身份仍保留原算法版本。
+当前 `read_docx.py` 为 `rag-read-docx@3.0.0`，支持 PDF/DOCX 混合知识库；列举、预览准备、两种默认检索、短语检索替代及证据整理资源为 2.0.0，中间契约 DocumentVersion.format 接受 pdf/docx。算法未变的检索身份仍保留原算法版本。
 
 在页面重新加载需要使用的上述块，再在服务草稿中替换对应节点，检查高级参考和节点引用，校验并保存新实例；预览服务还需重新选择新版 ParsedCorpus 输出契约。不能只替换读取节点而保留仅接受 DOCX 元数据的旧检索快照。业务包接收 EvidenceContext，其契约未变，无需改 Prompt。已保存实例不会自动升级。
 
-读取块复用完整文档出题已有的固定依赖组合：PyMuPDF 1.26.7、rapidocr-onnxruntime 1.4.4、onnxruntime 1.23.2、python-docx 1.2.0（后者保留以共用已准备环境，知识库 DOCX 仍用标准库解析）。det/rec/cls 模型的 URL 和 SHA-256 均声明在源码中；任务不自行下载。加载前须准备声明环境，本机验证复用已有环境和模型，未安装依赖。
+读取块只声明 PyMuPDF 1.26.7、python-docx 1.2.0，通过 `ocr=True` 和异步 `context.ocr(...)` 使用平台 OCR。先在平台设置导入并选择就绪模型组合，再提交新版服务任务；即使只读取 DOCX 或纯文字 PDF，提交时也须固定该模型。引擎及模型准备统一见 [OCR 手册](../../docs/local-ocr.md)。旧版块内引擎和下载声明仅作为 [2.0.0 历史依赖记录](../../docs/archive/2026-09-22/knowledge-pdf-validation.md#读取块-200-历史依赖) 保留。
 
 PDF 限制为 1～100 页；需要密码、结构损坏、OCR 无结果或置信度不足均明确失败。渲染限制为 6000 像素边长、2000 万像素，整次读取限 240 秒。总字符/片段上限仍显式标记 scopeLimited；空白页不生成证据，整份空白文档不会伪造正文。OCR 基本阅读顺序不保证复杂表格、多栏、倾斜或低清扫描件的质量，应预览核对。
 
-读取块已升级为 `rag-read-docx@3.0.0`。使用前在平台设置导入并选择 OCR 组合，通过服务页替换节点并保存；旧服务和固定子服务不自动升级。接口及准备方式见 [本地 OCR](../../docs/local-ocr.md)。
+旧服务和固定子服务不自动升级；含固定子服务时还须更新父流程引用。PDF 支持与平台 OCR 的逐轮验证分别见 [PDF 记录](../../docs/archive/2026-09-22/knowledge-pdf-validation.md) 和 [OCR 记录](../../docs/archive/2026-09-22/local-ocr-validation.md)，不覆盖新的远端回答或出题质量验收。

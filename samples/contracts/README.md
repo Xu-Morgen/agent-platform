@@ -1,5 +1,7 @@
 # 创建独立契约
 
+核对日期：2026-09-24。
+
 独立契约是单个 Python 文件中导出的一个类型。它定义数据的合法形状，不是执行函数，不需要 `@block`、package.json、Config 或环境。
 
 ## 最小实现和加载方法
@@ -100,7 +102,7 @@ Python 自定义校验器和 `allow_inf_nan=False` 会使目录契约带有运�
 
 ## 任务文件字段
 
-从 `agent_platform.contracts.files` 导入 `TaskFile`，用 `attachment: TaskFile` 声明必填附件，或像完整模板一样使用 `attachment: TaskFile | None = None` 声明可选附件。Schema 的 `x-platform-file` 标注驱动文件控件；引用包含 fileId、originalName、format、size、sha256，不含本机路径。文件保存、摘要验证和任务归属由平台负责。
+从 `agent_platform.contracts.files` 导入 `TaskFile`，用 `attachment: TaskFile` 声明必填附件，或像完整模板一样使用 `attachment: TaskFile | None = None` 声明可选附件。Schema 的 `x-platform-file` 标注驱动文件控件；引用由平台上传接口生成，不填写本机路径。引用字段、上传和归属规则见 [文件输入说明](../../docs/platform-runtime-files.md#文件输入与受控上下文)。
 
 ## 节点封装与业务端口
 

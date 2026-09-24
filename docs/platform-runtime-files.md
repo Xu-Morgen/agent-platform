@@ -12,7 +12,9 @@
 | `dependencySources` | `{"kind":"index","url":"https://pypi.org/simple"}`，或 `{"kind":"wheel","package":"包名","url":"固定 wheel URL","sha256":"64 位小写摘要"}` |
 | `models` | `{"name":"模型标识","version":"模型版本","url":"固定 HTTPS URL","sha256":"64 位小写摘要","filename":"单个文件名"}` |
 
-最多一个索引源；默认 PyPI。模型名称及 wheel 包名不能重复；wheel 来源须对应直接声明的包。URL 禁止明文 HTTP、凭据、查询参数和 fragment，首期不支持私有下载凭据。模型按独立文件保存，不自动解压。模型地址和摘要必须核对发布者来源，不能以占位摘要作为可运行示例。
+PEP 508 依赖列表不直接填写 URL，指定下载源使用 dependencySources。最多一个索引源；默认 PyPI。模型名称及 wheel 包名不能重复；wheel 来源须对应直接声明的包。URL 禁止明文 HTTP、凭据、查询参数和 fragment，当前不支持私有下载凭据。模型按独立文件保存，不自动解压。模型地址和摘要必须核对发布者来源，不能以占位摘要作为可运行示例。
+
+模型 `name` 以英文字母开头，仅含字母、数字、下划线、连字符；`sha256` 为实际文件的 64 位小写摘要，`filename` 为不含目录的单个文件名。运行时按 name 访问模型文件，多个文件分别声明。
 
 权威定义为 `contracts/dependencies.py` 和 `blocks/single.py`，公开 Schema 由 `scripts/export_contracts.py` 生成。模板见 [完整块](../samples/blocks/complete.py)。
 
@@ -28,23 +30,15 @@
 
 页面通过 `/api/v1/preparations` 发起准备，轮询状态，可取消或重新加载重试。状态显示检查、下载、安装、验证、就绪及失败；仅展示实际已下载字节和服务器提供的总量。默认连接超时 10 秒、读取超时 30 秒、整体准备超时 600 秒；取消在锁等待、子进程轮询或下载分块处生效，网络阻塞等待最多受读取超时限制。准备不计业务 loop，不消耗契约失败重试。
 
-执行使用版本 1 JSON 行协议，stdout 专用于协议；源码打印不进入协议。契约导出、真实 Pydantic 自定义校验和业务调用在对应环境执行，主平台继续做静态兼容检查。单次业务调用上限 300 秒；取消 CPU 计算会终止子进程。API 请求经父进程管理的连接转发，凭据不发给子进程，沿用传输错误和取消边界。每次调用创建新进程，不保证全局变量跨调用保留。
+执行使用版本 1 JSON 行协议，stdout 专用于协议；源码打印不进入协议。契约导出、真实 Pydantic 自定义校验和业务调用在对应环境执行，主平台继续做静态兼容检查。每次调用创建新进程，不保证全局变量跨调用保留。
+
+业务执行阶段整体上限为 300 秒，包含块内计算及所有 API、OCR、embedding 等代理等待，不包含此前的环境准备。单次 API 请求另受连接 timeoutSeconds 限制；连接超时或块剩余整体时限先到者生效。整体超时报 BLOCK_TIMEOUT，取消通信并终止子进程，即使连接超时配置更长也不会继续等待。主动取消本地计算会终止子进程；API 在途时等该请求返回、超时或失败，期间整体时限继续计时。应用退出立即中止本地传输。API 由父进程转发，凭据不发给子进程；终态优先级见 [状态机](architecture-design.md#8-状态机取消与退出)。
+
+强制终止子进程不保证执行资源代码的 `finally`，也不撤销已完成的外部操作。资源钩子及开发时的清理写法见 [研发手册](external-development-guide.md#7-第三方依赖与运行生命周期)。
 
 ## 文件输入与受控上下文
 
-```python
-from agent_platform.blocks import block, BlockContext
-from agent_platform.contracts.base import StrictModel
-from agent_platform.contracts.node_input import NodeInput
-from agent_platform.contracts.files import TaskFile
-
-class Input(StrictModel):
-    document: TaskFile
-
-@block(id='file-size', version='2.0.0', name='任务文件大小')
-def run(value: NodeInput[Input, tuple[()]], *, context: BlockContext) -> int:
-    return context.file(value.primary.document).stat().st_size
-```
+资源用 `TaskFile` 声明附件，通过 `context.file(reference)` 读取当前任务副本。公开方法和可直接加载的文件块示例见 [研发手册](external-development-guide.md#41-可直接加载的文件块)，本节维护上传、保存和清理规则。
 
 `TaskFile` 导出 `x-platform-file` 标注，页面根据标注生成 PDF/DOCX 控件。输入契约仅包含文件字段（含固定嵌套对象）时，只显示文件控件，自动组装提交数据，隐藏 JSON 编辑区与样例按钮。包含其他字段、可空分支或数组结构时保留 JSON 输入；嵌套对象、可空字段和 JSON 中已有的数组项均支持。保存成功才允许提交，平台生成包含 `fileId`、`originalName`、`format`、`size`、`sha256` 的引用。字段内无本机路径。
 
@@ -54,11 +48,11 @@ def run(value: NodeInput[Input, tuple[()]], *, context: BlockContext) -> int:
 
 未提交上传 24 小时后过期，启动时清理过期记录对应文件、失败上传临时文件及孤立文件；运行期间过期引用拒绝提交。历史任务文件不自动删除。内存模式的文件为临时会话数据；持久模式写入数据目录 `task-files/`。
 
-块可通过 `context.model(name)` 获取平台准备的模型路径，按只读约定使用；这是受信任代码接口，不是文件系统权限沙箱。必须显式传递模型路径，任务函数不得调用 pip 或自行下载模型。`context.progress(message, current=..., total=...)` 写入步骤进度；无法计算总量时省略 total，不伪造百分比。
+任务函数不得安装依赖或自行下载模型，已准备路径按只读约定使用；受信任代码接口不构成文件系统权限沙箱。`context.model` 和 `context.progress` 的调用方式见 [研发手册](external-development-guide.md#4-context文件本地模型进度)。
 
 ## 验证与恢复边界
 
-文件、缓存、子进程与桌面控件的开发测试及一次性 OCR 验收脚本已按项目规则删除。历史验证结果见[归档记录](archive/2026-09-20/document-validation-record.md)，文档业务使用[正式读取块与出题包](../examples/document-question-generation/README.md)。
+文件、缓存、子进程与桌面控件的历史验证结果见 [归档记录](archive/2026-09-20/document-validation-record.md)，文档业务使用 [正式读取块与出题包](../examples/document-question-generation/README.md)。
 
 对于改造前未记录依赖锁的持久资源，首次成功恢复会补全当前经过验证的环境锁；原实例内容摘要、版本、任务历史保持原身份，之后继续使用固定锁。平台无法追溯从未记录过的历史安装状态。
 

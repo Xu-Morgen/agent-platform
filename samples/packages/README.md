@@ -18,7 +18,7 @@ my-package/
 3. 在 prompt.txt 编写任务指令和输入占位符。
 4. 加载整个目录，将包插入服务，接线并选择模型连接；配置节点与任务预算后保存。
 
-不编写 entry.py，不声明 requiredCapabilities、runtimeRequirements 或包依赖。契约使用平台已有的 StrictModel/Pydantic；只维护结构和验证规则，不在验证器里做数据转换、调用网络或处理业务流程。包没有独立依赖安装机制。
+执行入口由平台提供，包没有自定义执行入口或独立依赖安装机制。契约使用平台已有的 StrictModel/Pydantic；只维护结构和验证规则，不在验证器里做数据转换、调用网络或处理业务流程。
 
 `package.json` 为固定清单名；契约文件名由符号引用决定。Prompt 默认读取 prompt.txt，可用 prompt 字段改成包内相对路径。所有内容从内存快照读取。
 
@@ -28,6 +28,6 @@ my-package/
 
 ## 版本与升级
 
-包目录中的代码、Prompt、README 等内容均参与摘要；修改后须递增版本并重新导入。同版本冲突和实例升级遵循 [资源规则](../../docs/resource-guide.md#更新与归档资源)。旧字段对照见 [历史迁移说明](../../docs/archive/2026-09-24/legacy-resource-migration.md)。
+包目录中的代码、Prompt、README 等内容均参与摘要；修改后须递增版本并重新导入。排除目录、符号链接限制和包内相对导入见 [包目录快照](../../docs/resource-guide.md#包目录快照)。同版本冲突和实例升级遵循 [资源规则](../../docs/resource-guide.md#更新与归档资源)。旧字段对照见 [历史迁移说明](../../docs/archive/2026-09-24/legacy-resource-migration.md)。
 
 模板版本见 [samples 入口](../README.md#版本与接线入口)，实际版本以 package.json 为准。

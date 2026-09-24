@@ -4,11 +4,7 @@
 
 ## 使用与数据位置
 
-当前工作环境已安装所需运行程序与 Python 依赖，直接运行：
-
-```bash
-env -u ELECTRON_RUN_AS_NODE npm --prefix desktop start
-```
+准备好下文所列运行程序与依赖后，按 [项目启动说明](../readme.md#启动) 启动桌面或独立 API。
 
 Electron 使用 `app.getPath('userData')/storage`；默认 Linux 路径为：
 
@@ -25,7 +21,7 @@ Electron 使用 `app.getPath('userData')/storage`；默认 Linux 路径为：
 └── desktop.lock      防止两个后端管理同一个目录
 ```
 
-本机实际数据库目录为 `/home/nemo/.config/Agent Platform/storage/postgresql/`。页面左侧显示当前存储目录；`GET /api/v1/platform` 返回 `persistent=true` 和 `dataDirectory`。源码仓库、node_modules 和数据库数据目录相互独立，退出应用保留数据。
+以页面左侧显示的实际存储目录为准；`GET /api/v1/platform` 返回 `persistent=true` 和 `dataDirectory`。源码仓库、node_modules 和数据库数据目录相互独立，退出应用保留数据。
 
 数据库运行程序安装在 `~/.local/share/agent-platform/postgresql/`，此目录不包含业务数据。当前按源码方式运行，不分发跨平台安装包；已验收 Linux，macOS 的运行程序发现与生命周期代码尚未实际验收，Windows 生命周期暂不支持。
 
@@ -48,13 +44,7 @@ Ubuntu 24.04 可显式执行一次用户级 PostgreSQL 安装脚本：
 
 正常启动不下载依赖。数据库程序缺失、密钥损坏或数据库不可用时明确报错，不退回内存。当前依赖锁定为 psycopg 3.3.5、cryptography 50.0.1；PostgreSQL 程序版本由安装时的系统发行源确定，已有数据目录必须匹配原主版本，不自动执行跨主版本升级。
 
-独立 API 启动也默认管理相同的本地数据库：
-
-```bash
-.venv/bin/python -m agent_platform --host 127.0.0.1 --port 8000
-```
-
-开发隔离使用 `--data-dir /absolute/path`；桌面和独立后端不能同时占用同一目录。只有显式传入 `--memory` 才启用开发用内存模式，不能与 `--data-dir` 同时使用。桌面不提供内存切换，外部传入的数据库 URL/主密钥也不覆盖其内部连接。
+独立 API 启动也默认管理相同的本地数据库；开发隔离使用 `--data-dir /absolute/path`，桌面和独立后端不能同时占用同一目录。只有显式传入 `--memory` 才启用开发用内存模式，不能与 `--data-dir` 同时使用。桌面不提供内存切换，外部传入的数据库 URL/主密钥也不覆盖其内部连接。
 
 ## 启动、退出与故障
 
@@ -93,9 +83,7 @@ Ubuntu 24.04 可显式执行一次用户级 PostgreSQL 安装脚本：
 
 恢复记录不重入队、不重放外部操作。历史回退使用当前环境；版本编号按已保存历史继续，资源从已保存字节加载，删除原始源码后仍可使用。
 
-LangGraph 继续执行配置者定义的图，当前 `checkpointer=None`。平台数据持久化用于保存配置与历史；按用户明确决定，不考虑断点续跑，不建设 LangGraph 执行检查点或暂停恢复。长期记忆也不在当前交付范围。模型仍只输出严格契约内的数据，分支和循环条件由脚本块判断。
-
-备份恢复用于还原保存的数据，不会使中断任务自动继续。产品理由见 [产品决策](product-requirements.md#明确不考虑的能力2026-09-21)，实现边界见 [执行恢复说明](architecture-design.md#122-记录持久化不扩展为执行恢复)。
+备份恢复用于还原保存的数据，不会使中断任务自动继续。产品理由见 [产品决策](product-requirements.md#明确不考虑的能力2026-09-21)，执行检查点与恢复边界见 [架构说明](architecture-design.md#12-运行与扩展边界)。
 
 ## 验证范围与维护边界
 

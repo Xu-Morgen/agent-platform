@@ -18,11 +18,11 @@
 | [知识库开发接口](knowledge-api.md) | TaskKnowledge、异步读取代理、证据登记与管理 API |
 | [本地 PostgreSQL](persistence.md) | 安装与启动、数据目录、凭据、持久化和故障恢复 |
 | [数组遍历与枚举分支](control-flow.md) | 服务流程图与 Mermaid/SVG 导出、foreach/switch 页面配置、作用域、教学源码与 flow-6 升级 |
-| [资源指导手册](resource-guide.md) | 三类模板入口、加载、版本升级与归档 |
+| [资源指导手册](resource-guide.md) | 模板入口、包目录快照范围、版本升级与归档 |
 | [外部资源研发手册](external-development-guide.md) | NodeInput、函数签名、API/context、Prompt 与完整示例 |
 | [运行文件与依赖](platform-runtime-files.md) | 文件上传、独立环境、依赖锁、模型缓存与块子进程 |
-| [服务组合与契约选择](service-composition.md) | 一层固定版本服务嵌套、共享契约与参考用途展示 |
-| [资源用途与 AI 解释](resource-explanation.md) | 说明字段、基于草稿的解释、数据发送范围与升级方式 |
+| [服务组合与契约选择](service-composition.md) | 一层固定版本服务嵌套、共享契约身份与选择规则 |
+| [资源用途与 AI 解释](resource-explanation.md) | 契约与参考展示、基于草稿的解释、数据发送范围与升级方式 |
 | [模型协议](protocols/model.md) | 平台的 OpenAI 兼容请求、连接诊断与用量校验 |
 | [桌面控制协议](protocols/control.md) | Electron 与后端的启动、就绪和退出通信 |
 
@@ -37,10 +37,11 @@
 
 ## 文档维护职责
 
-- `readme.md`：项目概览、启动和操作入口；不追加业务升级流水。
+- `readme.md`：项目概览、桌面与独立 API 启动命令和操作入口；安装命令与数据库准备由 `persistence.md` 维护，其他手册链接对应入口；不追加业务升级流水。
 - `product-requirements.md`：产品范围、决策和未完成边界；`architecture-design.md`：执行机制与技术约束。
-- 专项手册：当前操作、接口和限制。资源版本及归档规则由 `resource-guide.md` 维护；旧执行协议升级见 [控制流手册](control-flow.md#协议升级)，已退役字段仅在 [历史迁移对照](archive/2026-09-24/legacy-resource-migration.md) 保留。
+- 专项手册：当前操作、接口和限制。资源版本、包目录快照范围及归档规则由 `resource-guide.md` 维护；旧执行协议升级见 [控制流手册](control-flow.md#协议升级)，已退役字段仅在 [历史迁移对照](archive/2026-09-24/legacy-resource-migration.md) 保留。
 - `samples/README.md`：模板导航；`samples/USAGE.md`：加载与接线；分类文档：具体模板字段与用法。跨资源能力由 [研发手册](external-development-guide.md) 说明，专用接口以对应手册和源码为准。
 - 业务手册：当前正式版本、资源升级及验收边界；`archive/`：分阶段历史证据。新增归档同步更新 [归档索引](archive/README.md)，不得把旧版通过结论套到新版。
 - `AGENTS.md`：协作约束、必要授权和当前入口；不维护完整交付时间线。修改当前说明时更新核对日期和相关链接。
-- 同一规则只在负责文档中维护完整定义：架构维护执行语义，USAGE 维护接线操作，CONFIGURATION 维护包配置字段，CONTEXT 维护标准调用与占位符。其他入口用短摘要和链接，阶段验收过程进入归档。
+- 同一规则只在负责文档中维护完整定义：架构维护快照与回退、环境占用、状态机、数据来源、作用域、重试和任务预算语义；USAGE 维护加载、模板接线、节点配置片段、草稿与正式流程的区别及保存与调用请求示例；产品说明保留对外调用的能力边界，架构说明维护 API 执行与错误语义，完整接口契约以运行中后端的 OpenAPI 为准；CONFIGURATION 维护包配置字段；CONTEXT 维护标准调用、占位符和包失败协议。
+- 研发手册维护公开函数签名、参考用途标注及 API/context 调用方法；资源解释手册维护契约与参考展示；运行文件手册维护依赖与模型清单、准备流程、文件保留及子进程生命周期；模型协议维护连接字段及默认值、连接诊断、传输参数和响应校验；任务并发的默认值、范围及设置操作由 readme 维护，架构维护消费者调度机制。模板文档只解释具体示例，其他入口用短摘要和链接，阶段验收过程进入归档。

@@ -60,6 +60,9 @@ def checked(contract, value, stage):
         if exc.error.code in ('CONTRACT_VALIDATION_ERROR', 'OUTPUT_VALIDATION_ERROR'):
             exc.error.stage = stage
             exc.error.code = 'OUTPUT_VALIDATION_ERROR' if stage.endswith('output') else 'CONTRACT_VALIDATION_ERROR'
+            if stage == 'runs.input':
+                # 子进程只传错误对象；HTTP 输入边界统一状态，兼容已固定的旧 SDK。
+                exc.status_code = 422
         raise
     except ValidationError as exc:
         from ..validation_issues import validation_exception

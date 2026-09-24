@@ -69,7 +69,7 @@ FlowDraft.nodeConfigurations[nodeId]：
 {"loopLimit": 4, "tokenLimit": 32768}
 ```
 
-全局 loopLimit 限制所有包节点的累计调用次数，tokenLimit 限制累计模型输入与输出 token，两者均为正整数。任务与节点上限同时生效，失败与重试均计调用；预算不足可能提前终止重试。token 按供应商实际用量累计，单次请求仍可能超额，缺少 usage 时失败。计数时机、输出收紧及终态边界见 [架构预算规则](../../docs/architecture-design.md#9-loop-与-token-预算)。
+全局 loopLimit 限制所有包节点的累计调用次数，tokenLimit 限制累计模型输入与输出 token，两者均为正整数。含包的固定子服务也要求父流程配置全局预算。页面初始化与后续手动调整、累计计数、输出收紧及终态边界统一见 [架构预算规则](../../docs/architecture-design.md#9-loop-与-token-预算)。
 
 ## 模型环境
 
@@ -90,10 +90,8 @@ FlowDraft.nodeConfigurations[nodeId]：
 }
 ```
 
-地址和模型名需替换为实际部署。连接支持 credential（写入新凭据）或 credentialRef（引用平台已保存凭据），二选一；两者也可省略。凭据不进入包或 Prompt。Base URL 不能包含认证信息、query 或 fragment。
+地址和模型名需替换为实际部署；本例显式设置 60 秒超时，保存环境不会发起请求。凭据、URL 限制、HTTP 与桌面表单默认值统一见 [连接字段与默认值](../../docs/protocols/model.md#连接字段与默认值)，传输参数及页面修改地址的行为见同一协议手册。环境保存与凭据恢复见 [持久化说明](../../docs/persistence.md)。
 
-模型统一使用 OpenAI 兼容 Chat Completions，无协议选择字段。outputTokenParameter 默认 max_completion_tokens，也支持 max_tokens；jsonMode 默认 true；timeoutSeconds 默认 60。平台在 Base URL 后追加 /chat/completions。关闭 JSON 模式也不免除输出 JSON 与业务结构校验，详见 [模型协议](../../docs/protocols/model.md)。
-
-默认 PostgreSQL 模式持久化环境、凭据及任务记录，重启后恢复；只有显式 `--memory` 模式使用会话内存。已提交任务固定实际环境。存储与凭据恢复见 [持久化说明](../../docs/persistence.md)。业务包只能选择 kind=model 的连接；外部 API 的连接引用与请求路径由 [API 通用块节点](../blocks/README.md#完整块的-api-配置) 单独配置，查询结果通过接线传入包。
+业务包的 model 只能引用 kind=model 的连接；API 查询由 [API 通用块节点](../blocks/README.md#完整块的-api-配置) 单独绑定，再将查询结果通过接线传入包。
 
 历史字段迁移见 [退役配置对照](../../docs/archive/2026-09-24/legacy-resource-migration.md)。

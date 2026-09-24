@@ -5,7 +5,7 @@
     模型交互由 Prompt 包承担；服务负责组织流程，本文件不创建或修改流程。
 
 学习顺序：
-    1. Options / Input / APIResponse / Output：声明选项、入口、外部响应与出口。
+    1. Options / APIRequest / Input / APIResponse / Output：声明选项、外发请求、入口、响应与出口。
     2. normalize_text：普通辅助函数与显式业务错误。
     3. @block：唯一执行入口、全部静态声明字段与资源版本。
     4. normalize：平台注入 API/context，附件访问、异步请求和实际进度。
@@ -50,26 +50,31 @@ class Options(StrictModel):
     require_content: bool = Field(default=False, description='开启后，正文整理为空白时明确失败；前缀不能充当正文')
 
 
-class Input(StrictModel):
-    """服务首步接收服务输入；其他普通步骤接收上一层完整输出。"""
+class APIRequest(StrictModel):
+    """外发查询契约；入口复用同一字段规则，发送前再验证实际请求。"""
 
     query: str = Field(min_length=1, max_length=10000, description='发送给 API 的非空白查询文本')
-    options: Options = Field(default_factory=Options, description='省略时创建本次调用独立的默认选项')
-    # TaskFile 是平台生成的引用，不是路径或二进制；可空字段会生成可选上传控件。
-    attachment: TaskFile | None = Field(default=None, description='可选任务附件；由任务页面选择并保存')
 
     @field_validator('query')
     @classmethod
     def query_has_content(cls, value: str) -> str:
         """字段长度无法排除纯空白，补充运行时业务约束，但不偷偷修改查询内容。
 
-        平台在调用入口前执行此校验，失败不会请求 API。跨字段约束可使用
+        入口和外发请求共用此校验，失败不会请求 API。跨字段约束可使用
         model_validator；自定义校验不能完整表达为 JSON Schema，会影响静态契约
         兼容性，因此教学服务直接使用本块导出的 primaryContract。
         """
         if not value.strip():
             raise ValueError('查询文本不能只有空白')
         return value
+
+
+class Input(APIRequest):
+    """服务首步接收服务输入；其他普通步骤接收上一层完整输出。"""
+
+    options: Options = Field(default_factory=Options, description='省略时创建本次调用独立的默认选项')
+    # TaskFile 是平台生成的引用，不是路径或二进制；可空字段会生成可选上传控件。
+    attachment: TaskFile | None = Field(default=None, description='可选任务附件；由任务页面选择并保存')
 
 
 class APIResponse(StrictModel):
@@ -112,7 +117,7 @@ def normalize_text(original: str, options: Options) -> str:
 
 @block(
     id='sample-normalize',
-    version='3.0.0',  # 相同 id/version 不能对应不同源码；归档也不会释放版本号。
+    version='3.0.1',  # 相同 id/version 不能对应不同源码；归档也不会释放版本号。
     name='API 查询与文本整理',
     description='按 query 向已绑定 API 查询文本，再按 options 整理空白、大小写及前缀；输出文本、字符数和是否改变。可作服务首步，需要配置 API 连接与路径；无参考输入。',
     api=True,  # 需要 async 入口与关键字参数 api: BlockAPI；连接和路径在节点配置。
@@ -155,7 +160,9 @@ async def normalize(value: NodeInput[Input, tuple[()]], *, api: BlockAPI, contex
     context.progress('等待 API 响应')
     # GET 的 payload 是查询参数；POST/PUT/PATCH/DELETE 的 payload 是 JSON 请求体。
     # response_type 必填，返回值已通过严格校验；块不自行拼地址或添加认证 Header。
-    response = await api.request('GET', {'query': value.primary.query}, response_type=APIResponse)
+    # 仅发送 APIRequest 声明的字段；本地 options 和附件引用不进入外部请求。
+    request = APIRequest(query=value.primary.query)
+    response = await api.request('GET', request.model_dump(mode='json', by_alias=True), response_type=APIResponse)
     context.progress('API 响应已校验', current=1, total=3)
 
     text = normalize_text(response.text, value.primary.options)

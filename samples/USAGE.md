@@ -2,13 +2,9 @@
 
 核对日期：2026-09-24。
 
-以下命令在仓库根目录执行，使用现有 `.venv` 依赖。桌面可按主 README 启动；也可先在独立终端运行 API：
+先按 [项目启动说明](../readme.md#启动) 启动桌面或独立 API；首次使用需完成其中链接的环境准备。以下请求发送到实际后端地址，接口文档位于该地址的 `/docs`。
 
-```bash
-.venv/bin/python -m agent_platform --host 127.0.0.1 --port 8000
-```
-
-API 文档在 `http://127.0.0.1:8000/docs`。桌面显示的后端地址可能不是 8000；桌面和独立 CLI 默认使用同一持久化数据目录，资源、环境和任务可跨重启恢复，不能同时占用该目录。隔离开发用 `--data-dir` 指定其他目录；只有显式 `--memory` 的资源和记录限于本次会话。详见 [持久化说明](../docs/persistence.md)。
+桌面和独立 CLI 默认使用同一持久化数据目录，不能同时占用该目录；隔离开发和临时存储选项见 [持久化说明](../docs/persistence.md#新环境准备)。
 
 ## 1. 三种加载请求
 
@@ -70,29 +66,19 @@ API 文档在 `http://127.0.0.1:8000/docs`。桌面显示的后端地址可能�
 
 ### 最完整通用块的节点配置
 
-加载 `samples/blocks/complete.py`，使用其 primaryContract/outputContract 作为服务端口，将块节点命名为 normalize，并将服务完整输入传给块节点，平台自动返回该节点的完整输出。在同一 FlowDraft 顶层加入：
+加载 `samples/blocks/complete.py`，服务端口选其 primaryContract/outputContract，添加 normalize 节点并保持首步零参考。按 [完整块的 API 配置](blocks/README.md#完整块的-api-配置) 绑定真实 API 连接和路径，提交 `{"query":"greeting"}`；输入选项、响应要求和预期输出见该模板说明。只有通用块时无需模型连接或任务预算。
 
-```json
-{
-  "nodeConfigurations": {
-    "normalize": {
-      "api": {
-        "environmentId": "replace-environment-id",
-        "connectionId": "lookup",
-        "path": "/lookup"
-      }
-    }
-  }
-}
-```
+### 模板之间的接线
 
-替换为实际 API 环境和连接 ID；path 必填，为该连接 Base URL 下的请求路径。环境保存 Base URL、凭据和超时，节点保存路径；方法、请求参数和响应契约由块定义。该片段不是完整的服务保存请求。只有通用块时不需要模型连接或任务预算。
+| 组合 | 页面配置与转换要求 |
+| --- | --- |
+| 最小块 → 最小包 | 主数据结构兼容；最小包声明零参考，须切换高级模式并设为空列表 |
+| 完整块 → 最小包 | 加入转换块，仅输出完整的 `{text: ...}`；完整块的统计字段不能直接传给包，包参考设为空列表 |
+| 最小块或完整块 → 完整包 | 加入转换块，在出口契约中声明并实际验证 text 为 1～10000 字符；现有块的出口没有此保证，即使某次文本符合也不能跳过静态检查 |
+| 完整包的唯一参考 | 独立运行时绑定服务输入；接在转换块后时，默认参考是转换块当次 primary，只有该来源也满足包的 Input 约束才可保留，否则显式绑定兼容来源 |
+| 完整独立契约 | 演示批次结构，需配套处理节点，不能直接替换文本示例端口 |
 
-输入示例为 `{"query":"greeting"}`（query 不能全为空白），可另带 options 和可选任务附件；`options.requireContent=true` 时拒绝整理后为空白的正文。块使用 `api.request('GET', {'query': value.primary.query}, response_type=APIResponse)`，请求节点配置的路径。若 Base URL 是 `https://example.com/api`，实际请求为 `https://example.com/api/lookup?query=greeting`；这是配置示意，项目不提供此远端服务。响应要求及选项见 [完整块说明](blocks/README.md#最完整实现)。
-
-完整块会上报 API 等待消息及三个处理阶段的实际进度；进度不加入业务输出，不代表整个任务成功。
-
-修改路径后保存实例版本即可生效，无需修改块源码；已提交任务继续使用原路径，历史回退恢复历史节点路径。
+平台不执行字段映射、改名或隐式类型转换。转换块必须输出目标所需的完整对象，参考按槽位顺序另行校验。
 
 ## 4. FlowDraft 的公共配置
 
@@ -102,7 +88,7 @@ API 文档在 `http://127.0.0.1:8000/docs`。桌面显示的后端地址可能�
 | name | 必填，非空 | 流程名称 |
 | inputContract / outputContract | 必填 | 已加载的服务端口契约引用 |
 | flow | 必填列表 | 顺序执行的节点及控制容器 |
-| retryLimit | 默认 3，整数 0～1000 | 运行时输出不符合契约时的最大额外重试次数；0 表示不重试，声明类型不兼容直接拒绝保存 |
+| retryLimit | 默认 3，整数 0～1000 | 可归因的生产节点契约错误的最大额外重试次数；0 表示不重试，静态类型不兼容直接拒绝保存；适用范围见 [校验与重试规则](../docs/architecture-design.md#58-节点输入校验与重试) |
 | nodeConfigurations | 默认 {} | 按 nodeId 保存包的模型配置或 API 通用块的连接与请求路径配置；普通计算块和控制容器无需配置 |
 | budget | 默认 null；含包必填 | 全局 loop/token 累计限额 |
 | examples | 默认 [] | 每项 `{name, input}`，示例输入供界面使用，不是自动测试或自动执行 |
@@ -116,23 +102,42 @@ API 文档在 `http://127.0.0.1:8000/docs`。桌面显示的后端地址可能�
 | artifactRef | 对应加载结果 resourceId |
 | references | 省略或 null 为简单模式；数组为高级模式并替换默认列表，允许 []；每项仅含 kind 与可选 nodeId，禁止重复 |
 
-### 分支与循环的数据来源
+### 固定服务节点
 
 | 字段 | 作用 |
 | --- | --- |
-| source.kind=input | 引用服务输入，不填 nodeId |
-| source.kind=node | 引用可见前序节点输出，必须填 nodeId |
-| source.kind=carry | 引用循环当前携带值，nodeId 填循环节点 ID |
-| source.kind=item | 引用可见 foreach 的当前完整元素，nodeId 填 foreach 节点 ID |
-| source.kind=constant | 直接填符合接收方契约的完整 value，不填 nodeId/path |
+| nodeId | 整个流程内唯一，使用与块/包节点相同的标识规则 |
+| kind | 固定为 service |
+| serviceId | 已保存服务的稳定标识 |
+| instanceId | 该服务中明确选择的固定实例标识 |
 
-资源入口统一声明 `NodeInput[P, R]`，P 为主数据契约，R 是固定位置元组；JSON 为 `{primary, references: [...]}`。服务第一步 primary 为完整服务输入，后续为上一层完整输出。简单模式的 references 只有上一节点此次的 primary，首节点为零项，不递归保留参考。高级模式按声明的槽位选择完整服务输入、已执行且可见节点的完整输出、当前 carry 或可见 foreach 当前元素；顺序、数量、类型均校验，不能重复、前向或越域引用。
+服务节点不声明 artifactRef、references 或独立 nodeConfigurations；内部配置来自固定子实例。页面添加、叶子实例限制及预算累计见 [服务组合手册](../docs/service-composition.md)。
 
-if 条件与分支首节点都收到进入 if 的主数据及同样的默认参考。while 条件和循环体首节点、repeat 循环体首节点默认零参考，以当前 carry 为 primary。内部第二步起按普通顺序规则。容器后的默认参考为容器入口主数据，循环为初始 carry；不得读取上一轮节点残留结果。
+### 分支与循环的数据来源
 
-平台不支持字段路径引用、改名或拼装；需要转换时添加通用块。常量仅允许用于控制容器的完整值绑定，不能作为高级参考。服务返回仅配置 outputContract，自动返回顶层最后一步完整输出；空流程不能保存。API 的请求路径 api.path 不受节点输入封装影响，块通过 value.primary 生成业务请求并单独校验业务响应。
+以下为来源对象内部的字段；外层是否需要数组或 source 包装，由使用位置决定。
 
-主数据字段错误尽可能在直接生产节点输出检查时识别，按 retryLimit 重试该生产节点；参考缺失、参考校验与消费者跨字段错误立即失败，不重跑历史生产者。任何输入错误都会阻止消费者执行。条件输出错误可重试条件块，不执行错误分支；外部副作用不回滚。
+| 来源字段 | 作用 |
+| --- | --- |
+| kind=input | 引用服务输入，不填 nodeId |
+| kind=node | 引用可见前序节点输出，必须填 nodeId |
+| kind=carry | 引用循环当前携带值，nodeId 填循环节点 ID |
+| kind=item | 引用可见 foreach 的当前完整元素，nodeId 填 foreach 节点 ID |
+| kind=constant | 直接填符合接收方契约的完整 value；仅用于分支 output 和循环 carry.initial/update，不填 nodeId/path |
+
+| 使用位置 | 字段值示例 | 结构约束 |
+| --- | --- | --- |
+| if 的 thenBranch.output / elseBranch.output、switch 的 cases[].output | `[{"source":{"kind":"input"}}]` | 恰好一项的绑定数组，每项含 source；允许 constant |
+| repeat/while 的 carry.initial | `[{"source":{"kind":"constant","value":{"text":"初始值"}}}]` | 恰好一项的绑定数组；完整值必须符合 carry.contract |
+| repeat/while 的 carry.update | `[{"source":{"kind":"node","nodeId":"step"}}]` | 恰好一项的绑定数组；示例 step 须在本轮循环体中已执行，输出符合 carry.contract |
+| foreach.source | `{"kind":"input"}` | 单个引用对象，不套数组或第二层 source，不支持 constant；数组位置由 arrayPath 指定 |
+| 块/包的 references | `[{"kind":"input"}]` | 按槽位排列的引用数组，每项直接是引用对象，不套 source，不支持 constant |
+
+表中示例是对应字段的值，不是完整节点或 FlowDraft。分支 output 和 carry.initial/update 均不能使用空数组或多项绑定来隐式合并字段。字段结构由 [流程契约](../src/agent_platform/contracts/flows.py) 定义，绑定数量及作用域在流程预检时检查。
+
+普通节点主数据自动接入，无需配置上述 source。展开节点的高级参考设置，按资源声明的槽位选择完整来源；零参考资源放在后续位置时明确设置 `[]`。服务返回选择输出契约，字段选取或结构转换使用通用块。
+
+各位置的默认参考、作用域及数据隔离规则见 [架构说明](../docs/architecture-design.md#55-流程结构端口与数据作用域)；类型声明见 [研发手册](../docs/external-development-guide.md#31-类型声明)。保存或执行失败时，按 [校验与重试规则](../docs/architecture-design.md#58-节点输入校验与重试) 判断错误归属。
 
 ### 控制容器字段
 
@@ -153,8 +158,8 @@ foreach/switch 页面配置、作用域与可复制的教学资源源码见[数�
 
 | 操作 | API 与请求体 |
 | --- | --- |
-| 保存草稿 | POST /api/v1/drafts，`{content: FlowDraft}`；允许未完成内容 |
-| 预检 | POST /api/v1/flows/validate，`{content: FlowDraft}`；检查返回 valid/issues |
+| 保存草稿 | POST /api/v1/drafts，`{content: 编辑内容对象}`；按 DraftWrite 保存，可缺少流程字段 |
+| 预检 | POST /api/v1/flows/validate，同一 DraftWrite 请求；尝试按 FlowDraft 校验，返回 valid/issues |
 | 创建稳定服务 | POST /api/v1/services，`{name, flow: FlowDraft}` |
 | 保存新实例版本 | POST /api/v1/services/{serviceId}/versions，同上 |
 | 获取业务契约 | GET /api/v1/services/{serviceId}/schema |
@@ -162,21 +167,21 @@ foreach/switch 页面配置、作用域与可复制的教学资源源码见[数�
 | 查询状态/结果 | GET /api/v1/runs/{runId}；GET /api/v1/runs/{runId}/result |
 | 取消任务 | POST /api/v1/runs/{runId}/cancel |
 
+`DraftWrite.content` 是 JSON 对象，保存草稿不要求通过 FlowDraft 校验；例如 `{"content":{"name":"未完成流程"}}` 可以保存。正式创建服务或保存版本的 `flow` 才必须满足完整 FlowDraft 及接线、配置预检。更新已有草稿使用 `PUT /api/v1/drafts/{draftId}`，请求体仍为 DraftWrite。
+
 任务执行记录与包用量显示“业务包或通用块名称（node_x）”，分支和循环内的条件块也显示名称；历史任务按自身实例解析名称，不使用当前服务版本替换。
 
-草稿不可直接调用；保存实例成功后稳定服务入口立即指向新版本。已提交任务固定代码、配置及实际环境。存储模式、退出与恢复语义见 [持久化说明](../docs/persistence.md)。
+草稿不可直接调用；每次成功保存实例都会生成新版本并立即切换稳定服务入口，即使内容未变。版本分类见 [编号规则](../docs/architecture-design.md#4-核心模型与标识)。已提交任务固定代码、配置及实际环境。存储模式、退出与恢复语义见 [持久化说明](../docs/persistence.md)。
 
 资源版本、同版本内容冲突、只展示最新已导入版本及归档/恢复规则统一见 [资源手册](../docs/resource-guide.md#更新与归档资源)。升级服务须替换草稿节点并保存新实例；恢复旧资源的归档状态不会让它重新成为新增候选。
 
 ## 文件输入与运行环境
 
-任务输入契约使用 `TaskFile` 的字段会显示 PDF/DOCX 选择控件；先保存文件，再提交任务，其他字段继续使用 JSON。任务文件副本与任务记录绑定，源文件移动不会影响任务；未提交上传保留 24 小时，历史任务附件保留到显式管理。
-
-加载通用块会先静态读取 `@block` 字面量声明，再锁定依赖、准备独立环境和模型缓存，最后在对应 Python 子进程中导入与校验。页面显示实际阶段、来源和下载字节，可取消并重新加载重试；此准备不计业务 loop。完整模板仍使用空依赖及空模型清单，无需 OCR 下载。规范见 [平台运行文件与依赖](../docs/platform-runtime-files.md)。
+任务页根据 `TaskFile` 契约显示 PDF/DOCX 上传控件，保存成功后再提交。完整块模板可带附件，但不解析正文；依赖及模型清单为空。文件限制、保留策略、资源准备阶段和取消方式见 [运行文件与依赖](../docs/platform-runtime-files.md)。
 
 ## 文档业务组合
 
-独立的 [文档出题实例](../examples/document-question-generation/README.md) 演示 PDF/DOCX 上传、本地 OCR、整份资料规划、独立审题和最多两轮修订，不改变本目录三类模板的用途。成功结果只包含通过最终验收的题目及依据；资料不足、引用无效或修订达到上限明确失败。题目结构错误按 retryLimit 重试生产包，业务修订与技术重试分开计数，全文不静默截断。
+[文档出题实例](../examples/document-question-generation/README.md) 演示文件上传、全文读取、规划、审题及有限修订。当前资源、接线及真实验收边界以该业务手册为准。
 
 ## 升级旧协议
 
@@ -184,4 +189,4 @@ flow-5 及更早实例仅供历史查看，不能执行、回退激活或直接�
 
 ## 参考用途在卡片中的展示
 
-参考数量与位置由 `NodeInput` 的固定元组声明；每个非零参考位置用 `Annotated[类型, Field(description="该位置参考的业务作用")]` 标注。完整包示范原文事实核对，完整契约的 `ReviewInput` 示范原始批次与结果对照；零参考模板保留 `tuple[()]`，卡片自动显示无需参考。类型自身的说明描述数据结构，不能代替位置用途。同一种类型在不同位置可以承担不同作用。修改已导入包或块的说明也会改变源码内容，应递增版本后重新加载；既有实例不自动升级。
+接线前按卡片显示的参考数量、位置和用途选择完整来源。展示规则见 [资源用途说明](../docs/resource-explanation.md#契约与参考展示)，开发者标注方式见 [参考用途声明](../docs/external-development-guide.md#33-声明参考位置的用途)。
