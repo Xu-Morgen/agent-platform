@@ -28,6 +28,6 @@ my-package/
 
 移除 entry、runtimeRequirements、requiredCapabilities，以及 entry.py；把 Prompt 写入 prompt.txt。Config 改为继承 StrictModel，并移出预算字段。把前后处理和 API/块调用迁到独立通用块节点。节点将 capabilities.chat 改为 model，仅保留 environmentId/connectionId；单次输出限额改由节点 maxOutputTokens 配置。
 
-旧清单和旧节点配置会被严格校验拒绝，不自动猜测迁移。修改同一会话已加载的包内容后，需由维护者更新包版本，或在新会话加载。代码、Prompt、README 等目录内容都参与版本摘要。
+旧清单和旧节点配置会被严格校验拒绝，不自动猜测迁移。修改同一会话已加载的包内容后，必须由维护者递增包版本；重启不会解除已持久化的同版本内容冲突。代码、Prompt、README 等目录内容都参与版本摘要。
 
-当前模板版本为 3.0.0。旧裸输入包须改为 NodeInput，并把 Prompt 改用 input.primary / input.references[0] 路径；重新加载后从服务页保存新实例，旧快照仅供查看。
+最小包版本为 3.0.0，完整包版本为 4.0.0；以各目录 package.json 为准。旧裸输入包须改为 NodeInput，并把 Prompt 改用 input.primary / input.references[0] 路径；重新加载后从服务页保存新实例，旧快照仅供查看。

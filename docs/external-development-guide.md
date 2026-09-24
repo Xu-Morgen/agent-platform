@@ -1,6 +1,6 @@
 # 外部资源研发手册：输入、注入与平台能力
 
-适用基线：2026-09-21，执行协议 **flow-6**，Python 3.12+。本文面向编写通用块、Prompt 业务包和独立契约的开发者，说明平台实际向资源提供什么、如何声明、如何配置及如何调用。示例以当前仓库实现为准；平台尚未提供独立发布的第三方 SDK 安装流程，资源在平台准备的 Python 环境中导入 `agent_platform`。
+适用基线：2026-09-24，执行协议 **flow-6**，Python 3.12+。本文面向编写通用块、Prompt 业务包和独立契约的开发者，说明平台实际向资源提供什么、如何声明、如何配置及如何调用。示例以当前仓库实现为准；平台尚未提供独立发布的第三方 SDK 安装流程，资源在平台准备的 Python 环境中导入 `agent_platform`。
 
 资源卡片现已展示逐位置参考数量、类型和用途；开发者通过模型文档字符串、`Field(description=...)` 和固定元组位置上的 `Annotated` 补充说明，具体见 [资源用途说明](resource-explanation.md)。说明变化也需递增包/块版本，已有实例不会自动升级。
 
@@ -14,6 +14,7 @@
 | 有序参考数据 | 块、包 | `R` 为固定位置元组 | 块读 `value.references[0]`；包用 `{{input.references[0]}}` | 节点简单/高级参考设置 |
 | 外部 JSON API | 通用块 | `@block(api=True)` 与 `*, api: BlockAPI` | `await api.request(...)` | 环境页 API 连接；节点连接选择与 `api.path` |
 | 任务文件访问 | 通用块 | 输入字段 `TaskFile`；`*, context: BlockContext` | `context.file(reference)` 返回 `pathlib.Path` | 任务页上传，或文件上传接口 |
+| 知识库读取与证据 | 通用块 | 输入字段 `TaskKnowledge`；异步 `context` | `knowledge_resolve/list/metadata/file/record` | 提交时固定知识库修订，见 [知识库接口](knowledge-api.md) |
 | 本地图片 OCR | 通用块 | `@block(ocr=True)`；异步 `context` | `ocr` | 平台管理模型组合并在提交时固定，见 [OCR 接口](local-ocr.md) |
 | 任务内本地语义检索 | 通用块 | `@block(semanticSearch=True)`；异步 `context` | `semantic_split` / `semantic_search` | 平台设置默认模型在提交时固定，见 [接口](local-embedding-contracts.md) |
 | 已准备的本地模型文件 | 通用块 | `@block(models=[...])`；`context` | `context.model(name)` 返回 `Path` | 块的静态模型声明 |
@@ -84,6 +85,8 @@ class Rules(StrictModel):
 | 普通后续节点 | 上一步完整输出 | 上一步当次 primary，恰一项 |
 | if 条件及分支首节点 | 进入 if 的主数据 | 继承进入 if 的默认参考 |
 | while 条件、while/repeat 循环体首节点 | 当前 carry | 空 |
+| foreach 体首节点 | 当前完整元素 | 空 |
+| switch 路由及分支首节点 | 进入 switch 的主数据 | 继承进入 switch 的默认参考 |
 | 容器之后 | 容器完整输出 | 容器入口主数据；循环为初始 carry |
 
 因此零参考资源放在普通后续位置时，必须选高级模式并设空列表 `[]`。高级参考会**替换**默认列表，不能与默认列表自动合并。
@@ -102,7 +105,7 @@ class Rules(StrictModel):
 }
 ```
 
-此时槽位 0 是完整服务输入，槽位 1 是可见的 `prepareRules` 完整输出。支持 `input`、前序可见 `node`、当前循环 `carry`（需填循环 nodeId）；禁止重复、前向、越域及上一轮残留结果。常量和字段路径不能作为高级参考来源。
+此时槽位 0 是完整服务输入，槽位 1 是可见的 `prepareRules` 完整输出。支持 `input`、前序可见 `node`、当前循环 `carry` 或可见 foreach 当前元素 `item`（均需填对应容器 nodeId）；禁止重复、前向、越域及上一轮残留结果。常量和字段路径不能作为高级参考来源。
 
 if/while 条件仍是普通通用块，使用相同注入方式，但返回类型必须是严格 `bool`，不能返回 `1` 或 `{"result":true}`；条件不替换业务主数据。完整容器设置见 [加载与接线](../samples/USAGE.md#控制容器字段)。
 
@@ -238,62 +241,11 @@ async def run(value: NodeInput[Input, tuple[()]], *, api: BlockAPI) -> Response:
 
 包只交付契约、参数和 Prompt，不接收 `api`、`context`，也不编写 `invoke()`。最小目录为 `package.json`、`models.py`、`prompt.txt`。
 
-以下三个文件组成一个带业务参数的最小包，入口零参考：
+可直接复制的目录见 [最小包](../samples/packages/minimal/README.md) 和 [完整包](../samples/packages/complete/README.md)。清单、节点参数、连接及预算字段由 [包配置参考](../samples/packages/CONFIGURATION.md) 统一说明；占位符语法、标准调用步骤与错误由 [包执行入口](../samples/packages/CONTEXT.md) 统一说明。
 
-`models.py`：
+配置者在页面加载包目录，设置 `parameters`、模型连接、节点/任务预算与 `maxOutputTokens`；同包不同节点配置独立。零参考包在普通后续位置需高级空列表；完整包声明的参考需逐位置绑定。
 
-```python
-from agent_platform.contracts.base import StrictModel
-from agent_platform.contracts.node_input import NodeInput
-
-class Text(StrictModel):
-    text: str
-
-class Entry(NodeInput[Text, tuple[()]]):
-    pass
-
-class Config(StrictModel):
-    language: str = '中文'
-```
-
-`package.json`：
-
-```json
-{
-  "packageId": "external-summary",
-  "version": "1.0.0",
-  "name": "文本摘要",
-  "contractRefs": {
-    "input": "models:Entry",
-    "output": "models:Text",
-    "configuration": "models:Config"
-  },
-  "prompt": "prompt.txt"
-}
-```
-
-`prompt.txt`：
-
-```text
-请用 {{parameters.language}} 概括以下文本，并按平台要求返回 JSON：
-{{input.primary.text}}
-```
-
-页面加载包目录后，配置 `parameters`（例如 `{"language":"英文"}`）、模型环境与连接、节点预算、任务预算和 `maxOutputTokens`。省略 language 使用 Config 默认值；同包不同节点的参数独立。无 configuration 契约时，参数只能是空对象。
-
-| 占位符 | 获取内容 |
-| --- | --- |
-| `{{input}}` | 整份已校验 NodeInput，包含 primary/references |
-| `{{input.primary.text}}` | 主数据字段 |
-| `{{input.references[0].text}}` | 声明了对应参考槽时，取该槽字段 |
-| `{{parameters}}` | 校验并补全默认值后的业务参数 |
-| `{{parameters.language}}` | 单个参数 |
-
-字符串原样插入，其他值按 JSON 序列化；仅替换一次，不再次解析输入中的占位符。只支持契约可验证的对象字段和固定元组索引，不支持表达式、函数、过滤器、条件模板或动态列表索引。可空/联合类型内部字段不能直接访问，可插入整个值或先用块转换。
-
-只有 Prompt 明确引用的数据会发送给模型；声明参考不等于自动发送参考。文件引用也不会自动变成文件正文，先通过读取块提取文本。API 查询同样由上游块完成。
-
-平台在系统消息中附输出 JSON Schema，并发送渲染后的用户消息；模型连接、密钥、预算不进入 `parameters`，也没有 `{{environment}}`、`{{secrets}}` 或 `{{runId}}` 占位符。模型实际用量由任务记录提供，不混入业务输出。详见 [包执行入口](../samples/packages/CONTEXT.md) 和 [完整配置](../samples/packages/CONFIGURATION.md)。
+包只会把 Prompt 明确引用的主数据、参考和业务参数发送给模型，不自动发送全部 references。TaskFile/TaskKnowledge 引用不会自动变成正文，须先通过读取块提取；API 查询同样由上游块完成。平台附加输出 JSON Schema，并统一调用、记账和严格校验；密钥、预算及运行上下文不注入 Prompt 参数，业务结果不混入用量。
 
 ## 7. 第三方依赖与运行生命周期
 
@@ -354,7 +306,6 @@ raise PlatformError(ErrorResponse(
 | 需求 | 当前处理方式 |
 | --- | --- |
 | 直接获取平台 PostgreSQL、repository、事务或主密钥 | 无资源注入接口；平台存储由桌面内部管理 |
-| 本地知识库与最小 RAG | 已提供 TaskKnowledge、BlockContext 异步受控读取与证据登记；算法由普通资源实现，见[开发接口](knowledge-api.md) |
 | 业务数据库连接、向量库、工具注册表 | 尚未提供统一注入能力；已有外部 JSON 服务可用 API 块对接 |
 | 块内获取 LLM client、模型凭据或 PackageContext | 不提供；模型交互通过 Prompt 包节点 |
 | logger、任意事件总线、artifact 写入接口 | 不提供；步骤进度使用 context.progress，业务结果通过出口 |

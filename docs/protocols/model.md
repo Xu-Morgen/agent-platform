@@ -1,6 +1,6 @@
 # 模型协议：OpenAI 兼容 Chat Completions
 
-更新日期：2026-09-21。本文描述仓库模型适配器的行为；公开字段以 `contracts/models.py`、`contracts/environments.py` 及 OpenAPI 为准。
+更新日期：2026-09-24。本文描述仓库模型适配器的行为；公开字段以 `contracts/models.py`、`contracts/environments.py` 及 OpenAPI 为准。
 
 ## 草稿连接诊断
 
@@ -25,7 +25,7 @@
 
 包资料不足时允许返回平台保留对象 `{"error":"INSUFFICIENT_INPUT"}`，记账后以 PACKAGE_INPUT_INSUFFICIENT 失败，不作为格式错误重试。成功业务 Schema 不包含该对象。完整 Prompt 和正文始终原样发送，平台没有统一 tokenizer 预检；供应商明确返回 context_length_exceeded、context_window_exceeded 或 max_context_length_exceeded 时映射为 MODEL_CONTEXT_EXCEEDED，不回显上游原文。其他 HTTP 错误保持原有状态与传输语义。
 
-DeepSeek 地址、模型与额度配置见 [文档出题的线上接入说明](../../examples/document-question-generation/README.md#线上模型与-deepseek)。桌面输入 api.deepseek.com 地址时自动使用 max_tokens；其他服务的参数可以通过 HTTP 环境配置显式指定。
+文档出题的模型与额度配置见 [模型连接和预算](../../examples/document-question-generation/README.md#模型连接和预算)。桌面输入 api.deepseek.com 地址时自动使用 max_tokens；其他服务的参数可以通过 HTTP 环境配置显式指定。
 
 ## 节点输入与 Prompt
 

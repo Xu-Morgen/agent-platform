@@ -158,7 +158,7 @@ response = await api.request('GET', {'query': value.primary.query}, response_typ
 
 Input 使用 `field_validator` 演示纯空白查询校验。此校验无法完全表达为 JSON Schema，服务开始端口优先选本块导出的 primaryContract；与其他类型接线时仍以平台校验为准。源码说明了 model_validator 的适用场景、同步/异步入口、模型路径接入、全部装饰器参数、资源清理及取消/重试边界；没有声明或实现额外生命周期钩子。
 
-本次教学示例验证使用已有依赖与临时本地 HTTP 服务：静态声明、严格输入、实际块子进程/API/附件调用、输出契约、成功进度、空白正文失败与非法 API 响应均通过。测试资料与运行缓存已清理；没有安装新依赖、调用线上模型或进行完整桌面人工验收。
+教学示例的子进程/API/附件及失败边界验证见 [历史摘录](../../docs/archive/2026-09-24/manual-validation-excerpts.md#通用块教学示例验证)；不代表线上模型或完整桌面人工验收。
 
 ## NodeInput 与 Python 条件块
 

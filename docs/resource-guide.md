@@ -1,6 +1,6 @@
 # 三类资源指导手册
 
-更新日期：2026-09-21。
+更新日期：2026-09-24。
 
 外部开发者请先阅读 [外部资源研发手册：输入、注入与平台能力](external-development-guide.md)，集中了解 NodeInput、API、任务文件、本地模型、进度、Prompt 参数及当前未开放的接口。
 
@@ -37,7 +37,7 @@
 
 ## 节点输入协议
 
-当前为 flow-6。资源声明 NodeInput[P, tuple[...]]，模块目录导出 primaryContract（业务主数据）及 inputContract（完整入口）。服务用户只填写业务数据。简单参考、固定参考槽位、条件与循环边界见 [USAGE](../samples/USAGE.md)。当前 samples 两个块及最小包为 3.0.0，完整包为 4.0.0；版本以源码装饰器和清单为准。完整包与完整独立契约展示参考声明。旧协议实例不能复制、执行或回退激活，须通过页面重建并保存新版本。
+当前为 flow-6。资源声明 NodeInput[P, tuple[...]]，模块目录导出 primaryContract（业务主数据）及 inputContract（完整入口）。服务用户只填写业务数据。简单参考、固定参考槽位、条件与循环边界见 [USAGE](../samples/USAGE.md)。模板版本见 [samples 入口](../samples/README.md#版本与接线入口)，以源码装饰器和清单为准。完整包与完整独立契约展示参考声明。旧协议历史只读，迁移统一见 [协议升级](control-flow.md#协议升级)。
 
 数组遍历与枚举分支的页面操作、教学源码及升级边界见[控制流手册](control-flow.md)。
 

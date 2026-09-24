@@ -1,12 +1,10 @@
 # 文档导航
 
-更新日期：2026-09-22。当前文档保留产品说明、架构、操作手册、协议及当前实施计划；已完成或退役的计划、阶段交付和验收记录放入 [历史归档](archive/README.md)。归档中的待办不自动成为当前任务，归档也不表示验收通过。
+更新日期：2026-09-24。当前文档保留产品说明、架构、操作手册与协议；当前无独立实施计划。已完成或退役的计划、阶段交付和验收记录放入 [历史归档](archive/README.md)。归档中的待办不自动成为当前任务，归档也不表示验收通过。
 
 ## 当前交付
 
-控制流、文档/知识库基础和[知识库三题业务](../examples/black-myth-rag-question-generation/README.md)已交付。初版三题业务完成 20 次授权真实调用，用户于 2026-09-22 确认人工验收通过；后续任意题量及内容质量修复的当前版本与验收边界以该业务手册为准。既有实施计划和验收摘要已按实际状态转入归档。
-
-2026-09-22 已交付 [本地 embedding 与语义检索](local-embedding.md)：设置页导入/选择模型、任务固定身份、CPU 推理与内存缓存、默认普通检索块和历史记录。真实本地模型、Electron/PostgreSQL 及小样例检索对照已验收；无关查询仍可能有 topK 候选。计划及实际结果见 [归档记录](archive/2026-09-22/local-embedding-plan.md)。
+平台已交付 flow-6 控制流、固定服务组合、PDF/DOCX 知识库、本地 embedding/OCR、任务并发和 PostgreSQL 持久化。知识库出题支持任意数量组合及公开结果整理；当前版本和质量边界集中在 [业务手册](../examples/black-myth-rag-question-generation/README.md)，不以早期固定三题人工验收覆盖新版。
 
 ## 关键说明
 
@@ -15,8 +13,9 @@
 | [项目入口](../readme.md) | 启动、页面操作、任务并发设置与当前交付边界 |
 | [产品说明与边界](product-requirements.md) | 平台职责、已实现能力、未实现事项及验收限制 |
 | [架构说明](architecture-design.md) | flow-6、契约、快照、版本、任务调度、预算与取消 |
-| [文档、知识库与最小 RAG](knowledge.md) | DOCX 管理、不可变版本、任务固定修订、证据历史及普通资源读取/检索 |
+| [文档、知识库与最小 RAG](knowledge.md) | PDF/DOCX 管理、不可变版本、任务固定修订、证据历史及普通资源读取/检索 |
 | [本地 OCR 管理与接口](local-ocr.md) | 模型组合导入/更换、任务固定、异步块能力、历史与资源升级 |
+| [本地 embedding 操作](local-embedding.md) | 模型导入、选择、普通语义检索服务与 OCR 前置条件 |
 | [本地 embedding 接口](local-embedding-contracts.md) | 模型清单、能力声明、任务搜索与管理 API |
 | [知识库开发接口](knowledge-api.md) | TaskKnowledge、异步读取代理、证据登记与管理 API |
 | [本地 PostgreSQL](persistence.md) | 安装与启动、数据目录、凭据、持久化和故障恢复 |
@@ -31,9 +30,9 @@
 
 ## 模板与业务示例
 
-- [默认 RAG 资源](../resources/rag/README.md)：可替换的列举、DOCX 读取、词面/短语/本地语义检索、证据整理、回答包及引文核验；真实本地检索已验收，默认回答包没有新增远端验收。
+- [默认 RAG 资源](../resources/rag/README.md)：可替换的列举、PDF/DOCX 读取、词面/短语/本地语义检索、证据整理、回答包及引文核验；真实本地检索已验收，默认回答包没有新增远端验收。
 - [samples](../samples/README.md) 与 [接线操作](../samples/USAGE.md)：通用块、Prompt 包、独立契约各提供最小和完整两套模板。
-- [知识库三题出题](../examples/black-myth-rag-question-generation/README.md)：自然语言请求、三类题型、多文档证据、整体审题及有限修订；与旧全文出题实例独立。
+- [知识库出题](../examples/black-myth-rag-question-generation/README.md)：自然语言请求、三类题型、多文档证据、整体审题及有限修订；与旧全文出题实例独立。
 - [文档出题实例](../examples/document-question-generation/README.md)：全文读取、规划、审题及有限修订；当前资源版本与真实模型待验收范围以该手册为准。
 
 ## 当前基线
@@ -45,3 +44,12 @@
 初版出题质量流程已有 10 次授权真实调用与人工评审记录；随后行号修复后的服务 2.0 及资源说明升级没有完成新一轮真实模型复验。AI 解释的真实远端效果、复杂文档 OCR、跨平台生命周期等限制见各手册，不能用历史或离线验收代替。
 
 文档维护与任务清理遵循 [AGENTS.md](../AGENTS.md)。修改实现时同步相关说明；历史资料只作追溯，新增工作以用户明确需求为准。
+
+## 文档维护职责
+
+- `readme.md`：项目概览、启动和操作入口；不追加业务升级流水。
+- `product-requirements.md`：产品范围、决策和未完成边界；`architecture-design.md`：执行机制与技术约束。
+- 专项手册：当前操作、接口和限制。旧执行协议迁移统一见 [控制流手册](control-flow.md#协议升级)。
+- `samples/README.md`：模板导航；`samples/USAGE.md`：加载与接线；分类文档：具体模板字段与用法。跨资源能力由 [研发手册](external-development-guide.md) 说明，专用接口以对应手册和源码为准。
+- 业务手册：当前正式版本、资源升级及验收边界；`archive/`：分阶段历史证据。新增归档同步更新 [归档索引](archive/README.md)，不得把旧版通过结论套到新版。
+- `AGENTS.md`：协作约束、必要授权和当前入口；不维护完整交付时间线。修改当前说明时更新核对日期和相关链接。

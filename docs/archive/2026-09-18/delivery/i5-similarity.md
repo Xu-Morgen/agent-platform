@@ -61,4 +61,4 @@
 
 ## 远程 API 接入补充
 
-用户明确要求支持 OpenAI 格式远程 API 后，已实现 openai-chat 适配器、环境协议选择、输出参数与 JSON 模式配置，并更新 CLI 和桌面默认环境示例。`.venv/bin/python checks/openai_chat.py` 验证认证、协议参数、计量、错误及完整查重图；`checks/model_package.py` 验证旧 Ollama 路径仍通过；`checks/similarity_onboarding.py` 从干净后端进程分别验证两种协议，均为本地替身。启动与远程 API 配置见 [README](../../../../readme.md#快速启动)。T08 仍待实际供应商调用及报告证据。
+用户明确要求支持 OpenAI 格式远程 API 后，已实现 openai-chat 适配器、环境协议选择、输出参数与 JSON 模式配置，并更新 CLI 和桌面默认环境示例。`.venv/bin/python checks/openai_chat.py` 验证认证、协议参数、计量、错误及完整查重图；`checks/model_package.py` 验证旧 Ollama 路径仍通过；`checks/similarity_onboarding.py` 从干净后端进程分别验证两种协议，均为本地替身。启动与远程 API 配置见 [README](../../../../readme.md#启动)。T08 仍待实际供应商调用及报告证据。

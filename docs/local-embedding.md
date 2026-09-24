@@ -15,7 +15,9 @@
 
 在服务页加载 [默认 RAG 资源](../resources/rag/README.md)，按以下顺序组合：
 
-`列举知识库文档 → 读取 DOCX 段落 → 本地语义检索 → 整理并登记证据`
+`列举知识库文档 → 读取 PDF/DOCX 正文 → 本地语义检索 → 整理并登记证据`
+
+使用当前 `rag-read-docx@3.0.0` 读取块时，还须在平台设置导入并选择就绪的 OCR 模型组合；即使只读取 DOCX 或纯文字 PDF，任务提交也要求固定该模型。OCR 推理仅在需要时发生，见 [OCR 前置条件](local-ocr.md#导入与更换)。
 
 输入选择 `RetrievalRequest`，输出选择 `EvidenceContext`。四个块的高级参考设为空列表，无需绑定聊天模型或配置 LLM 预算。本地检索块是 `resources/rag/blocks/semantic_search.py`，保持 `ParsedCorpus → SearchResults`；替换现有词面块后通过页面保存新实例，既有实例与任务不变。
 

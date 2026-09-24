@@ -90,10 +90,10 @@ token 按供应商返回的输入和输出用量累计，请求前检查剩余�
 }
 ```
 
-地址和模型名需替换为实际部署。连接支持 credential（写入新凭据）或 credentialRef（引用会话内凭据），二选一；两者也可省略。凭据不进入包或 Prompt。Base URL 不能包含认证信息、query 或 fragment。
+地址和模型名需替换为实际部署。连接支持 credential（写入新凭据）或 credentialRef（引用平台已保存凭据），二选一；两者也可省略。凭据不进入包或 Prompt。Base URL 不能包含认证信息、query 或 fragment。
 
 模型统一使用 OpenAI 兼容 Chat Completions，无协议选择字段。outputTokenParameter 默认 max_completion_tokens，也支持 max_tokens；jsonMode 默认 true；timeoutSeconds 默认 60。平台在 Base URL 后追加 /chat/completions。关闭 JSON 模式也不免除输出 JSON 与业务结构校验，详见 [模型协议](../../docs/protocols/model.md)。
 
-环境和运行数据仅保存在会话内存；已提交任务固定实际环境。业务包只能选择 kind=model 的连接；外部 API 的连接引用与请求路径由 [API 通用块节点](../blocks/README.md#完整块的-api-配置) 单独配置，查询结果通过接线传入包。
+默认 PostgreSQL 模式持久化环境、凭据及任务记录，重启后恢复；只有显式 `--memory` 模式使用会话内存。已提交任务固定实际环境。存储与凭据恢复见 [持久化说明](../../docs/persistence.md)。业务包只能选择 kind=model 的连接；外部 API 的连接引用与请求路径由 [API 通用块节点](../blocks/README.md#完整块的-api-配置) 单独配置，查询结果通过接线传入包。
 
 旧配置迁移：移除环境中的 `modelAdapter` 和预算中的 `strictTokenLimit` 字段；它们不再属于当前契约。外部 API 连接配置见通用块手册，不能加入包节点。

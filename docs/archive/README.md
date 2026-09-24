@@ -2,6 +2,24 @@
 
 本目录保存完成记录、过时方案和精简前原文。原有完成/阻塞状态与验证证据保持历史含义；归档仅调整链接并添加说明，不补造验收结果。当前开发从 [文档导航](../README.md) 进入。
 
+## 2026-09-24 输出整理与文档维护
+
+- [知识库出题最终输出精简](2026-09-24/question-output-validation.md)：正式服务 8.0 页面升级、公开结果与无新增模型调用的验证。
+- [手册历史验证摘录](2026-09-24/manual-validation-excerpts.md)：从当前说明退役的 PostgreSQL、flow-5、AI 解释和通用块教学验证；不是本轮重新验收。
+
+## 2026-09-22 知识库与出题升级
+
+| 记录 | 范围及限制 |
+| --- | --- |
+| [正文预览修复](2026-09-22/document-preview-fix.md) | 预览候选契约筛选及页面调用 |
+| [知识库 PDF 支持](2026-09-22/knowledge-pdf-validation.md) | PDF/DOCX 上传、替换、读取与证据；未做 PDF 出题真实模型验收 |
+| [题量升级](2026-09-22/question-counts-validation.md) | 任意数量组合的执行验证；两道论述内容结论已被后续纠正 |
+| [内容与溯源隔离](2026-09-22/question-content-validation.md) | 内部标识拒绝、原始需求核对和真实定向修订 |
+| [语义检索出题](2026-09-22/question-semantic-validation.md) | 真实生成与资料不足；考点重叠误降 advisory 尚未修复，非全面内容质量通过 |
+| [OCR 平台管理](2026-09-22/local-ocr-validation.md) | 模型组合管理、受控识别、读取块升级与实际验证边界 |
+
+当前业务版本、使用方法和验收边界见 [知识库出题手册](../../examples/black-myth-rag-question-generation/README.md)。旧版通过不自动覆盖后续版本。
+
 ## 2026-09-22 本地 embedding
 
 [实施计划与完成记录](2026-09-22/local-embedding-plan.md)、[真实模型与页面验收](2026-09-22/local-embedding-validation.md)：P1～P6 交付、模型来源与测量、语义/词面对照及取消/重启历史边界。当前入口为 [使用手册](../local-embedding.md)。
@@ -19,7 +37,7 @@
 
 ## 2026-09-21 文档与知识库平台基础
 
-[文档管理、知识库与最小 RAG 实施记录](2026-09-21/knowledge-rag-plan.md)：K1–K6 平台能力、普通可替换资源、Electron/PostgreSQL/子进程离线验证。按用户最新范围，黑神话出题及真实模型验收移交独立实验，未认定通过。当前使用见[知识库手册](../knowledge.md)。
+[文档管理、知识库与最小 RAG 实施记录](2026-09-21/knowledge-rag-plan.md)：K1–K6 平台能力、普通可替换资源、Electron/PostgreSQL/子进程离线验证。当时按用户范围将黑神话出题及真实模型验收移交独立实验，本平台记录不认定业务验收通过。当前使用见[知识库手册](../knowledge.md)。
 
 ## 2026-09-21 控制流补完
 
@@ -40,6 +58,7 @@
 | [固定版本服务组合与选择器优化](2026-09-20/fixed-service-composition-plan.md) | 一层固定服务嵌套、共享契约身份、资源搜索分类与轻量验证记录 |
 | [节点输入机制与 Python 条件块](2026-09-20/node-input-and-python-conditions-plan.md) | flow-5 实施、samples 2.0.0 适配、轻量验收与升级边界 |
 | [平台文件与依赖改造计划](2026-09-20/platform-files-and-dependencies-plan.md) | 实现已交付，日常使用转入平台运行说明 |
+| [文档出题质量计划](2026-09-20/document-question-quality-plan.md) | Q1–Q5、初版 10 次真实调用和人工确认；后续版本边界见业务手册 |
 | [文档出题实施计划](2026-09-20/document-question-generation-plan.md) | 保留原始需求与实现记录，当前操作和待验收事项转入实例说明 |
 | [文档读取与出题验收记录](2026-09-20/document-validation-record.md) | 保存当时的验证结果与边界；一次性脚本已删除，原文件可从 Git 提交 6fb84d3 查看 |
 
@@ -67,12 +86,6 @@
 
 I5/I8 中的真实模型验收阻塞保留为当时记录；2026-09-17 用户已确认 V1 验证完成，后续又移除了原查重产品。无需按历史任务恢复旧入口、测试脚本或验收数据。
 
-- [2026-09-20 文档出题质量计划](2026-09-20/document-question-quality-plan.md)：Q1–Q5 完成，10 次授权真实调用、真实定向修订、用户人工评审通过及 Electron 页面保存/重启恢复；现行用法见[实例手册](../../examples/document-question-generation/README.md)。
-
 ## 2026-09-21 知识库三题业务
 
 [实验实施计划](2026-09-21/black-myth-rag-experiment-plan.md)与[真实验收记录](2026-09-21/black-myth-rag-validation.md)：7 份授权 DOCX、27 个业务资源、正式页面 foreach/switch/while 服务、20 次真实调用及首轮失败修复。2026-09-22 人工验收通过；未触发的远端分支不宣称通过。当前使用见[业务手册](../../examples/black-myth-rag-question-generation/README.md)。
-
-- [2026-09-22 OCR 平台管理与验证](2026-09-22/local-ocr-validation.md)：模型管理、受控块能力、两个读取块升级及实际验证边界。
-
-- [2026-09-24 知识库出题最终输出精简](2026-09-24/question-output-validation.md)：公开结果整理块、正式服务 8.0 页面升级与无新增模型调用的验证。
