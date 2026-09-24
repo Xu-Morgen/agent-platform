@@ -74,3 +74,5 @@ I5/I8 中的真实模型验收阻塞保留为当时记录；2026-09-17 用户已
 [实验实施计划](2026-09-21/black-myth-rag-experiment-plan.md)与[真实验收记录](2026-09-21/black-myth-rag-validation.md)：7 份授权 DOCX、27 个业务资源、正式页面 foreach/switch/while 服务、20 次真实调用及首轮失败修复。2026-09-22 人工验收通过；未触发的远端分支不宣称通过。当前使用见[业务手册](../../examples/black-myth-rag-question-generation/README.md)。
 
 - [2026-09-22 OCR 平台管理与验证](2026-09-22/local-ocr-validation.md)：模型管理、受控块能力、两个读取块升级及实际验证边界。
+
+- [2026-09-24 知识库出题最终输出精简](2026-09-24/question-output-validation.md)：公开结果整理块、正式服务 8.0 页面升级与无新增模型调用的验证。

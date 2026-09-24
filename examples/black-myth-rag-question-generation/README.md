@@ -4,7 +4,7 @@
 
 ## 资源与契约
 
-`contracts.py` 是唯一契约源，使用 `sync_contracts.py` 同步到 8 个 Prompt 包和 19 个独立块；`--check` 检查副本一致性。同步工具不导入资源、不绑定环境、不创建服务。修改契约后须同步资源并升级版本，再从页面重新导入；既有实例不自动改变。
+`contracts.py` 是内部流程契约源，使用 `sync_contracts.py` 同步到 8 个 Prompt 包和 20 个独立块；对外交付契约 `PublicResult` 由 `blocks/present_result.py` 定义；`--check` 检查副本一致性。同步工具不导入资源、不绑定环境、不创建服务。修改契约后须同步资源并升级版本，再从页面重新导入；既有实例不自动改变。
 
 页面加载本目录 8 个包目录、`blocks/*.py`，以及默认 `resources/rag/blocks/` 中的 `list_documents.py`、`read_docx.py`、`semantic_search.py`、`select_evidence.py`。从独立 `contracts.py` 加载 `Request`、`Result`、`QuestionEnvelope`、`State`；可从资源端口选择其他契约。
 
@@ -12,7 +12,7 @@
 
 所有流程在正式服务页配置；下面是操作说明，不是手写实例导入协议。普通节点默认选择高级参考空列表，只有表中列出的节点添加参考。输出来源均选对应分支最后节点。
 
-1. 服务输入 `Request`，输出 `Result`。解析请求包 → 规范化块（参考服务输入）。
+1. 服务输入 `Request`，输出选择 `present_result` 块的 `PublicResult` 出口契约。解析请求包 → 规范化块（参考服务输入）。
 2. 请求 switch，路由 `route_request`，统一出口 `Result`。unsupported 分支为 `unsupported` 块。supported 分支继续下列步骤。
 3. `prepare_retrieval` → 默认列举/读取/本地语义检索/整理证据四块 → 规划包（参考规范化输出）→ `merge_plan`（依次参考整理证据输出、规范化输出）。
 4. 资料 switch，路由 `route_plan`，统一出口 `Result`。insufficient_source 分支为 `insufficient` 块。sufficient 分支继续。
@@ -20,6 +20,7 @@
 6. foreach 后 `collect`（参考 `merge_plan` 输出）→ 整体审题包 → `merge_review`（参考 `collect` 输出）。
 7. while，条件 `needs_revision`，最多 2 轮，携带 `State`。体内 switch，路由 `route_review`，统一出口 `State`。pass/insufficient_source 为空分支，显式返回本轮 while 携带值。revise/regenerate 分支为对应修订/重出包 → `apply_revision`（参考本轮 while 携带值）→ 审题包 → `merge_review`（参考该分支 `apply_revision` 输出）。分支出口选各自最后节点；while 更新携带值为该 switch 输出。
 8. while 后 `finish`，作为资料充足分支最后输出；外层两个 switch 均返回完整 `Result`。
+9. 在最外层请求 switch **之后**添加 `present_result`，高级参考设为空列表，作为整个服务最后一步。内部仍用 `Result` 做分支接线，对外只返回 `PublicResult`。
 
 所有 package 节点绑定现有模型连接；块不绑定模型。建议验收时 retryLimit=0，单任务 loopLimit 至少为总题数 N + 7（解析、规划、N 次逐题生成、初审，加最多两轮修订与审题）；生成节点累计 loopLimit 至少覆盖对应题型数量，真实验收必须额外累计全部任务实际尝试次数。while 最大两轮与状态轮数检查同时限制修订。具体正式实例预算及实际调用数记录在验收报告。
 
@@ -85,3 +86,18 @@
 知识库现可上传 PDF/DOCX 混合资料。新版默认读取块按 PDF 原页码生成证据，扫描页使用本地 OCR；语义检索、规划、出题和审题继续消费相同 EvidenceContext，不需要新增题型或业务分支。
 
 使用 PDF 前，需在页面加载并替换 2.0.0 的 `list_documents.py`、`read_docx.py`、`semantic_search.py`（或所用词面检索）和 `select_evidence.py`，检查原节点参考并保存新实例。读取块依赖与限制见[默认资源手册](../../resources/rag/README.md#pdf-支持与升级2026-09-22)。本次源码交付未改写正式 7.0 实例；旧实例仍固定 DOCX 资源。PDF 上传、读取、OCR 和证据检索已完成轻量验证，尚未以 PDF 进行真实模型出题验收；此前 DOCX 验收不代表 PDF 内容质量通过。
+
+
+## 最终交付内容（2026-09-24）
+
+新增 `rag-question-present-result@1.0.0`，在完整结论校验后按公开字段整理返回：
+
+- 单选题：题号、题型、题干、四个选项、答案和解析。
+- 判断题：题号、题型、题干、布尔答案、解析与错误命题纠正。
+- 论述题：题号、题型、题干、参考答案、得分点及各点分值。
+
+成功结果为 `{result: {status: "completed", questions: [...]}}`；不再返回整个 State、知识库引用、语义检索候选、证据片段、规划或审题历史，单题的内部 evidence 也不进入最终结果。原始资料与审题过程仍在任务步骤/证据/搜索记录中，审核规则不变。资料不足、不支持请求、质量未达标只返回状态和原因，未通过题目不作为成功内容交付。
+
+已有服务升级：通过页面导入 `blocks/present_result.py`，在顶层流程末尾添加它，参考设为高级空列表，服务返回契约改为其输出并保存。无须升级生成包、审题包或改动内部 switch/while 契约。已有任务仍保存原始结果，不重写历史。
+
+2026-09-24 已通过正式 Electron 页面将“知识库出题 · ds”升级至 **8.0**（`ins_df856a4c603a4c82be1ec66e8b2860a7`），新增顶层末尾整理块并切换服务返回契约；旧内部节点与预算保持原配置。本轮仅使用历史结果验证整理，不增加模型调用。验证记录见 [最终输出精简](../../docs/archive/2026-09-24/question-output-validation.md)。
